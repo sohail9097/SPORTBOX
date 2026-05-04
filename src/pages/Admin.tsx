@@ -512,9 +512,9 @@ export default function Admin() {
                       </p>
                     </div>
                     <div className="p-4 bg-white/5 rounded-2xl border border-white/5">
-                      <h4 className="text-[10px] font-black uppercase italic text-blue-400 mb-2">2. Use Safe-Mode</h4>
+                      <h4 className="text-[10px] font-black uppercase italic text-blue-400 mb-2">2. Direct Play Optimizer</h4>
                       <p className="text-[10px] text-text-muted leading-relaxed">
-                        If the advanced player says "Connection Blocked", click <span className="text-white">"Safe Drive Mode"</span> in the player window to use the official GDrive embed.
+                        The system automatically transforms your GDrive links into high-speed stream URLs for the best performance.
                       </p>
                     </div>
                   </div>
@@ -633,6 +633,8 @@ export default function Admin() {
                         <div>
                           <h3 className="font-bold text-lg uppercase italic">{section.title}</h3>
                           <div className="flex items-center gap-3 text-[10px] font-black uppercase tracking-widest text-text-muted">
+                            <span className="text-brand">{section.type}</span>
+                            <span>•</span>
                             <span>Page: {section.page}</span>
                             <span>•</span>
                             <span>{section.contentIds.length} Assets</span>
@@ -1190,8 +1192,10 @@ export default function Admin() {
                   <div className="space-y-2">
                     <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Display Type</label>
                     <select value={sectionForm.type} onChange={e => setSectionForm({...sectionForm, type: e.target.value as any})} className="w-full bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none">
-                      <option value="normal">Standard Row</option>
+                      <option value="normal">Standard Grid</option>
+                      <option value="single-row">Single Row (Scrollable)</option>
                       <option value="featured">Featured Large</option>
+                      <option value="top10">Top 10 Style</option>
                     </select>
                   </div>
                 </div>

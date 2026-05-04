@@ -159,7 +159,7 @@ export default function StadiumPlayer({ url, poster, isLive, useIframe: initialU
   const isGDrive = url.includes('drive.google.com') || url.includes('id=');
   const driveId = url.match(/[?&]id=([a-zA-Z0-9_-]+)/)?.[1] || url.match(/\/d\/([a-zA-Z0-9_-]+)/)?.[1];
 
-  if (useIframe && isGDrive && driveId) {
+  if (isGDrive && driveId) {
     return (
       <div className="relative w-full aspect-video bg-black group rounded-3xl overflow-hidden border border-white/10 shadow-2xl">
         <iframe 
@@ -168,15 +168,6 @@ export default function StadiumPlayer({ url, poster, isLive, useIframe: initialU
           allow="autoplay; encrypted-media"
           allowFullScreen
         ></iframe>
-        <button 
-          onClick={() => {
-            setUseIframe(false);
-            setHasError(false);
-          }}
-          className="absolute top-4 left-4 z-[60] bg-brand text-white px-4 py-2 rounded-full text-[10px] font-black uppercase italic tracking-widest shadow-xl hover:scale-105 active:scale-95 transition-all"
-        >
-          Switch to Advanced Player
-        </button>
       </div>
     );
   }
@@ -188,35 +179,6 @@ export default function StadiumPlayer({ url, poster, isLive, useIframe: initialU
       onMouseLeave={() => isPlaying && setShowControls(false)}
     >
       <div ref={videoRef} className="w-full h-full" onClick={togglePlay} />
-
-      {/* Error State */}
-      {hasError && (
-        <div className="absolute inset-0 z-[60] flex flex-col items-center justify-center bg-black/90 backdrop-blur-3xl p-8 text-center">
-          <div className="w-20 h-20 bg-brand/20 text-brand rounded-full flex items-center justify-center mb-6 border border-brand/30 animate-pulse">
-            <Radio className="w-10 h-10" />
-          </div>
-          <h3 className="text-2xl font-black uppercase italic tracking-widest mb-2">Connection Blocked</h3>
-          <p className="text-sm text-text-muted mb-8 max-w-sm font-medium">
-            Google Drive is restricting direct playback for this video. Use our embedded safe-player to watch.
-          </p>
-          <div className="flex gap-4">
-            <button 
-              onClick={() => window.location.reload()}
-              className="px-8 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full text-xs font-black uppercase italic tracking-widest transition-all"
-            >
-              Retry
-            </button>
-            {isGDrive && driveId && (
-              <button 
-                onClick={() => setUseIframe(true)}
-                className="px-8 py-3 bg-brand text-white rounded-full text-xs font-black uppercase italic tracking-widest shadow-xl shadow-brand/20 hover:scale-105 active:scale-95 transition-all"
-              >
-                Safe Drive Mode
-              </button>
-            )}
-          </div>
-        </div>
-      )}
 
       {/* Cinematic Overlays */}
       <AnimatePresence>

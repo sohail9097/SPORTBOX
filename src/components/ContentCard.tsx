@@ -5,7 +5,7 @@ import { Link } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { useAuth } from '../hooks/useAuth';
 
-export default function ContentCard({ content, index }: { content: SportsContent, index: number }) {
+export default function ContentCard({ content, index, featured }: { content: SportsContent, index: number, featured?: boolean }) {
   const { profile, isAdmin } = useAuth();
   const isLocked = (!profile || profile.subscriptionTier === 'free') && !isAdmin;
 
@@ -14,12 +14,16 @@ export default function ContentCard({ content, index }: { content: SportsContent
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.1 }}
+      className={cn(featured ? "h-full" : "")}
     >
       <Link 
         to={`/watch/${content.id}`}
-        className="group relative block glass-card bg-transparent border-0 hover:bg-surface transition-colors"
+        className={cn(
+          "group relative block glass-card bg-transparent border-0 hover:bg-surface transition-colors h-full",
+          featured ? "p-0" : ""
+        )}
       >
-        <div className="relative aspect-video overflow-hidden rounded-xl border border-white/5">
+        <div className={cn("relative overflow-hidden rounded-xl border border-white/5", featured ? "aspect-[21/9]" : "aspect-video")}>
           {content.thumbnailUrl ? (
             <img 
               src={content.thumbnailUrl} 

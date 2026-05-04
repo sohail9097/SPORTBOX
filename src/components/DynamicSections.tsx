@@ -7,6 +7,7 @@ import { ChevronRight, Layers, Trophy } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { cn } from '../lib/utils';
 import { motion } from 'motion/react';
+import AutoScrollingRow from './AutoScrollingRow';
 
 interface DynamicSectionsProps {
   page: 'home' | 'cricket' | 'football';
@@ -108,6 +109,16 @@ export default function DynamicSections({ page }: DynamicSectionsProps) {
                        <ContentCard content={item} index={i} />
                     </div>
                   </div>
+                ))}
+              </div>
+            ) : section.type === 'single-row' ? (
+              <AutoScrollingRow contents={contents} />
+            ) : section.type === 'featured' ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {contents.map((item, i) => (
+                   <div key={item.id} className={cn(i === 0 ? "md:col-span-2" : "")}>
+                      <ContentCard content={item} index={i} featured={i === 0} />
+                   </div>
                 ))}
               </div>
             ) : (

@@ -33,7 +33,7 @@ export interface ContentSection {
   title: string;
   page: 'home' | 'cricket' | 'football';
   contentIds: string[];
-  type: 'normal' | 'top10';
+  type: 'normal' | 'top10' | 'single-row' | 'featured';
   order: number;
   isActive: boolean;
   createdAt: string;

@@ -1,0 +1,53 @@
+export type Category = 'football' | 'cricket' | 'basketball' | 'tennis' | 'others';
+export type ContentType = 'live' | 'replay' | 'highlight';
+export type Status = 'scheduled' | 'live' | 'ended';
+
+export interface SportsContent {
+  id: string;
+  title: string;
+  description: string;
+  category: Category;
+  type: ContentType;
+  videoUrl: string;
+  thumbnailUrl?: string;
+  isPremium: boolean;
+  viewCount: number;
+  createdAt: string;
+  status: Status;
+}
+
+export interface UserProfile {
+  uid: string;
+  email: string;
+  displayName: string;
+  mobileNumber?: string;
+  subscriptionTier: 'free' | 'pro' | 'premium';
+  subscriptionStatus: 'active' | 'expired' | 'none';
+  lastPaymentDate?: string;
+  favorites: string[];
+  createdAt: string;
+}
+
+export interface ContentSection {
+  id: string;
+  title: string;
+  page: 'home' | 'cricket' | 'football';
+  contentIds: string[];
+  type: 'normal' | 'top10';
+  order: number;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface SliderElement {
+  id: string;
+  title: string;
+  description: string;
+  imageUrl: string;
+  videoUrl?: string;
+  actionUrl: string;
+  isLive: boolean;
+  order: number;
+  isActive: boolean;
+  animationType?: 'fade' | 'slide';
+}

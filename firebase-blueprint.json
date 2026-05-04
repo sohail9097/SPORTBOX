@@ -1,0 +1,87 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile and subscription data",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "mobileNumber": { "type": "string" },
+        "subscriptionTier": { "type": "string", "enum": ["free", "pro", "premium"] },
+        "subscriptionStatus": { "type": "string", "enum": ["active", "expired", "none"] },
+        "lastPaymentDate": { "type": "string", "format": "date-time" },
+        "favorites": { "type": "array", "items": { "type": "string" } },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email"]
+    },
+    "Content": {
+      "title": "Content",
+      "description": "Sports content including live streams and videos",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "category": { "type": "string", "enum": ["football", "cricket", "basketball", "tennis", "others"] },
+        "type": { "type": "string", "enum": ["live", "replay", "highlight"] },
+        "videoUrl": { "type": "string" },
+        "thumbnailUrl": { "type": "string" },
+        "isPremium": { "type": "boolean" },
+        "viewCount": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["scheduled", "live", "ended"] }
+      },
+      "required": ["title", "category", "type", "videoUrl"]
+    },
+    "Subscription": {
+      "title": "Subscription Plan",
+      "description": "Available subscription tiers",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "price": { "type": "number" },
+        "features": { "type": "array", "items": { "type": "string" } },
+        "billingCycle": { "type": "string", "enum": ["monthly", "yearly"] }
+      }
+    },
+    "ContentSection": {
+      "title": "Content Section",
+      "description": "Dynamic row on a page curated from content library",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "page": { "type": "string", "enum": ["home", "cricket", "football"] },
+        "contentIds": { "type": "array", "items": { "type": "string" } },
+        "type": { "type": "string", "enum": ["normal", "top10"] },
+        "order": { "type": "number" },
+        "isActive": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "page", "contentIds", "type", "order", "isActive"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profile mapping"
+    },
+    "/content/{contentId}": {
+      "schema": "Content",
+      "description": "Sports content collection"
+    },
+    "/subscriptions/{subId}": {
+      "schema": "Subscription",
+      "description": "Subscription plans"
+    },
+    "/sections/{sectionId}": {
+      "schema": "ContentSection",
+      "description": "Dynamic page sections"
+    },
+    "/slider/{slideId}": {
+      "schema": "SliderElement",
+      "description": "Homepage hero slider items"
+    }
+  }
+}

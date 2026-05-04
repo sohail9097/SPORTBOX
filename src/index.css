@@ -1,0 +1,56 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Inter", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  
+  --color-brand: #dc2626; /* Solid Red 600 */
+  --color-brand-alt: #991b1b; /* Red 800 */
+  
+  /* Default Dark Mode */
+  --color-bg: #0A0B0E;
+  --color-surface: #11141b;
+  --color-surface-hover: #1e293b;
+  --color-text-base: #f1f5f9;
+  --color-text-muted: #94a3b8;
+  --color-border: rgba(255, 255, 255, 0.05);
+}
+
+.light {
+  --color-bg: #f8fafc;
+  --color-surface: #ffffff;
+  --color-surface-hover: #f1f5f9;
+  --color-text-base: #0f172a;
+  --color-text-muted: #64748b;
+  --color-border: rgba(0, 0, 0, 0.05);
+}
+
+@layer base {
+  body {
+    @apply bg-bg text-text-base font-sans antialiased transition-colors duration-300;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply px-8 py-3 bg-brand text-white font-bold text-sm uppercase tracking-widest rounded-full hover:bg-brand-alt transition-all duration-300 shadow-lg shadow-brand/20;
+  }
+  
+  .glass-card {
+    @apply bg-surface/50 backdrop-blur-md border border-border rounded-3xl overflow-hidden shadow-xl;
+  }
+
+  .premium-badge {
+    @apply px-3 py-1 bg-brand text-[10px] font-black uppercase rounded-full text-white tracking-widest shadow-lg;
+  }
+
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}

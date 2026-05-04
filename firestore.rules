@@ -1,0 +1,80 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helpers ---
+    function isSignedIn() { return request.auth != null; }
+    function isAdmin() { 
+      return isSignedIn() && request.auth.token.email == 'sohailgaji9097@gmail.com' && request.auth.token.email_verified == true;
+    }
+    function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+
+    // --- Validation Blueprints ---
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email', 'subscriptionTier', 'subscriptionStatus', 'createdAt']) &&
+             data.uid == request.auth.uid &&
+             data.email == request.auth.token.email &&
+             data.subscriptionTier in ['free', 'pro', 'premium'] &&
+             data.subscriptionStatus in ['active', 'expired', 'none'] &&
+             data.createdAt is string &&
+             (data.get('mobileNumber', '') is string && data.get('mobileNumber', '').size() <= 20);
+    }
+
+    function isValidContent(data) {
+      return data.title is string && data.title.size() <= 200 &&
+             data.category in ['football', 'cricket', 'basketball', 'tennis', 'others'] &&
+             data.type in ['live', 'replay', 'highlight'] &&
+             data.videoUrl is string && data.videoUrl.size() <= 1000 &&
+             data.isPremium is bool &&
+             data.status in ['scheduled', 'live', 'ended'];
+    }
+
+    // --- Collection Matches ---
+
+    // Users Collection
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId) && isValidUser(incoming());
+      allow update: if (isOwner(userId) && isValidUser(incoming()) && (
+        // Action: Update Favorites
+        incoming().diff(existing()).affectedKeys().hasOnly(['favorites']) ||
+        // Action: Subscribe / Payment Upgrade
+        incoming().diff(existing()).affectedKeys().hasOnly(['subscriptionTier', 'subscriptionStatus', 'mobileNumber', 'lastPaymentDate'])
+      )) || isAdmin();
+    }
+
+    // Content Collection
+    match /content/{contentId} {
+      allow read: if true; // Public library
+      allow write: if isAdmin() && isValidContent(incoming());
+      // Special case: incrementing viewCount doesn't require admin but should be rate limited or controlled
+      // For simplicity in this demo, we'll allow update if ONLY viewCount is changed
+      allow update: if incoming().diff(existing()).affectedKeys().hasOnly(['viewCount']);
+    }
+
+    // Page Sections
+    match /sections/{sectionId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Hero Slider
+    match /slider/{slideId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Subscriptions (Static metadata if used)
+    match /subscriptions/{subId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+  }
+}

@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
+import { getAuth, GoogleAuthProvider, signInWithPopup, browserPopupRedirectResolver } from 'firebase/auth';
 import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
 
@@ -11,10 +11,17 @@ googleProvider.setCustomParameters({ prompt: 'select_account' });
 
 export async function signInWithGoogle() {
   try {
-    const result = await signInWithPopup(auth, googleProvider);
+    const result = await signInWithPopup(auth, googleProvider, browserPopupRedirectResolver);
     return result.user;
-  } catch (error) {
-    console.error('Login failed:', error);
+  } catch (error: any) {
+    if (error.code === 'auth/popup-blocked') {
+      alert("The login popup was blocked by your browser. Please allow popups for this site and try again.");
+    } else if (error.code === 'auth/cancelled-popup-request') {
+      // User closed the popup, no need for alert
+    } else {
+      console.error('Login failed:', error);
+      alert(`Login failed: ${error.message || 'Unknown error'}. Please check if popups are enabled.`);
+    }
     throw error;
   }
 }

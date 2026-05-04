@@ -2,22 +2,43 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { collection, addDoc, getDocs, getDoc, deleteDoc, doc, updateDoc, query, orderBy, setDoc } from 'firebase/firestore';
-import { SportsContent, Category, ContentType, ContentSection, SliderElement } from '../types';
-import { Plus, Trash2, Edit2, Play, LayoutDashboard, Film, Users, Settings, Save, X, Eye, Radio, Crown, Layers, MoveUp, MoveDown, CheckSquare, Square, Image as ImageIcon } from 'lucide-react';
+import { SportsContent, Category, ContentType, ContentSection, SliderElement, VideoPromoSettings, SiteConfig, PlayerSettings } from '../types';
+import { Plus, Trash2, Edit2, Play, LayoutDashboard, Film, Users, Settings, Save, X, Eye, Radio, Crown, Layers, MoveUp, MoveDown, CheckSquare, Square, Image as ImageIcon, Upload, Library } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { cn, formatDate } from '../lib/utils';
+import { cn, formatDate, transformGDriveUrl } from '../lib/utils';
 import { useAuth } from '../hooks/useAuth';
+import MediaManager from '../components/MediaManager';
+import StadiumPlayer from '../components/StadiumPlayer';
 
 export default function Admin() {
   const { user, isAdmin, loading: authLoading } = useAuth();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'content' | 'live' | 'sections' | 'slider' | 'users' | 'settings'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'content' | 'live' | 'sections' | 'slider' | 'users' | 'settings' | 'media'>('dashboard');
   const [content, setContent] = useState<SportsContent[]>([]);
+  const [mediaItems, setMediaItems] = useState<any[]>([]);
   const [sections, setSections] = useState<ContentSection[]>([]);
   const [slider, setSlider] = useState<SliderElement[]>([]);
   const [subscribers, setSubscribers] = useState<any[]>([]);
-  const [siteConfig, setSiteConfig] = useState<{ founderImageUrl?: string }>({
+  const [siteConfig, setSiteConfig] = useState<SiteConfig>({
     founderImageUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=1000&auto=format&fit=crop'
+  });
+  const [videoPromo, setVideoPromo] = useState<VideoPromoSettings>({
+    isActive: false,
+    title: 'Experience The Game',
+    description: 'Pure adrenaline, live in 4K.',
+    videoUrl: '',
+    embedCode: '',
+    buttonText: 'Join Now',
+    buttonUrl: '/plans',
+    backgroundColor: '#ff0000'
+  });
+  const [playerConfig, setPlayerConfig] = useState<PlayerSettings>({
+    autoplay: true,
+    muted: false,
+    loop: false,
+    showControls: true,
+    primaryColor: '#ff0000',
+    playbackRates: [0.5, 1, 1.5, 2]
   });
   const [isAdding, setIsAdding] = useState(false);
   const [isAddingSection, setIsAddingSection] = useState(false);
@@ -76,8 +97,88 @@ export default function Admin() {
       fetchSlider();
       fetchSubscribers();
       fetchSiteConfig();
+      fetchVideoPromo();
+      fetchMediaItems();
+      fetchPlayerConfig();
     }
   }, [isAdmin]);
+
+  const fetchPlayerConfig = async () => {
+    try {
+      const docRef = doc(db, 'settings', 'playerConfig');
+      const snap = await getDoc(docRef);
+      if (snap.exists()) {
+        setPlayerConfig(snap.data() as PlayerSettings);
+      }
+    } catch (err) {
+      console.error("Player config fetch error:", err);
+    }
+  };
+
+  const handlePlayerConfigUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const docRef = doc(db, 'settings', 'playerConfig');
+      await setDoc(docRef, playerConfig);
+      alert("Player configuration updated!");
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, 'settings/playerConfig');
+    }
+  };
+
+  const fetchMediaItems = async () => {
+    try {
+      const q = query(collection(db, 'library'), orderBy('createdAt', 'desc'));
+      const snap = await getDocs(q);
+      setMediaItems(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    } catch (err) {
+      console.error("Fetch media error:", err);
+    }
+  };
+
+  const deleteMedia = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this media?")) return;
+    try {
+      await deleteDoc(doc(db, 'library', id));
+      setMediaItems(prev => prev.filter(m => m.id !== id));
+    } catch (err) {
+      console.error("Delete media error:", err);
+    }
+  };
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    alert("URL copied to clipboard!");
+  };
+
+  const fetchVideoPromo = async () => {
+    try {
+      const docRef = doc(db, 'settings', 'videoPromo');
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        setVideoPromo(prev => ({ ...prev, ...docSnap.data() }));
+      }
+    } catch (error) {
+      console.error("Video promo fetch error:", error);
+    }
+  };
+
+  const [previewContent, setPreviewContent] = useState<{url: string, title: string, isLive: boolean} | null>(null);
+
+  const handleVideoPromoUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const transformedUrl = transformGDriveUrl(videoPromo.videoUrl, 'video');
+      const finalPromo = { ...videoPromo, videoUrl: transformedUrl };
+      
+      const docRef = doc(db, 'settings', 'videoPromo');
+      await setDoc(docRef, finalPromo);
+      setVideoPromo(finalPromo);
+      alert("Video Promo Banner updated successfully!");
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, 'settings/videoPromo');
+    }
+  };
 
   const fetchSiteConfig = async () => {
     try {
@@ -94,25 +195,19 @@ export default function Admin() {
   const handleConfigUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      // Auto-transform Google Drive links to direct view links
-      let transformedUrl = siteConfig.founderImageUrl || '';
-      if (transformedUrl.includes('drive.google.com')) {
-        const match = transformedUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
-        if (match && match[1]) {
-          transformedUrl = `https://lh3.googleusercontent.com/d/${match[1]}`;
-        }
-      }
+      const transformedUrl = transformGDriveUrl(siteConfig.founderImageUrl || '', 'image');
+      const finalConfig = { ...siteConfig, founderImageUrl: transformedUrl };
 
       const docRef = doc(db, 'settings', 'siteConfig');
-      await updateDoc(docRef, { ...siteConfig, founderImageUrl: transformedUrl }).catch(async (err) => {
+      await updateDoc(docRef, finalConfig).catch(async (err) => {
         if (err.code === 'not-found') {
-          await setDoc(docRef, { ...siteConfig, founderImageUrl: transformedUrl });
+          await setDoc(docRef, finalConfig);
         } else {
           throw err;
         }
       });
-      setSiteConfig(prev => ({ ...prev, founderImageUrl: transformedUrl }));
-      alert("Settings updated successfully! Google Drive link was optimized for display.");
+      setSiteConfig(finalConfig);
+      alert("Settings updated successfully! Links were optimized for display.");
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, 'settings/siteConfig');
     }
@@ -168,12 +263,16 @@ export default function Admin() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      const transformedVideoUrl = transformGDriveUrl(form.videoUrl || '', 'video');
+      const transformedThumbUrl = transformGDriveUrl(form.thumbnailUrl || '', 'image');
+      const finalForm = { ...form, videoUrl: transformedVideoUrl, thumbnailUrl: transformedThumbUrl };
+
       if (editingId) {
         const docRef = doc(db, 'content', editingId);
-        await updateDoc(docRef, { ...form });
+        await updateDoc(docRef, finalForm);
       } else {
         const payload = {
-          ...form,
+          ...finalForm,
           createdAt: new Date().toISOString(),
           viewCount: Math.floor(Math.random() * 100)
         };
@@ -219,12 +318,16 @@ export default function Admin() {
   const handleSliderSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      const transformedImgUrl = transformGDriveUrl(sliderForm.imageUrl || '', 'image');
+      const transformedVidUrl = transformGDriveUrl(sliderForm.videoUrl || '', 'video');
+      const finalSliderForm = { ...sliderForm, imageUrl: transformedImgUrl, videoUrl: transformedVidUrl };
+
       if (editingSliderId) {
         const docRef = doc(db, 'slider', editingSliderId);
-        await updateDoc(docRef, { ...sliderForm });
+        await updateDoc(docRef, finalSliderForm);
       } else {
         await addDoc(collection(db, 'slider'), {
-          ...sliderForm,
+          ...finalSliderForm,
           createdAt: new Date().toISOString(),
         });
       }
@@ -300,6 +403,7 @@ export default function Admin() {
           <SidebarLink icon={Radio} label="Live Center" active={activeTab === 'live'} onClick={() => setActiveTab('live')} />
           <SidebarLink icon={Users} label="Users" active={activeTab === 'users'} onClick={() => setActiveTab('users')} />
           <SidebarLink icon={Settings} label="Settings" active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} />
+          <SidebarLink icon={Library} label="Media Uploads" active={activeTab === 'media'} onClick={() => setActiveTab('media')} />
         </div>
       </div>
 
@@ -317,6 +421,104 @@ export default function Admin() {
                 <StatsCard label="Broadcasting" value={liveItems.length} icon={Radio} color="text-red-500" />
                 <StatsCard label="Total Impressions" value={(content.reduce((acc, c) => acc + (c.viewCount || 0), 0) / 1000000).toFixed(1) + 'M'} icon={Eye} color="text-blue-500" />
                 <StatsCard label="Premium Ratio" value={content.length > 0 ? Math.round((content.filter(c => c.isPremium).length / content.length) * 100) + '%' : '0%'} icon={Crown} color="text-yellow-500" />
+              </div>
+
+              <div className="glass-card p-8 border border-brand/20 bg-brand/5">
+                <div className="flex items-center gap-4 mb-6">
+                  <div className="p-3 bg-brand text-white rounded-xl">
+                    <Plus className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-display font-black uppercase italic tracking-widest">Quick Deployment</h2>
+                    <p className="text-[10px] text-text-muted uppercase font-bold tracking-tighter">One-click content population</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <button 
+                    onClick={async () => {
+                      const url = "https://drive.google.com/file/d/1JcLejOC3-fSHWhGThh5xUISMrJAFdMdH/view?usp=drive_link";
+                      const transformed = transformGDriveUrl(url, 'video');
+                      try {
+                        await addDoc(collection(db, 'content'), {
+                          title: 'test1234',
+                          description: 'User requested test video from Google Drive.',
+                          category: 'football',
+                          type: 'replay',
+                          status: 'ended',
+                          videoUrl: transformed,
+                          thumbnailUrl: 'https://images.unsplash.com/photo-1574629810360-7efbbe195018?q=80&w=600&auto=format&fit=crop',
+                          isPremium: false,
+                          createdAt: new Date().toISOString(),
+                          viewCount: 0
+                        });
+                        alert("Video 'test1234' added successfully to Football!");
+                        fetchContent();
+                      } catch (err) {
+                        alert("Error adding video. Check console.");
+                      }
+                    }}
+                    className="flex items-center gap-4 p-4 bg-surface hover:bg-brand/10 border border-white/5 rounded-2xl transition-all group"
+                  >
+                    <div className="w-12 h-12 bg-bg rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                      <Film className="w-6 h-6 text-brand" />
+                    </div>
+                    <div className="text-left">
+                      <p className="text-xs font-black uppercase italic tracking-widest">Add "test1234" Video</p>
+                      <p className="text-[9px] text-text-muted">Football • Replay • GDrive</p>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              {/* Playback Debugger Section */}
+              <div className="glass-card p-8 border border-white/5 bg-surface mt-8">
+                <div className="flex items-center gap-4 mb-6">
+                  <div className="p-3 bg-blue-500/20 text-blue-500 rounded-xl">
+                    <Radio className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-display font-black uppercase italic tracking-widest">Playback Debugger</h2>
+                    <p className="text-[10px] text-text-muted uppercase font-bold tracking-tighter">Fix Google Drive or External Link issues</p>
+                  </div>
+                </div>
+                
+                <div className="space-y-4">
+                  <div className="p-4 bg-bg rounded-2xl border border-white/5">
+                    <p className="text-[10px] font-bold uppercase text-white/40 mb-2">Test any Video URL</p>
+                    <div className="flex gap-2">
+                      <input 
+                        type="text" 
+                        placeholder="Paste your link here..."
+                        className="flex-grow bg-surface border border-white/10 p-3 rounded-xl text-sm outline-none focus:border-brand"
+                        id="debug-url"
+                      />
+                      <button 
+                        onClick={() => {
+                          const val = (document.getElementById('debug-url') as HTMLInputElement).value;
+                          setPreviewContent({ url: transformGDriveUrl(val, 'video'), title: 'Debug Test', isLive: false });
+                        }}
+                        className="px-6 bg-brand text-white rounded-xl text-[10px] font-black uppercase italic h-[46px]"
+                      >
+                        Launch Tester
+                      </button>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="p-4 bg-white/5 rounded-2xl border border-white/5">
+                      <h4 className="text-[10px] font-black uppercase italic text-brand mb-2">1. Check Permissions</h4>
+                      <p className="text-[10px] text-text-muted leading-relaxed">
+                        In Google Drive, you MUST click <span className="text-white">Share</span> → <span className="text-white">General Access</span> → change to <span className="text-white">"Anyone with the link"</span>.
+                      </p>
+                    </div>
+                    <div className="p-4 bg-white/5 rounded-2xl border border-white/5">
+                      <h4 className="text-[10px] font-black uppercase italic text-blue-400 mb-2">2. Use Safe-Mode</h4>
+                      <p className="text-[10px] text-text-muted leading-relaxed">
+                        If the advanced player says "Connection Blocked", click <span className="text-white">"Safe Drive Mode"</span> in the player window to use the official GDrive embed.
+                      </p>
+                    </div>
+                  </div>
+                </div>
               </div>
             </motion.div>
           )}
@@ -378,6 +580,17 @@ export default function Admin() {
                         </td>
                         <td className="px-6 py-4 text-right">
                           <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button 
+                              onClick={() => setPreviewContent({ 
+                                url: transformGDriveUrl(item.videoUrl, 'video'), 
+                                title: item.title, 
+                                isLive: item.status === 'live' 
+                              })} 
+                              className="p-2 hover:text-brand transition-colors"
+                              title="Preview Video"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </button>
                             <button onClick={() => handleEdit(item)} className="p-2 hover:text-brand transition-colors"><Edit2 className="w-4 h-4" /></button>
                             <button onClick={() => handleDelete(item.id)} className="p-2 hover:text-red-500 transition-colors"><Trash2 className="w-4 h-4" /></button>
                           </div>
@@ -654,12 +867,216 @@ export default function Admin() {
                   </form>
                 </div>
 
+                <div className="glass-card p-8 space-y-6">
+                  <div className="flex items-center gap-4 mb-4">
+                    <div className="p-3 bg-brand/10 rounded-xl text-brand">
+                      <Film className="w-6 h-6" />
+                    </div>
+                    <h2 className="text-xl font-display font-black uppercase italic tracking-widest">Video Promo Banner</h2>
+                  </div>
+
+                  <form onSubmit={handleVideoPromoUpdate} className="space-y-6">
+                    <div className="flex items-center justify-between bg-white/5 p-4 rounded-xl">
+                      <div className="space-y-1">
+                        <p className="text-sm font-bold uppercase italic">Enable Promo Banner</p>
+                        <p className="text-[10px] text-text-muted">Display the large video banner on homepage</p>
+                      </div>
+                      <button 
+                        type="button"
+                        onClick={() => setVideoPromo({...videoPromo, isActive: !videoPromo.isActive})}
+                        className={cn("w-12 h-6 rounded-full transition-all relative", videoPromo.isActive ? "bg-brand" : "bg-surface")}
+                      >
+                        <div className={cn("absolute top-1 w-4 h-4 rounded-full bg-white transition-all", videoPromo.isActive ? "right-1" : "left-1")} />
+                      </button>
+                    </div>
+
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Banner Title</label>
+                        <input type="text" value={videoPromo.title} onChange={e => setVideoPromo({...videoPromo, title: e.target.value})} className="w-full bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none" />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Description</label>
+                        <textarea rows={2} value={videoPromo.description} onChange={e => setVideoPromo({...videoPromo, description: e.target.value})} className="w-full bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none" />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Direct Video URL (.mp4)</label>
+                        <div className="flex gap-2">
+                          <input type="url" value={videoPromo.videoUrl} onChange={e => setVideoPromo({...videoPromo, videoUrl: e.target.value})} className="flex-grow bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none" placeholder="https://..." />
+                          <button 
+                            type="button"
+                            onClick={() => setActiveTab('media')}
+                            className="px-4 bg-surface hover:bg-brand/10 border border-white/10 rounded-md text-[10px] font-bold uppercase tracking-widest transition-colors flex items-center gap-2"
+                          >
+                            <Upload className="w-3 h-3" />
+                            Upload
+                          </button>
+                        </div>
+                        <p className="text-[9px] text-text-muted mt-1 italic">Use the "Upload" button to add your own video file for 100% reliability.</p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">OR Video Embed Code (YouTube/Vimeo)</label>
+                        <textarea rows={3} value={videoPromo.embedCode || ''} onChange={e => setVideoPromo({...videoPromo, embedCode: e.target.value})} className="w-full bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none font-mono text-xs" placeholder="<iframe ...></iframe>" />
+                        <p className="text-[9px] text-text-muted mt-1 italic">Note: Google Drive links work best if you upload the file to the "Media Uploads" tab first.</p>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Button Text</label>
+                          <input type="text" value={videoPromo.buttonText} onChange={e => setVideoPromo({...videoPromo, buttonText: e.target.value})} className="w-full bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none" />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Button URL</label>
+                          <input type="text" value={videoPromo.buttonUrl} onChange={e => setVideoPromo({...videoPromo, buttonUrl: e.target.value})} className="w-full bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none" />
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Background Accent Color</label>
+                        <div className="flex gap-4">
+                          <input type="color" value={videoPromo.backgroundColor} onChange={e => setVideoPromo({...videoPromo, backgroundColor: e.target.value})} className="h-10 w-20 bg-bg border border-white/10 rounded cursor-pointer" />
+                          <input type="text" value={videoPromo.backgroundColor} onChange={e => setVideoPromo({...videoPromo, backgroundColor: e.target.value})} className="flex-grow bg-bg border border-white/10 p-2 rounded focus:border-brand outline-none uppercase font-mono text-xs" />
+                        </div>
+                      </div>
+                    </div>
+
+                    <button type="submit" className="btn-primary w-full flex items-center justify-center gap-2 py-4">
+                      <Save className="w-5 h-5" />
+                      Save Banner Configuration
+                    </button>
+                  </form>
+                </div>
+
+                <div className="glass-card p-8 space-y-6">
+                  <div className="flex items-center gap-4 mb-4">
+                    <div className="p-3 bg-brand/10 rounded-xl text-brand">
+                      <Play className="w-6 h-6" />
+                    </div>
+                    <h2 className="text-xl font-display font-black uppercase italic tracking-widest">Global Player Configuration</h2>
+                  </div>
+
+                  <form onSubmit={handlePlayerConfigUpdate} className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="flex items-center justify-between bg-white/5 p-4 rounded-xl">
+                        <span className="text-xs font-bold uppercase italic">Autoplay</span>
+                        <button 
+                          type="button"
+                          onClick={() => setPlayerConfig({...playerConfig, autoplay: !playerConfig.autoplay})}
+                          className={cn("w-10 h-5 rounded-full transition-all relative", playerConfig.autoplay ? "bg-brand" : "bg-surface")}
+                        >
+                          <div className={cn("absolute top-1 w-3 h-3 rounded-full bg-white transition-all", playerConfig.autoplay ? "right-1" : "left-1")} />
+                        </button>
+                      </div>
+                      <div className="flex items-center justify-between bg-white/5 p-4 rounded-xl">
+                        <span className="text-xs font-bold uppercase italic">Muted Default</span>
+                        <button 
+                          type="button"
+                          onClick={() => setPlayerConfig({...playerConfig, muted: !playerConfig.muted})}
+                          className={cn("w-10 h-5 rounded-full transition-all relative", playerConfig.muted ? "bg-brand" : "bg-surface")}
+                        >
+                          <div className={cn("absolute top-1 w-3 h-3 rounded-full bg-white transition-all", playerConfig.muted ? "right-1" : "left-1")} />
+                        </button>
+                      </div>
+                      <div className="flex items-center justify-between bg-white/5 p-4 rounded-xl">
+                        <span className="text-xs font-bold uppercase italic">Loop Video</span>
+                        <button 
+                          type="button"
+                          onClick={() => setPlayerConfig({...playerConfig, loop: !playerConfig.loop})}
+                          className={cn("w-10 h-5 rounded-full transition-all relative", playerConfig.loop ? "bg-brand" : "bg-surface")}
+                        >
+                          <div className={cn("absolute top-1 w-3 h-3 rounded-full bg-white transition-all", playerConfig.loop ? "right-1" : "left-1")} />
+                        </button>
+                      </div>
+                      <div className="flex items-center justify-between bg-white/5 p-4 rounded-xl">
+                        <span className="text-xs font-bold uppercase italic">Show Custom Controls</span>
+                        <button 
+                          type="button"
+                          onClick={() => setPlayerConfig({...playerConfig, showControls: !playerConfig.showControls})}
+                          className={cn("w-10 h-5 rounded-full transition-all relative", playerConfig.showControls ? "bg-brand" : "bg-surface")}
+                        >
+                          <div className={cn("absolute top-1 w-3 h-3 rounded-full bg-white transition-all", playerConfig.showControls ? "right-1" : "left-1")} />
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Player Accent Color</label>
+                      <div className="flex gap-4">
+                        <input type="color" value={playerConfig.primaryColor} onChange={e => setPlayerConfig({...playerConfig, primaryColor: e.target.value})} className="h-10 w-20 bg-bg border border-white/10 rounded cursor-pointer" />
+                        <input type="text" value={playerConfig.primaryColor} onChange={e => setPlayerConfig({...playerConfig, primaryColor: e.target.value})} className="flex-grow bg-bg border border-white/10 p-2 rounded focus:border-brand outline-none uppercase font-mono text-xs" />
+                      </div>
+                    </div>
+
+                    <button type="submit" className="btn-primary w-full flex items-center justify-center gap-2 py-4">
+                      <Save className="w-5 h-5" />
+                      Update Player Config
+                    </button>
+                  </form>
+                </div>
+
                 <div className="glass-card p-8 border-dashed border-white/5 opacity-50 flex flex-col items-center justify-center text-center">
                    <div className="w-16 h-16 bg-surface rounded-full flex items-center justify-center mb-4">
                      <Settings className="w-8 h-8 text-text-muted" />
                    </div>
                    <h3 className="font-bold uppercase tracking-widest text-xs mb-2">More Settings Coming Soon</h3>
                    <p className="text-[10px] text-text-muted max-w-[200px]">We're building more customization options for SEO, SMTP, and Payment Gateways.</p>
+                </div>
+              </div>
+            </motion.div>
+          )}
+          {activeTab === 'media' && (
+            <motion.div key="media" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} className="space-y-8">
+               <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                <div className="space-y-2">
+                  <h1 className="text-5xl font-black uppercase italic tracking-tighter">Media Assets</h1>
+                  <p className="text-text-muted font-medium">Direct video uploads to Firebase Storage.</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div className="lg:col-span-1">
+                  <MediaManager onUploadComplete={fetchMediaItems} />
+                </div>
+                
+                <div className="lg:col-span-2 space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 h-fit">
+                    {mediaItems.length === 0 ? (
+                      <div className="col-span-full py-20 bg-surface/30 rounded-[32px] border-2 border-dashed border-white/5 flex flex-col items-center justify-center text-center">
+                        <Film className="w-12 h-12 text-white/10 mb-4" />
+                        <p className="text-text-muted font-bold uppercase tracking-widest text-xs">No media uploaded yet</p>
+                      </div>
+                    ) : (
+                      mediaItems.map(item => (
+                        <div key={item.id} className="glass-card p-4 group flex gap-4 items-center">
+                          <div className="w-20 h-20 bg-bg rounded-xl overflow-hidden shrink-0 flex items-center justify-center relative">
+                            <video src={item.url} className="w-full h-full object-cover opacity-50" />
+                            <div className="absolute inset-0 flex items-center justify-center group-hover:bg-black/20 transition-all">
+                              <Play className="w-6 h-6 text-white/50 group-hover:text-brand transition-colors" />
+                            </div>
+                          </div>
+                          <div className="flex-grow min-w-0">
+                            <h4 className="font-bold text-xs truncate uppercase tracking-wider">{item.name}</h4>
+                            <p className="text-[10px] text-text-muted mb-2">{(item.size / (1024 * 1024)).toFixed(2)} MB</p>
+                            <div className="flex gap-2">
+                              <button 
+                                onClick={() => copyToClipboard(item.url)}
+                                className="text-[10px] font-black uppercase tracking-widest text-brand hover:underline"
+                              >
+                                Copy URL
+                              </button>
+                              <button 
+                                onClick={() => deleteMedia(item.id)}
+                                className="text-[10px] font-black uppercase tracking-widest text-white/20 hover:text-red-500 transition-colors"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
                 </div>
               </div>
             </motion.div>
@@ -714,7 +1131,22 @@ export default function Admin() {
                 </div>
                 <div className="space-y-2">
                   <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Video URL (m3u8/mp4/Youtube)</label>
-                  <input type="text" required value={form.videoUrl} onChange={e => setForm({...form, videoUrl: e.target.value})} className="w-full bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none" />
+                  <div className="flex gap-2">
+                    <input type="text" required value={form.videoUrl} onChange={e => setForm({...form, videoUrl: e.target.value})} className="flex-grow bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none" />
+                    <button 
+                      type="button" 
+                      onClick={() => setPreviewContent({ 
+                        url: transformGDriveUrl(form.videoUrl, 'video'), 
+                        title: form.title || 'Preview', 
+                        isLive: form.status === 'live' 
+                      })}
+                      className="px-4 bg-surface hover:bg-brand/10 border border-white/10 rounded-md text-[10px] font-bold uppercase"
+                      title="Preview Current URL"
+                    >
+                      <Eye className="w-4 h-4" />
+                    </button>
+                    <button type="button" onClick={() => setActiveTab('media')} className="px-4 bg-surface hover:bg-brand/10 border border-white/10 rounded-md text-[10px] font-bold uppercase"><Upload className="w-3 h-3" /></button>
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Thumbnail URL</label>
@@ -823,9 +1255,18 @@ export default function Admin() {
                   <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Description</label>
                   <textarea rows={2} value={sliderForm.description} onChange={e => setSliderForm({...sliderForm, description: e.target.value})} className="w-full bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none" />
                 </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Hero Image URL</label>
-                  <input type="url" required value={sliderForm.imageUrl} onChange={e => setSliderForm({...sliderForm, imageUrl: e.target.value})} className="w-full bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none" />
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Hero Image URL</label>
+                    <input type="url" required value={sliderForm.imageUrl} onChange={e => setSliderForm({...sliderForm, imageUrl: e.target.value})} className="w-full bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Background Video URL (Optional)</label>
+                    <div className="flex gap-2">
+                      <input type="url" value={sliderForm.videoUrl || ''} onChange={e => setSliderForm({...sliderForm, videoUrl: e.target.value})} className="flex-grow bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none" placeholder="https://..." />
+                      <button type="button" onClick={() => setActiveTab('media')} className="px-4 bg-surface hover:bg-brand/10 border border-white/10 rounded-md text-[10px] font-bold uppercase"><Upload className="w-3 h-3" /></button>
+                    </div>
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -859,6 +1300,31 @@ export default function Admin() {
             </motion.div>
           </>
         )}
+
+        {/* Video Preview Modal */}
+        <AnimatePresence>
+          {previewContent && (
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-xl"
+            >
+              <div className="w-full max-w-5xl aspect-video bg-black rounded-[32px] overflow-hidden shadow-2xl relative border border-white/10">
+                <StadiumPlayer 
+                  url={previewContent.url}
+                  isLive={previewContent.isLive}
+                />
+                <button 
+                  onClick={() => setPreviewContent(null)}
+                  className="absolute top-6 right-6 z-50 w-12 h-12 bg-white/10 hover:bg-red-500/20 hover:text-red-500 backdrop-blur-md rounded-full flex items-center justify-center border border-white/20 transition-all text-white"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
        </AnimatePresence>
     </div>
   );

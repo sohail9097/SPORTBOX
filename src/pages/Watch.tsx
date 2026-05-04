@@ -6,11 +6,9 @@ import { SportsContent } from '../types';
 import { useAuth } from '../hooks/useAuth';
 import { Play, Share2, Heart, MessageSquare, Crown, Info, ChevronRight, Activity } from 'lucide-react';
 import { motion } from 'motion/react';
-import { cn, formatDate } from '../lib/utils';
+import { cn, formatDate, transformGDriveUrl } from '../lib/utils';
+import StadiumPlayer from '../components/StadiumPlayer';
 import ReactMarkdown from 'react-markdown';
-import ReactPlayer from 'react-player';
-
-const Player = ReactPlayer as any;
 
 export default function Watch() {
   const { id } = useParams<{ id: string }>();
@@ -90,19 +88,9 @@ export default function Watch() {
                     allow="autoplay; encrypted-media; picture-in-picture"
                   />
                 ) : (
-                  <Player
-                    url={content.videoUrl}
-                    width="100%"
-                    height="100%"
-                    controls
-                    playing
-                    playsinline
-                    config={{
-                      file: {
-                        forceHLS: true,
-                      }
-                    } as any}
-                    className="react-player"
+                  <StadiumPlayer 
+                    url={transformGDriveUrl(content.videoUrl, 'video')} 
+                    isLive={content.status === 'live'} 
                   />
                 )}
               </div>

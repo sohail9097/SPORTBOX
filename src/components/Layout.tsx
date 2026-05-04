@@ -7,12 +7,13 @@ import { LayoutDashboard, Play, LogOut, User, Crown, Search, Menu, X, Sun, Moon 
 import { doc, onSnapshot } from 'firebase/firestore';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
+import { SiteConfig } from '../types';
 
 export default function Layout({ children }: { children: ReactNode }) {
   const { user, isAdmin, profile } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [siteConfig, setSiteConfig] = useState<{ founderImageUrl?: string }>({
+  const [siteConfig, setSiteConfig] = useState<SiteConfig>({
     founderImageUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=1000&auto=format&fit=crop'
   });
   const location = useLocation();

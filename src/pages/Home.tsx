@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { db } from '../lib/firebase';
-import { collection, query, orderBy, limit, getDocs, where } from 'firebase/firestore';
-import { SportsContent } from '../types';
+import { collection, query, orderBy, limit, getDocs, where, doc, onSnapshot } from 'firebase/firestore';
+import { SportsContent, VideoPromoSettings } from '../types';
 import ContentCard from '../components/ContentCard';
 import DynamicSections from '../components/DynamicSections';
 import HeroSlider from '../components/HeroSlider';
+import VideoPromoBanner from '../components/VideoPromoBanner';
 import { Play, TrendingUp, Trophy, ChevronRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { cn } from '../lib/utils';
@@ -13,8 +14,16 @@ export default function Home() {
   const [liveNow, setLiveNow] = useState<SportsContent[]>([]);
   const [trending, setTrending] = useState<SportsContent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [videoPromo, setVideoPromo] = useState<VideoPromoSettings | null>(null);
 
   useEffect(() => {
+    // Fetch video promo settings
+    const unsubPromo = onSnapshot(doc(db, 'settings', 'videoPromo'), (snap) => {
+      if (snap.exists()) {
+        setVideoPromo(snap.data() as VideoPromoSettings);
+      }
+    });
+
     const fetchData = async () => {
       try {
         const liveQuery = query(
@@ -44,6 +53,7 @@ export default function Home() {
     };
 
     fetchData();
+    return () => unsubPromo();
   }, []);
 
   return (
@@ -97,6 +107,19 @@ export default function Home() {
         </section>
       )}
 
+      {/* Video Promo Banner (Dynamic) */}
+      {videoPromo?.isActive && (
+        <VideoPromoBanner 
+          title={videoPromo.title}
+          description={videoPromo.description}
+          videoUrl={videoPromo.videoUrl}
+          embedCode={videoPromo.embedCode}
+          buttonText={videoPromo.buttonText}
+          buttonUrl={videoPromo.buttonUrl}
+          backgroundColor={videoPromo.backgroundColor}
+        />
+      )}
+
       {/* Trending Section */}
       <section className="max-w-7xl mx-auto px-4 mt-24">
         <SectionHeader title="Trending Replays" icon={TrendingUp} />
@@ -107,7 +130,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Featured Trophy Section */}
+      {/* Featured Trophy Section (Static/Original) */}
       <section className="max-w-7xl mx-auto px-4 mt-32">
         <div className="relative overflow-hidden bg-gradient-to-br from-brand to-brand-alt rounded-[40px] p-12 md:p-16 flex flex-col md:flex-row items-center justify-between gap-12 group shadow-2xl shadow-brand/20">
           <div className="absolute right-0 top-0 w-[500px] h-[500px] bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 group-hover:scale-110 transition-transform duration-700" />

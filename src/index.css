@@ -18,6 +18,29 @@
   --color-border: rgba(255, 255, 255, 0.05);
 }
 
+/* Video.js Theme Overrides */
+.vjs-stadium-theme .vjs-big-play-button {
+  display: none !important;
+}
+
+.video-js.vjs-stadium-theme {
+  background-color: transparent !important;
+  font-family: inherit;
+}
+
+.vjs-stadium-theme video {
+  object-fit: contain;
+}
+
+.animate-pulse-slow {
+  animation: pulse-slow 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse-slow {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(1.05); }
+}
+
 .light {
   --color-bg: #f8fafc;
   --color-surface: #ffffff;

@@ -51,3 +51,27 @@ export interface SliderElement {
   isActive: boolean;
   animationType?: 'fade' | 'slide';
 }
+
+export interface VideoPromoSettings {
+  isActive: boolean;
+  title: string;
+  description: string;
+  videoUrl: string;
+  embedCode?: string;
+  buttonText: string;
+  buttonUrl: string;
+  backgroundColor: string;
+}
+
+export interface PlayerSettings {
+  autoplay: boolean;
+  muted: boolean;
+  loop: boolean;
+  showControls: boolean;
+  primaryColor: string;
+  playbackRates: number[];
+}
+
+export interface SiteConfig {
+  founderImageUrl?: string;
+}

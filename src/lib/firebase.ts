@@ -11,16 +11,18 @@ googleProvider.setCustomParameters({ prompt: 'select_account' });
 
 export async function signInWithGoogle() {
   try {
-    const result = await signInWithPopup(auth, googleProvider, browserPopupRedirectResolver);
+    const result = await signInWithPopup(auth, googleProvider);
     return result.user;
   } catch (error: any) {
     if (error.code === 'auth/popup-blocked') {
-      alert("The login popup was blocked by your browser. Please allow popups for this site and try again.");
+      alert("POPUPS BLOCKED: Please enable popups for this site in your browser settings to sign in.");
     } else if (error.code === 'auth/cancelled-popup-request') {
       // User closed the popup, no need for alert
+    } else if (error.code === 'auth/unauthorized-domain') {
+      alert("DOMAIN NOT AUTHORIZED: The current domain is not in your Firebase Authorized Domains. Please add this domain to the Firebase Console (Authentication > Settings > Authorized Domains).");
     } else {
       console.error('Login failed:', error);
-      alert(`Login failed: ${error.message || 'Unknown error'}. Please check if popups are enabled.`);
+      alert(`Login Error [${error.code}]: ${error.message || 'Unknown error'}.`);
     }
     throw error;
   }

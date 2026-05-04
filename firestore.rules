@@ -71,6 +71,12 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // Global Settings
+    match /settings/{settingId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
     // Subscriptions (Static metadata if used)
     match /subscriptions/{subId} {
       allow read: if true;

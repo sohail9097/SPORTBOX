@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { collection, addDoc, getDocs, deleteDoc, doc, updateDoc, query, orderBy } from 'firebase/firestore';
+import { collection, addDoc, getDocs, getDoc, deleteDoc, doc, updateDoc, query, orderBy, setDoc } from 'firebase/firestore';
 import { SportsContent, Category, ContentType, ContentSection, SliderElement } from '../types';
 import { Plus, Trash2, Edit2, Play, LayoutDashboard, Film, Users, Settings, Save, X, Eye, Radio, Crown, Layers, MoveUp, MoveDown, CheckSquare, Square, Image as ImageIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -16,6 +16,9 @@ export default function Admin() {
   const [sections, setSections] = useState<ContentSection[]>([]);
   const [slider, setSlider] = useState<SliderElement[]>([]);
   const [subscribers, setSubscribers] = useState<any[]>([]);
+  const [siteConfig, setSiteConfig] = useState<{ founderImageUrl?: string }>({
+    founderImageUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=1000&auto=format&fit=crop'
+  });
   const [isAdding, setIsAdding] = useState(false);
   const [isAddingSection, setIsAddingSection] = useState(false);
   const [isAddingSlider, setIsAddingSlider] = useState(false);
@@ -72,8 +75,48 @@ export default function Admin() {
       fetchSections();
       fetchSlider();
       fetchSubscribers();
+      fetchSiteConfig();
     }
   }, [isAdmin]);
+
+  const fetchSiteConfig = async () => {
+    try {
+      const docRef = doc(db, 'settings', 'siteConfig');
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        setSiteConfig(docSnap.data());
+      }
+    } catch (error) {
+      console.error("Config fetch error:", error);
+    }
+  };
+
+  const handleConfigUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      // Auto-transform Google Drive links to direct view links
+      let transformedUrl = siteConfig.founderImageUrl || '';
+      if (transformedUrl.includes('drive.google.com')) {
+        const match = transformedUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
+        if (match && match[1]) {
+          transformedUrl = `https://lh3.googleusercontent.com/d/${match[1]}`;
+        }
+      }
+
+      const docRef = doc(db, 'settings', 'siteConfig');
+      await updateDoc(docRef, { ...siteConfig, founderImageUrl: transformedUrl }).catch(async (err) => {
+        if (err.code === 'not-found') {
+          await setDoc(docRef, { ...siteConfig, founderImageUrl: transformedUrl });
+        } else {
+          throw err;
+        }
+      });
+      setSiteConfig(prev => ({ ...prev, founderImageUrl: transformedUrl }));
+      alert("Settings updated successfully! Google Drive link was optimized for display.");
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, 'settings/siteConfig');
+    }
+  };
 
   const fetchSubscribers = async () => {
     try {
@@ -366,6 +409,145 @@ export default function Admin() {
                     New Section
                   </button>
                 </div>
+
+                <div className="grid grid-cols-1 gap-4">
+                  {sections.map(section => (
+                    <div key={section.id} className="glass-card p-6 flex items-center justify-between group">
+                      <div className="flex items-center gap-6">
+                        <div className="w-10 h-10 bg-surface flex items-center justify-center rounded-lg border border-border">
+                          <Layers className="w-5 h-5 text-brand" />
+                        </div>
+                        <div>
+                          <h3 className="font-bold text-lg uppercase italic">{section.title}</h3>
+                          <div className="flex items-center gap-3 text-[10px] font-black uppercase tracking-widest text-text-muted">
+                            <span>Page: {section.page}</span>
+                            <span>•</span>
+                            <span>{section.contentIds.length} Assets</span>
+                            <span>•</span>
+                            <span className={section.isActive ? "text-green-500" : "text-red-500"}>{section.isActive ? 'Active' : 'Inactive'}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button onClick={() => handleSectionEdit(section)} className="p-3 hover:text-brand transition-colors"><Edit2 className="w-5 h-5" /></button>
+                        <button onClick={() => handleSectionDelete(section.id)} className="p-3 hover:text-red-500 transition-colors"><Trash2 className="w-5 h-5" /></button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+             </motion.div>
+           )}
+
+           {activeTab === 'slider' && (
+             <motion.div key="slider" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} className="space-y-8">
+                <div className="flex justify-between items-end">
+                  <div className="space-y-2">
+                    <h1 className="text-5xl font-black uppercase italic tracking-tighter">Hero Slider</h1>
+                    <p className="text-text-muted font-medium">Manage the cinematic hero banners on the homepage.</p>
+                  </div>
+                  <button 
+                    onClick={() => {
+                      setEditingSliderId(null);
+                      setSliderForm({ title: '', description: '', imageUrl: '', videoUrl: '', actionUrl: '', isLive: false, order: (slider.length > 0 ? Math.max(...slider.map(s => s.order)) + 1 : 0), isActive: true, animationType: 'fade' });
+                      setIsAddingSlider(true);
+                    }}
+                    className="btn-primary flex items-center gap-2"
+                  >
+                    <Plus className="w-4 h-4" />
+                    New Slide
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {slider.map(slide => (
+                    <div key={slide.id} className="glass-card overflow-hidden group">
+                      <div className="aspect-video relative bg-bg border-b border-border">
+                        {slide.imageUrl && <img src={slide.imageUrl} className="w-full h-full object-cover" alt="" />}
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex items-end p-6">
+                          <div>
+                            <h3 className="text-xl font-black uppercase italic leading-none">{slide.title}</h3>
+                            <p className="text-xs text-white/60 line-clamp-1">{slide.description}</p>
+                          </div>
+                        </div>
+                        <div className="absolute top-4 right-4 flex gap-2">
+                          <button onClick={() => { setSliderForm(slide); setEditingSliderId(slide.id); setIsAddingSlider(true); }} className="p-2 bg-black/60 backdrop-blur-md rounded-lg hover:text-brand transition-colors"><Edit2 className="w-4 h-4" /></button>
+                          <button onClick={() => handleSliderDelete(slide.id)} className="p-2 bg-black/60 backdrop-blur-md rounded-lg hover:text-red-500 transition-colors"><Trash2 className="w-4 h-4" /></button>
+                        </div>
+                        {slide.isLive && (
+                          <div className="absolute top-4 left-4 bg-red-600 px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest animate-pulse">Live</div>
+                        )}
+                      </div>
+                      <div className="p-4 flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-text-muted">
+                        <div className="flex items-center gap-4">
+                          <span>Order: {slide.order}</span>
+                          <span className={slide.isActive ? "text-green-500" : "text-red-500"}>{slide.isActive ? 'Active' : 'Inactive'}</span>
+                        </div>
+                        <span>{slide.animationType} effect</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+             </motion.div>
+           )}
+
+           {activeTab === 'live' && (
+             <motion.div key="live" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} className="space-y-8">
+                <div className="space-y-2">
+                  <h2 className="text-5xl font-black uppercase italic tracking-tighter">Live Control Center</h2>
+                  <p className="text-text-muted font-medium">Quickly manage broadcasting events and their status.</p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {content.filter(c => c.type === 'live' || c.status === 'live').map(item => (
+                    <div key={item.id} className="glass-card p-6 border-l-4 border-l-brand">
+                      <div className="flex justify-between items-start mb-4">
+                        <div className="h-10 w-16 bg-bg border border-border rounded overflow-hidden">
+                          {item.thumbnailUrl && <img src={item.thumbnailUrl} className="w-full h-full object-cover" alt="" />}
+                        </div>
+                        <span className={cn(
+                          "px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest border",
+                          item.status === 'live' ? "bg-red-500/10 text-red-500 border-red-500/20" : "bg-bg text-text-muted border-border"
+                        )}>
+                          {item.status}
+                        </span>
+                      </div>
+                      <h3 className="font-bold text-sm mb-1 line-clamp-1">{item.title}</h3>
+                      <p className="text-[10px] text-text-muted uppercase tracking-widest font-black mb-4">{item.category}</p>
+                      
+                      <div className="flex gap-2">
+                        {item.status === 'live' ? (
+                          <button 
+                            onClick={async () => {
+                              const docRef = doc(db, 'content', item.id);
+                              await updateDoc(docRef, { status: 'ended' });
+                              fetchContent();
+                            }}
+                            className="flex-grow py-2 bg-red-600 text-white text-[10px] font-black uppercase tracking-widest rounded-lg"
+                          >
+                            Stop Stream
+                          </button>
+                        ) : (
+                          <button 
+                            onClick={async () => {
+                              const docRef = doc(db, 'content', item.id);
+                              await updateDoc(docRef, { status: 'live' });
+                              fetchContent();
+                            }}
+                            className="flex-grow py-2 bg-green-600 text-white text-[10px] font-black uppercase tracking-widest rounded-lg"
+                          >
+                            Go Live
+                          </button>
+                        )}
+                        <button onClick={() => handleEdit(item)} className="p-2 border border-border rounded-lg hover:bg-surface transition-colors"><Edit2 className="w-4 h-4" /></button>
+                      </div>
+                    </div>
+                  ))}
+                  {content.filter(c => c.type === 'live' || c.status === 'live').length === 0 && (
+                    <div className="col-span-full py-12 text-center glass-card text-text-muted italic">
+                      No live events scheduled. Go to Library to add a "Live Stream".
+                    </div>
+                  )}
+                </div>
              </motion.div>
            )}
 
@@ -428,6 +610,60 @@ export default function Admin() {
               </div>
             </motion.div>
           )}
+
+          {activeTab === 'settings' && (
+            <motion.div key="settings" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} className="space-y-8">
+               <div className="space-y-2">
+                <h1 className="text-5xl font-black uppercase italic tracking-tighter">Global Settings</h1>
+                <p className="text-text-muted font-medium">Customize your platform identity and integration URLs.</p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="glass-card p-8 space-y-6">
+                  <div className="flex items-center gap-4 mb-4">
+                    <div className="p-3 bg-brand/10 rounded-xl text-brand">
+                      <ImageIcon className="w-6 h-6" />
+                    </div>
+                    <h2 className="text-xl font-display font-black uppercase italic tracking-widest">Brand Assets</h2>
+                  </div>
+
+                  <form onSubmit={handleConfigUpdate} className="space-y-6">
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Founder Profile Image URL</label>
+                        <div className="flex gap-4 items-start">
+                          <input 
+                            type="url" 
+                            value={siteConfig.founderImageUrl} 
+                            onChange={e => setSiteConfig({...siteConfig, founderImageUrl: e.target.value})} 
+                            className="flex-grow bg-bg border border-white/10 p-4 rounded-xl focus:border-brand outline-none transition-all" 
+                            placeholder="Paste direct image link (Drive, Pinterest, Vimeo thumbnail, etc.)"
+                          />
+                          <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-brand/20 bg-bg shrink-0">
+                            <img src={siteConfig.founderImageUrl} alt="Preview" className="w-full h-full object-cover grayscale" />
+                          </div>
+                        </div>
+                        <p className="text-[10px] text-text-muted mt-2 italic">Pro-Tip: Use high-quality portrait shots (transparent or solid backgrounds work best).</p>
+                      </div>
+                    </div>
+
+                    <button type="submit" className="btn-primary w-full flex items-center justify-center gap-2 py-4">
+                      <Save className="w-5 h-5" />
+                      Save Global Configurations
+                    </button>
+                  </form>
+                </div>
+
+                <div className="glass-card p-8 border-dashed border-white/5 opacity-50 flex flex-col items-center justify-center text-center">
+                   <div className="w-16 h-16 bg-surface rounded-full flex items-center justify-center mb-4">
+                     <Settings className="w-8 h-8 text-text-muted" />
+                   </div>
+                   <h3 className="font-bold uppercase tracking-widest text-xs mb-2">More Settings Coming Soon</h3>
+                   <p className="text-[10px] text-text-muted max-w-[200px]">We're building more customization options for SEO, SMTP, and Payment Gateways.</p>
+                </div>
+              </div>
+            </motion.div>
+          )}
         </AnimatePresence>
       </div>
 
@@ -444,6 +680,10 @@ export default function Admin() {
                 <div className="space-y-2">
                   <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Title</label>
                   <input type="text" required value={form.title} onChange={e => setForm({...form, title: e.target.value})} className="w-full bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none" />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Description</label>
+                  <textarea rows={3} value={form.description} onChange={e => setForm({...form, description: e.target.value})} className="w-full bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none" />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -462,8 +702,18 @@ export default function Admin() {
                      </select>
                   </div>
                 </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Broadcasting Status</label>
+                    <select value={form.status} onChange={e => setForm({...form, status: e.target.value as any})} className="w-full bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none">
+                      <option value="scheduled">Scheduled</option>
+                      <option value="live">Live Now</option>
+                      <option value="ended">Ended</option>
+                    </select>
+                  </div>
+                </div>
                 <div className="space-y-2">
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Video URL</label>
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Video URL (m3u8/mp4/Youtube)</label>
                   <input type="text" required value={form.videoUrl} onChange={e => setForm({...form, videoUrl: e.target.value})} className="w-full bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none" />
                 </div>
                 <div className="space-y-2">
@@ -471,12 +721,139 @@ export default function Admin() {
                   <input type="url" value={form.thumbnailUrl} onChange={e => setForm({...form, thumbnailUrl: e.target.value})} className="w-full bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none" />
                 </div>
                 <div className="flex items-center gap-3 bg-white/5 p-4 rounded-md">
-                   <input type="checkbox" checked={form.isPremium} onChange={e => setForm({...form, isPremium: e.target.checked})} className="w-4 h-4 accent-brand" />
-                   <span className="text-sm font-bold uppercase">Premium Content</span>
+                   <input type="checkbox" id="isPremium" checked={form.isPremium} onChange={e => setForm({...form, isPremium: e.target.checked})} className="w-4 h-4 accent-brand" />
+                   <label htmlFor="isPremium" className="text-sm font-bold uppercase cursor-pointer">Premium Content</label>
                 </div>
                 <button type="submit" className="btn-primary w-full flex items-center justify-center gap-2">
                   <Save className="w-4 h-4" />
                   Save Content
+                </button>
+              </form>
+            </motion.div>
+          </>
+        )}
+
+        {isAddingSection && (
+          <>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsAddingSection(false)} className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60]" />
+            <motion.div initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }} className="fixed top-0 right-0 h-full w-full max-w-xl bg-surface border-l border-white/10 z-[70] p-8 overflow-y-auto">
+              <div className="flex items-center justify-between mb-8">
+                <h2 className="text-2xl font-display uppercase font-black tracking-widest italic">{editingSectionId ? 'Edit Section' : 'New Section'}</h2>
+                <button onClick={() => setIsAddingSection(false)}><X className="w-6 h-6 hover:text-brand" /></button>
+              </div>
+              <form onSubmit={handleSectionSubmit} className="space-y-6">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Section Title</label>
+                  <input type="text" required value={sectionForm.title} onChange={e => setSectionForm({...sectionForm, title: e.target.value})} className="w-full bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none" />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Page</label>
+                    <select value={sectionForm.page} onChange={e => setSectionForm({...sectionForm, page: e.target.value as any})} className="w-full bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none">
+                      <option value="home">Home</option>
+                      <option value="football">Football Page</option>
+                      <option value="cricket">Cricket Page</option>
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Display Type</label>
+                    <select value={sectionForm.type} onChange={e => setSectionForm({...sectionForm, type: e.target.value as any})} className="w-full bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none">
+                      <option value="normal">Standard Row</option>
+                      <option value="featured">Featured Large</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Select Content (Click to toggle)</label>
+                  <div className="grid grid-cols-1 gap-2 max-h-[300px] overflow-y-auto p-2 bg-bg border border-white/10 rounded-md">
+                    {content.map(item => (
+                      <div 
+                        key={item.id} 
+                        onClick={() => {
+                          const ids = [...(sectionForm.contentIds || [])];
+                          if (ids.includes(item.id)) {
+                            setSectionForm({...sectionForm, contentIds: ids.filter(id => id !== item.id)});
+                          } else {
+                            setSectionForm({...sectionForm, contentIds: [...ids, item.id]});
+                          }
+                        }}
+                        className={cn(
+                          "flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all",
+                          sectionForm.contentIds?.includes(item.id) ? "bg-brand/10 border-brand" : "bg-surface border-transparent"
+                        )}
+                      >
+                        <div className={cn("w-4 h-4 rounded-sm border flex items-center justify-center", sectionForm.contentIds?.includes(item.id) ? "bg-brand border-brand" : "border-white/20")}>
+                          {sectionForm.contentIds?.includes(item.id) && <Plus className="w-3 h-3 text-white" />}
+                        </div>
+                        <span className="text-xs font-bold">{item.title}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3 bg-white/5 p-4 rounded-md">
+                   <input type="checkbox" id="isActiveSection" checked={sectionForm.isActive} onChange={e => setSectionForm({...sectionForm, isActive: e.target.checked})} className="w-4 h-4 accent-brand" />
+                   <label htmlFor="isActiveSection" className="text-sm font-bold uppercase cursor-pointer">Active Section</label>
+                </div>
+                
+                <button type="submit" className="btn-primary w-full flex items-center justify-center gap-2">
+                  <Save className="w-4 h-4" />
+                  Save Section
+                </button>
+              </form>
+            </motion.div>
+          </>
+        )}
+
+        {isAddingSlider && (
+          <>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsAddingSlider(false)} className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60]" />
+            <motion.div initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }} className="fixed top-0 right-0 h-full w-full max-w-xl bg-surface border-l border-white/10 z-[70] p-8 overflow-y-auto">
+              <div className="flex items-center justify-between mb-8">
+                <h2 className="text-2xl font-display uppercase font-black tracking-widest italic">{editingSliderId ? 'Edit Slide' : 'New Slide'}</h2>
+                <button onClick={() => setIsAddingSlider(false)}><X className="w-6 h-6 hover:text-brand" /></button>
+              </div>
+              <form onSubmit={handleSliderSubmit} className="space-y-6">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Slide Title</label>
+                  <input type="text" required value={sliderForm.title} onChange={e => setSliderForm({...sliderForm, title: e.target.value})} className="w-full bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none" />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Description</label>
+                  <textarea rows={2} value={sliderForm.description} onChange={e => setSliderForm({...sliderForm, description: e.target.value})} className="w-full bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none" />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Hero Image URL</label>
+                  <input type="url" required value={sliderForm.imageUrl} onChange={e => setSliderForm({...sliderForm, imageUrl: e.target.value})} className="w-full bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none" />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Action URL</label>
+                    <input type="text" value={sliderForm.actionUrl} onChange={e => setSliderForm({...sliderForm, actionUrl: e.target.value})} className="w-full bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none" placeholder="/watch/id" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Animation Type</label>
+                    <select value={sliderForm.animationType} onChange={e => setSliderForm({...sliderForm, animationType: e.target.value as any})} className="w-full bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none">
+                      <option value="fade">Fade</option>
+                      <option value="slide">Slide</option>
+                      <option value="zoom">Zoom</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="flex gap-4">
+                  <div className="flex-grow flex items-center gap-3 bg-white/5 p-4 rounded-md">
+                     <input type="checkbox" id="isLiveSlide" checked={sliderForm.isLive} onChange={e => setSliderForm({...sliderForm, isLive: e.target.checked})} className="w-4 h-4 accent-brand" />
+                     <label htmlFor="isLiveSlide" className="text-sm font-bold uppercase cursor-pointer">Live Badge</label>
+                  </div>
+                  <div className="flex-grow flex items-center gap-3 bg-white/5 p-4 rounded-md">
+                     <input type="checkbox" id="isActiveSlide" checked={sliderForm.isActive} onChange={e => setSliderForm({...sliderForm, isActive: e.target.checked})} className="w-4 h-4 accent-brand" />
+                     <label htmlFor="isActiveSlide" className="text-sm font-bold uppercase cursor-pointer">Active</label>
+                  </div>
+                </div>
+                <button type="submit" className="btn-primary w-full flex items-center justify-center gap-2">
+                  <Save className="w-4 h-4" />
+                  Save Slide
                 </button>
               </form>
             </motion.div>

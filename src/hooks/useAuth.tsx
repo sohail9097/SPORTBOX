@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { User, onAuthStateChanged } from 'firebase/auth';
 import { auth, db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 
 interface AuthContextType {
   user: User | null;
@@ -20,37 +20,67 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    return onAuthStateChanged(auth, async (user) => {
+    let unsubscribeProfile: (() => void) | null = null;
+
+    const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
       setUser(user);
+      
+      // Clear previous profile listener
+      if (unsubscribeProfile) {
+        unsubscribeProfile();
+        unsubscribeProfile = null;
+      }
+
       if (user) {
-        // Ensure user document exists
         const userDocRef = doc(db, 'users', user.uid);
-        try {
-          const userDoc = await getDoc(userDocRef);
-          if (!userDoc.exists()) {
-            const initialProfile = {
-              uid: user.uid,
-              email: user.email,
-              displayName: user.displayName,
-              subscriptionTier: 'free',
-              subscriptionStatus: 'none',
-              favorites: [],
-              createdAt: new Date().toISOString()
-            };
-            await setDoc(userDocRef, initialProfile);
-            setProfile(initialProfile);
+        
+        // Use onSnapshot for real-time profile updates
+        unsubscribeProfile = onSnapshot(userDocRef, (doc) => {
+          if (doc.exists()) {
+            setProfile(doc.data());
           } else {
-            setProfile(userDoc.data());
+            // Profile doesn't exist yet, handle initialization
+            // (Note: we don't return here because we might need to create it)
+            initializeProfile(user);
           }
-        } catch (error) {
+          setLoading(false);
+        }, (error) => {
           handleFirestoreError(error, OperationType.GET, `users/${user.uid}`);
-        }
+          setLoading(false);
+        });
       } else {
         setProfile(null);
+        setLoading(false);
       }
-      setLoading(false);
     });
+
+    return () => {
+      unsubscribeAuth();
+      if (unsubscribeProfile) unsubscribeProfile();
+    };
   }, []);
+
+  const initializeProfile = async (authenticatedUser: User) => {
+    const userDocRef = doc(db, 'users', authenticatedUser.uid);
+    try {
+      const userDoc = await getDoc(userDocRef);
+      if (!userDoc.exists()) {
+        const initialProfile = {
+          uid: authenticatedUser.uid,
+          email: authenticatedUser.email,
+          displayName: authenticatedUser.displayName,
+          subscriptionTier: 'free',
+          subscriptionStatus: 'none',
+          favorites: [],
+          createdAt: new Date().toISOString()
+        };
+        await setDoc(userDocRef, initialProfile);
+        // setProfile will be handled by onSnapshot
+      }
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, `users/${authenticatedUser.uid}`);
+    }
+  };
 
   const isAdmin = user?.email === ADMIN_EMAIL;
 

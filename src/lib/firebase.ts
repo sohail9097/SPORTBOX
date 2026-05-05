@@ -21,7 +21,7 @@ export async function signInWithGoogle() {
     } else if (error.code === 'auth/cancelled-popup-request') {
       // User closed the popup, no need for alert
     } else if (error.code === 'auth/unauthorized-domain') {
-      alert("DOMAIN NOT AUTHORIZED: The current domain is not in your Firebase Authorized Domains. Please add this domain to the Firebase Console (Authentication > Settings > Authorized Domains).");
+      alert("DOMAIN NOT AUTHORIZED: This URL is not yet allowed in your Firebase Console.\n\nFIX:\n1. Go to Firebase Console -> Authentication -> Settings -> Authorized Domains\n2. Add these two domains:\n   - ais-dev-mh4r6wg37qxzkiuioan5mi-304563445639.asia-southeast1.run.app\n   - ais-pre-mh4r6wg37qxzkiuioan5mi-304563445639.asia-southeast1.run.app");
     } else {
       console.error('Login failed:', error);
       alert(`Login Error [${error.code}]: ${error.message || 'Unknown error'}.`);

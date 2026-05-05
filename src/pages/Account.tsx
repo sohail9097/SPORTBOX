@@ -6,7 +6,6 @@ import { motion, AnimatePresence } from 'motion/react';
 import { User, Phone, CheckCircle2, ShieldCheck, Mail, LogOut, ChevronRight, Loader2, Key } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { auth } from '../lib/firebase';
-import { RecaptchaVerifier, linkWithPhoneNumber, PhoneAuthProvider } from 'firebase/auth';
 
 import { Link, useNavigate } from 'react-router-dom';
 
@@ -15,86 +14,53 @@ export default function Account() {
   const { user, profile } = useAuth();
   const [loading, setLoading] = useState(false);
   const [mobileNumber, setMobileNumber] = useState(profile?.mobileNumber || '');
-  const [otpMode, setOtpMode] = useState(false);
-  const [otpCode, setOtpCode] = useState('');
+  const [displayName, setDisplayName] = useState(profile?.displayName || '');
   const [verificationSuccess, setVerificationSuccess] = useState(false);
-  const [confirmationResult, setConfirmationResult] = useState<any>(null);
-  
-  const recaptchaRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (profile?.mobileNumber) {
-      setMobileNumber(profile.mobileNumber);
-    }
+    if (profile?.mobileNumber) setMobileNumber(profile.mobileNumber);
+    if (profile?.displayName) setDisplayName(profile.displayName);
   }, [profile]);
 
-  const setupRecaptcha = () => {
-    if (!(window as any).recaptchaVerifier && auth) {
-      (window as any).recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-        'size': 'invisible',
-        'callback': () => {
-          console.log('reCAPTCHA resolved');
-        }
-      });
-    }
-  };
+  const handleUpdateProfile = async () => {
+    // Custom formatting logic for Indian numbers
+    let phone = mobileNumber.replace(/\D/g, ""); // strip non-digits
 
-  const handleSendOTP = async () => {
-    if (!mobileNumber || mobileNumber.length < 10) {
-      alert("Please enter a valid mobile number with country code (e.g., +919999999999)");
+    // Handle common prefixes to get to 10 digits
+    if (phone.length === 12 && phone.startsWith("91")) {
+      phone = phone.substring(2);
+    } else if (phone.length === 11 && phone.startsWith("0")) {
+      phone = phone.substring(1);
+    }
+
+    if (phone.length !== 10) {
+      alert("Please enter a valid 10-digit mobile number.");
       return;
     }
+
+    if (!displayName || displayName.trim().length < 3) {
+      alert("Please enter your name (min 3 characters).");
+      return;
+    }
+
+    const normalizedPhone = "+91" + phone;
     
     setLoading(true);
     try {
-      setupRecaptcha();
-      const verifier = (window as any).recaptchaVerifier;
-      
       if (!user) return;
       
-      const result = await linkWithPhoneNumber(user, mobileNumber, verifier);
-      setConfirmationResult(result);
-      setOtpMode(true);
-      alert("OTP Sent! Please check your mobile.");
-    } catch (error: any) {
-      console.error("OTP Error:", error);
-      if (error.code === 'auth/invalid-phone-number') {
-        alert("Invalid phone number. Please include country code (e.g., +91)");
-      } else if (error.code === 'auth/captcha-check-failed') {
-        alert("reCAPTCHA check failed. Please refresh and try again.");
-      } else {
-        alert("Error sending OTP. Make sure Phone Auth is enabled in Firebase Console.");
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleVerifyOTP = async () => {
-    if (!otpCode || otpCode.length < 6) {
-      alert("Please enter a 6-digit OTP code.");
-      return;
-    }
-
-    setLoading(true);
-    try {
-      if (!confirmationResult || !user) return;
-      
-      await confirmationResult.confirm(otpCode);
-      
-      // Update Firestore
       const userRef = doc(db, 'users', user.uid);
       await updateDoc(userRef, {
-        mobileNumber: mobileNumber,
+        displayName: displayName,
+        mobileNumber: normalizedPhone,
         isMobileVerified: true
       });
       
       setVerificationSuccess(true);
-      setOtpMode(false);
       setTimeout(() => setVerificationSuccess(false), 3000);
     } catch (error: any) {
-      console.error("Verification Error:", error);
-      alert("Invalid OTP code. Please try again.");
+      console.error("Update Error:", error);
+      alert("Error updating profile. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -165,92 +131,63 @@ export default function Account() {
               </div>
             </div>
             <div className="p-8 space-y-8">
-              {/* Mobile Verification */}
-              <div className="space-y-4">
-                <div id="recaptcha-container"></div>
-                <div className="flex justify-between items-center">
+              <div className="space-y-6">
+                <div className="space-y-2">
                   <label className="text-[10px] font-black uppercase tracking-widest text-text-muted flex items-center gap-2">
-                    <Phone className="w-3 h-3" />
-                    Mobile Number
+                    <User className="w-3 h-3" />
+                    Full Name
                   </label>
-                  {profile?.isMobileVerified && (
-                    <span className="flex items-center gap-1 text-[10px] font-black uppercase text-green-500 flex-shrink-0">
-                      <CheckCircle2 className="w-3 h-3" />
-                      Verified
-                    </span>
-                  )}
+                  <input 
+                    type="text"
+                    placeholder="Enter your name"
+                    value={displayName}
+                    onChange={e => setDisplayName(e.target.value)}
+                    className="w-full bg-bg border border-white/10 p-5 rounded-2xl focus:border-brand outline-none text-sm font-bold"
+                  />
                 </div>
-                
-                <AnimatePresence mode="wait">
-                  {!otpMode ? (
-                    <motion.div 
-                      key="input"
-                      initial={{ opacity: 0, x: -10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: 10 }}
-                      className="flex gap-4"
-                    >
+
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-text-muted flex items-center gap-2">
+                      <Phone className="w-3 h-3" />
+                      Mobile Number
+                    </label>
+                    {profile?.isMobileVerified && (
+                      <span className="flex items-center gap-1 text-[10px] font-black uppercase text-green-500 flex-shrink-0">
+                        <CheckCircle2 className="w-3 h-3" />
+                        Verified
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex gap-4">
+                    <div className="flex-grow space-y-2">
                       <input 
                         type="tel"
-                        placeholder="+1 234 567 890"
+                        placeholder="Enter 10-digit number"
                         value={mobileNumber}
                         onChange={e => setMobileNumber(e.target.value)}
-                        disabled={profile?.isMobileVerified && !verificationSuccess}
-                        className="flex-grow bg-bg border border-white/10 p-5 rounded-2xl focus:border-brand outline-none text-sm font-bold disabled:opacity-50"
+                        className="bg-bg border border-white/10 p-5 rounded-2xl focus:border-brand outline-none text-sm font-bold w-full"
                       />
-                      <button 
-                        onClick={handleSendOTP}
-                        disabled={loading || (profile?.isMobileVerified && mobileNumber === profile.mobileNumber)}
-                        className="px-8 bg-white text-black font-black uppercase tracking-widest text-[10px] rounded-2xl disabled:opacity-50 hover:bg-slate-200 transition-colors"
-                      >
-                        {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Send OTP'}
-                      </button>
-                    </motion.div>
-                  ) : (
-                    <motion.div 
-                      key="otp"
-                      initial={{ opacity: 0, x: -10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: 10 }}
-                      className="space-y-4"
-                    >
-                      <div className="flex gap-4">
-                        <div className="relative flex-grow">
-                          <Key className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-brand" />
-                          <input 
-                            type="text"
-                            placeholder="6-digit OTP"
-                            maxLength={6}
-                            value={otpCode}
-                            onChange={e => setOtpCode(e.target.value)}
-                            className="w-full bg-bg border border-brand/50 p-5 pl-14 rounded-2xl focus:border-brand outline-none text-sm font-bold tracking-[0.5em]"
-                          />
-                        </div>
-                        <button 
-                          onClick={handleVerifyOTP}
-                          disabled={loading || otpCode.length < 6}
-                          className="px-8 bg-brand text-white font-black uppercase tracking-widest text-[10px] rounded-2xl disabled:opacity-50"
-                        >
-                          {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Verify'}
-                        </button>
-                      </div>
-                      <button 
-                        onClick={() => setOtpMode(false)}
-                        className="text-[10px] font-black uppercase tracking-widest text-text-muted hover:text-white underline"
-                      >
-                        Change Number
-                      </button>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                      <p className="text-[10px] text-white/40 font-bold uppercase tracking-wider">India (+91) format supported</p>
+                    </div>
+                  </div>
+                </div>
+
+                <button 
+                  onClick={handleUpdateProfile}
+                  disabled={loading || !displayName || !mobileNumber}
+                  className="w-full py-5 bg-white text-black font-black uppercase tracking-widest text-[10px] rounded-2xl disabled:opacity-50 hover:bg-slate-200 transition-colors shadow-xl"
+                >
+                  {loading ? <Loader2 className="w-5 h-5 animate-spin mx-auto text-black" /> : 'Update Profile'}
+                </button>
 
                 {verificationSuccess && (
                   <motion.p 
                     initial={{ opacity: 0, y: 5 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="text-green-500 font-bold text-xs"
+                    className="text-green-500 font-bold text-xs text-center"
                   >
-                    Mobile number verified successfully!
+                    Profile updated successfully!
                   </motion.p>
                 )}
               </div>

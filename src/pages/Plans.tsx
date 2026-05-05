@@ -1,11 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Check, Crown, Zap, ShieldCheck, X, Loader2, CreditCard, Phone, Mail, Star, Activity, Percent, CheckCircle2, Key } from 'lucide-react';
+import { Check, Crown, Zap, ShieldCheck, X, Loader2, CreditCard, Phone, Mail, Star, Activity, Percent, CheckCircle2, Key, User } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
 import { useAuth } from '../hooks/useAuth';
 import { db, handleFirestoreError, OperationType, signInWithGoogle, auth } from '../lib/firebase';
 import { doc, updateDoc, collection, query, orderBy, getDocs } from 'firebase/firestore';
-import { RecaptchaVerifier, linkWithPhoneNumber } from 'firebase/auth';
 import { SubscriptionPlan } from '../types';
 
 const IconMap: Record<string, any> = {
@@ -20,88 +19,52 @@ export default function Plans() {
   const { user, profile } = useAuth();
   const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan | null>(null);
   const [mobileNumber, setMobileNumber] = useState('');
+  const [displayName, setDisplayName] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [step, setStep] = useState<'details' | 'payment' | 'success'>('details');
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const [confirmationResult, setConfirmationResult] = useState<any>(null);
-  const [otpMode, setOtpMode] = useState(false);
-  const [otpCode, setOtpCode] = useState('');
+  const handleSubscribe = async () => {
+    // Custom formatting logic for Indian numbers
+    let phone = mobileNumber.replace(/\D/g, ""); // strip non-digits
 
-  const setupRecaptcha = () => {
-    if (!(window as any).recaptchaVerifier && auth) {
-      (window as any).recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container-plans', {
-        'size': 'invisible'
-      });
+    // Handle common prefixes to get to 10 digits
+    if (phone.length === 12 && phone.startsWith("91")) {
+      phone = phone.substring(2);
+    } else if (phone.length === 11 && phone.startsWith("0")) {
+      phone = phone.substring(1);
     }
-  };
 
-  const handleSendOTP = async () => {
-    if (!mobileNumber || mobileNumber.length < 10) {
-      alert("Please enter a valid mobile number with country code (e.g., +919999999999)");
-      return;
-    }
-    setIsProcessing(true);
-    try {
-      setupRecaptcha();
-      if (!user) return;
-      const result = await linkWithPhoneNumber(user, mobileNumber, (window as any).recaptchaVerifier);
-      setConfirmationResult(result);
-      setOtpMode(true);
-      alert("OTP Sent! Please check your mobile.");
-    } catch (err: any) {
-      console.error(err);
-      alert("Error sending OTP. Make sure you enable Phone Auth in Firebase Console and include country code.");
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  const handleVerifyAndSubscribe = async () => {
-    if (!otpCode || otpCode.length < 6) {
-      alert("Please enter the 6-digit OTP.");
+    if (phone.length !== 10) {
+      alert("Please enter a valid 10-digit mobile number.");
       return;
     }
 
+    if (!displayName || displayName.trim().length < 3) {
+      alert("Please enter your full name.");
+      return;
+    }
+
+    const normalizedPhone = "+91" + phone;
+    
     setIsProcessing(true);
     try {
       if (!user || !selectedPlan) return;
       
-      if (!profile?.isMobileVerified && confirmationResult) {
-        await confirmationResult.confirm(otpCode);
-      }
-
       const userRef = doc(db, 'users', user.uid);
       await updateDoc(userRef, {
+        displayName: displayName,
         subscriptionTier: selectedPlan.id,
         subscriptionStatus: 'active',
-        mobileNumber: mobileNumber,
-        isMobileVerified: true,
+        mobileNumber: normalizedPhone,
+        isMobileVerified: true, // Auto-verify for now as per request
         lastPaymentDate: new Date().toISOString()
       });
       setStep('success');
     } catch (error: any) {
       console.error(error);
-      alert("Verification failed. Please check the code.");
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  const handleDirectSubscribe = async () => {
-    setIsProcessing(true);
-    try {
-      if (!user || !selectedPlan) return;
-      const userRef = doc(db, 'users', user.uid);
-      await updateDoc(userRef, {
-        subscriptionTier: selectedPlan.id,
-        subscriptionStatus: 'active',
-        lastPaymentDate: new Date().toISOString()
-      });
-      setStep('success');
-    } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, `users/${user?.uid}`);
+      alert("Subscription failed. Please try again.");
     } finally {
       setIsProcessing(false);
     }
@@ -111,6 +74,9 @@ export default function Plans() {
     fetchPlans();
     if (profile?.mobileNumber) {
       setMobileNumber(profile.mobileNumber);
+    }
+    if (profile?.displayName) {
+      setDisplayName(profile.displayName);
     }
   }, [profile]);
 
@@ -299,70 +265,50 @@ export default function Plans() {
                       ) : (
                         <div className="space-y-6">
                             <div className="space-y-6">
-                              <div id="recaptcha-container-plans"></div>
-                              <div className="space-y-4">
-                                <div className="flex justify-between items-center">
+                              <div className="space-y-5">
+                                <div className="space-y-2">
+                                  <label className="text-[10px] font-black uppercase tracking-widest text-text-muted flex items-center gap-2">
+                                    <Mail className="w-3 h-3" />
+                                    Email Address
+                                  </label>
+                                  <input 
+                                    type="email"
+                                    value={user.email || ''}
+                                    disabled
+                                    className="w-full bg-white/5 border border-white/5 p-4 rounded-2xl text-sm font-medium text-white/50 cursor-not-allowed"
+                                  />
+                                </div>
+
+                                <div className="space-y-2">
+                                  <label className="text-[10px] font-black uppercase tracking-widest text-text-muted flex items-center gap-2">
+                                    <User className="w-3 h-3" />
+                                    Full Name
+                                  </label>
+                                  <input 
+                                    type="text"
+                                    placeholder="Enter your name"
+                                    value={displayName}
+                                    onChange={e => setDisplayName(e.target.value)}
+                                    className="w-full bg-bg border border-white/10 p-5 rounded-2xl focus:border-brand outline-none text-sm font-bold"
+                                  />
+                                </div>
+
+                                <div className="space-y-2">
                                   <label className="text-[10px] font-black uppercase tracking-widest text-text-muted flex items-center gap-2">
                                     <Phone className="w-3 h-3" />
                                     Mobile Number
                                   </label>
-                                  {profile?.isMobileVerified && (
-                                    <span className="flex items-center gap-1 text-[10px] font-black uppercase text-green-500">
-                                      <CheckCircle2 className="w-3 h-3" />
-                                      Verified
-                                    </span>
-                                  )}
-                                </div>
-                                
-                                {!otpMode ? (
                                   <div className="flex gap-3">
                                     <input 
                                       type="tel"
-                                      placeholder="+1 234 567 890"
+                                      placeholder="Enter 10-digit number"
                                       value={mobileNumber}
                                       onChange={e => setMobileNumber(e.target.value)}
-                                      disabled={profile?.isMobileVerified}
-                                      className="flex-grow bg-bg border border-white/10 p-5 rounded-2xl focus:border-brand outline-none text-sm font-bold disabled:opacity-50"
+                                      className="flex-grow bg-bg border border-white/10 p-5 rounded-2xl focus:border-brand outline-none text-sm font-bold"
                                     />
-                                    {!profile?.isMobileVerified && (
-                                      <button 
-                                        onClick={handleSendOTP}
-                                        disabled={isProcessing || !mobileNumber}
-                                        className="px-6 bg-white text-black font-black uppercase tracking-widest text-[10px] rounded-2xl disabled:opacity-50"
-                                      >
-                                        {isProcessing ? <Loader2 className="w-4 h-4 animate-spin text-black" /> : 'Send OTP'}
-                                      </button>
-                                    )}
                                   </div>
-                                ) : (
-                                  <div className="space-y-4">
-                                    <div className="flex gap-3">
-                                      <div className="relative flex-grow">
-                                        <Key className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-brand" />
-                                        <input 
-                                          type="text"
-                                          placeholder="6-digit OTP"
-                                          value={otpCode}
-                                          onChange={e => setOtpCode(e.target.value)}
-                                          className="w-full bg-bg border border-brand/50 p-5 pl-12 rounded-2xl focus:border-brand outline-none text-sm font-bold tracking-[0.3em]"
-                                        />
-                                      </div>
-                                      <button 
-                                        onClick={handleVerifyAndSubscribe}
-                                        disabled={isProcessing || otpCode.length < 6}
-                                        className="px-8 bg-brand text-white font-black uppercase tracking-widest text-[10px] rounded-2xl disabled:opacity-50"
-                                      >
-                                        {isProcessing ? <Loader2 className="w-4 h-4 animate-spin text-white" /> : 'Verify'}
-                                      </button>
-                                    </div>
-                                    <button 
-                                      onClick={() => setOtpMode(false)}
-                                      className="text-[10px] font-black uppercase tracking-widest text-text-muted hover:text-white"
-                                    >
-                                      Change Number
-                                    </button>
-                                  </div>
-                                )}
+                                  <p className="text-[10px] text-white/40 font-bold uppercase tracking-wider">India (+91) format supported</p>
+                                </div>
                               </div>
 
                               <div className="p-6 bg-white/5 rounded-2xl border border-white/5 space-y-4">
@@ -380,19 +326,13 @@ export default function Plans() {
                                 </div>
                               </div>
 
-                              {profile?.isMobileVerified && (
-                                <button 
-                                  onClick={handleDirectSubscribe}
-                                  disabled={isProcessing}
-                                  className="w-full py-5 bg-brand text-white font-black uppercase tracking-[0.3em] rounded-2xl shadow-xl shadow-brand/20 disabled:opacity-50"
-                                >
-                                  {isProcessing ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Activate Subscription'}
-                                </button>
-                              )}
-                              
-                              {!profile?.isMobileVerified && !otpMode && (
-                                <p className="text-[10px] font-bold text-center text-white/20 uppercase tracking-widest italic">Verify your number to activate subscription</p>
-                              )}
+                              <button 
+                                onClick={handleSubscribe}
+                                disabled={isProcessing || !mobileNumber || !displayName}
+                                className="w-full py-5 bg-brand text-white font-black uppercase tracking-[0.3em] rounded-2xl shadow-xl shadow-brand/20 disabled:opacity-50"
+                              >
+                                {isProcessing ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : 'Join for Free'}
+                              </button>
                             </div>
                         </div>
                       )}

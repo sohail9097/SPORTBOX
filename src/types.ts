@@ -49,7 +49,7 @@ export interface UserProfile {
 export interface ContentSection {
   id: string;
   title: string;
-  page: 'home' | 'cricket' | 'football';
+  page: 'home' | Category;
   contentIds: string[];
   type: 'normal' | 'top10' | 'single-row' | 'featured';
   order: number;
@@ -68,6 +68,7 @@ export interface SliderElement {
   order: number;
   isActive: boolean;
   animationType?: 'fade' | 'slide';
+  page?: 'home' | Category; // Added for per-page sliders
 }
 
 export interface VideoPromoSettings {

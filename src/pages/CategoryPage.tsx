@@ -1,37 +1,55 @@
 import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { db } from '../lib/firebase';
-import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
-import { SportsContent } from '../types';
+import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
+import { SportsContent, Category } from '../types';
 import ContentCard from '../components/ContentCard';
 import DynamicSections from '../components/DynamicSections';
+import HeroSlider from '../components/HeroSlider';
 import { motion } from 'motion/react';
-import { Trophy, Activity } from 'lucide-react';
+import { Trophy, Activity, Play, ChevronRight } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 export default function CategoryPage() {
   const { category } = useParams<{ category: string }>();
   const [content, setContent] = useState<SportsContent[]>([]);
+  const [liveNow, setLiveNow] = useState<SportsContent[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (category) {
-      fetchCategoryContent();
+      fetchCategoryData();
     }
   }, [category]);
 
-  const fetchCategoryContent = async () => {
+  const fetchCategoryData = async () => {
     setLoading(true);
     try {
-      const q = query(
+      // 1. Fetch All Assets
+      const allQuery = query(
         collection(db, 'content'),
         where('category', '==', category),
         orderBy('createdAt', 'desc')
       );
-      const snap = await getDocs(q);
-      setContent(snap.docs.map(d => ({ id: d.id, ...d.data() } as SportsContent)));
+      
+      // 2. Fetch Live for this category
+      const liveQuery = query(
+        collection(db, 'content'),
+        where('category', '==', category),
+        where('type', '==', 'live'),
+        where('status', '==', 'live'),
+        limit(4)
+      );
+
+      const [allSnap, liveSnap] = await Promise.all([
+        getDocs(allQuery),
+        getDocs(liveQuery)
+      ]);
+
+      setContent(allSnap.docs.map(d => ({ id: d.id, ...d.data() } as SportsContent)));
+      setLiveNow(liveSnap.docs.map(d => ({ id: d.id, ...d.data() } as SportsContent)));
     } catch (error) {
-      console.error('Error fetching category content:', error);
+      console.error('Error fetching category data:', error);
     } finally {
       setLoading(false);
     }
@@ -40,8 +58,13 @@ export default function CategoryPage() {
   const categoryName = category ? category.charAt(0).toUpperCase() + category.slice(1) : 'Sports';
 
   return (
-    <div className="min-h-screen pb-20 pt-12">
-      <div className="max-w-7xl mx-auto px-4">
+    <div className="min-h-screen pb-20">
+      {/* Hero Slider Section (Category Specific) */}
+      <section className="w-full h-auto max-w-7xl mx-auto px-4 pt-4 md:pt-8">
+        <HeroSlider page={category as Category} />
+      </section>
+
+      <div className="max-w-7xl mx-auto px-4 pt-12">
         {/* Header */}
         <header className="mb-12 space-y-4">
           <motion.div
@@ -50,7 +73,7 @@ export default function CategoryPage() {
             className="flex items-center gap-3 text-brand"
           >
             <Activity className="w-5 h-5" />
-            <span className="text-xs font-black uppercase tracking-[0.3em]">Category Archive</span>
+            <span className="text-xs font-black uppercase tracking-[0.3em]">{categoryName} Network</span>
           </motion.div>
           <motion.h1
             initial={{ opacity: 0, y: 20 }}
@@ -70,10 +93,22 @@ export default function CategoryPage() {
           </motion.p>
         </header>
 
+        {/* Live Section */}
+        {liveNow.length > 0 && (
+          <section key="live-section" className="mb-24">
+            <SectionHeader title={`Live ${categoryName}`} icon={Play} link="/live" />
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+              {liveNow.map((item, i) => (
+                <ContentCard key={`live-${item.id}`} content={item} index={i} />
+              ))}
+            </div>
+          </section>
+        )}
+
         {/* Dynamic Sections (If available for this category) */}
-        {(category === 'cricket' || category === 'football') && (
+        {category && (
           <div className="mb-24">
-            <DynamicSections page={category as 'cricket' | 'football'} />
+            <DynamicSections page={category as any} />
           </div>
         )}
 
@@ -84,13 +119,13 @@ export default function CategoryPage() {
         {loading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
             {[...Array(8)].map((_, i) => (
-              <div key={i} className="aspect-video bg-white/5 rounded-3xl animate-pulse" />
+              <div key={`skeleton-archive-${i}`} className="aspect-video bg-white/5 rounded-3xl animate-pulse" />
             ))}
           </div>
         ) : content.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
             {content.map((item, i) => (
-              <ContentCard key={item.id} content={item} index={i} />
+              <ContentCard key={`archive-${item.id}`} content={item} index={i} />
             ))}
           </div>
         ) : (
@@ -105,6 +140,25 @@ export default function CategoryPage() {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function SectionHeader({ title, icon: Icon, link }: { title: string, icon: any, link?: string }) {
+  return (
+    <div className="flex items-center justify-between mb-8">
+      <div className="flex items-center gap-3">
+        <div className="p-2 bg-brand/10 rounded-lg">
+          <Icon className="w-5 h-5 text-brand" />
+        </div>
+        <h2 className="text-2xl font-display uppercase tracking-wider">{title}</h2>
+      </div>
+      {link && (
+        <Link to={link} className="flex items-center gap-1 text-text-muted hover:text-brand transition-colors group text-xs font-bold uppercase tracking-widest">
+          View All
+          <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+        </Link>
+      )}
     </div>
   );
 }

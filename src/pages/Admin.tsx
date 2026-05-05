@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { collection, addDoc, getDocs, getDoc, deleteDoc, doc, updateDoc, query, orderBy, setDoc } from 'firebase/firestore';
 import { SportsContent, Category, ContentType, ContentSection, SliderElement, VideoPromoSettings, SiteConfig, PlayerSettings, SubscriptionPlan } from '../types';
-import { Plus, Trash2, Edit2, Play, LayoutDashboard, Film, Users, Settings, Save, X, Eye, Radio, Crown, Layers, MoveUp, MoveDown, CheckSquare, Square, Image as ImageIcon, Upload, Library, ShieldCheck, Zap, Percent } from 'lucide-react';
+import { Plus, Trash2, Edit2, Play, LayoutDashboard, Film, Users, Settings, Save, X, Eye, Radio, Crown, Layers, MoveUp, MoveDown, CheckSquare, Square, Image as ImageIcon, Upload, Library, ShieldCheck, Zap, Percent, Trophy, ChevronRight, Activity } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn, formatDate, transformGDriveUrl } from '../lib/utils';
 import { useAuth } from '../hooks/useAuth';
@@ -13,7 +13,8 @@ import StadiumPlayer from '../components/StadiumPlayer';
 export default function Admin() {
   const { user, isAdmin, loading: authLoading } = useAuth();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'content' | 'live' | 'sections' | 'slider' | 'users' | 'settings' | 'media' | 'plans'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'content' | 'live' | 'sections' | 'categories' | 'slider' | 'users' | 'settings' | 'media' | 'plans'>('dashboard');
+  const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [content, setContent] = useState<SportsContent[]>([]);
   const [mediaItems, setMediaItems] = useState<any[]>([]);
   const [sections, setSections] = useState<ContentSection[]>([]);
@@ -83,7 +84,8 @@ export default function Admin() {
     isLive: false,
     order: 0,
     isActive: true,
-    animationType: 'fade'
+    animationType: 'fade',
+    page: 'home'
   });
 
   // Plan Form state
@@ -409,7 +411,7 @@ export default function Admin() {
       setIsAddingSlider(false);
       setEditingSliderId(null);
       fetchSlider();
-      setSliderForm({ title: '', description: '', imageUrl: '', videoUrl: '', actionUrl: '', isLive: false, order: 0, isActive: true, animationType: 'fade' });
+      setSliderForm({ title: '', description: '', imageUrl: '', videoUrl: '', actionUrl: '', isLive: false, order: 0, isActive: true, animationType: 'fade', page: 'home' });
     } catch (error) {
       handleFirestoreError(error, editingSliderId ? OperationType.UPDATE : OperationType.CREATE, 'slider');
     }
@@ -524,7 +526,7 @@ export default function Admin() {
         <div className="flex flex-col gap-2">
           <SidebarLink icon={LayoutDashboard} label="Dashboard" active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} />
           <SidebarLink icon={Film} label="Library" active={activeTab === 'content'} onClick={() => setActiveTab('content')} />
-          <SidebarLink icon={Layers} label="Sections" active={activeTab === 'sections'} onClick={() => setActiveTab('sections')} />
+          <SidebarLink icon={Trophy} label="Categories" active={activeTab === 'categories'} onClick={() => setActiveTab('categories')} />
           <SidebarLink icon={ImageIcon} label="Hero Slider" active={activeTab === 'slider'} onClick={() => setActiveTab('slider')} />
           <SidebarLink icon={Radio} label="Live Center" active={activeTab === 'live'} onClick={() => setActiveTab('live')} />
           <SidebarLink icon={Users} label="Users" active={activeTab === 'users'} onClick={() => setActiveTab('users')} />
@@ -683,7 +685,7 @@ export default function Admin() {
                   </thead>
                   <tbody className="divide-y divide-border">
                     {content.map((item) => (
-                      <tr key={item.id} className="hover:bg-surface-hover/30 transition-colors group">
+                      <tr key={`asset-${item.id}`} className="hover:bg-surface-hover/30 transition-colors group">
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-4">
                             <div className="h-12 w-20 rounded-lg overflow-hidden bg-bg border border-border">
@@ -730,55 +732,198 @@ export default function Admin() {
             </motion.div>
           )}
 
-           {activeTab === 'sections' && (
-             <motion.div key="sections" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} className="space-y-8">
-                <div className="flex justify-between items-end">
-                  <div className="space-y-2">
-                    <h1 className="text-5xl font-black uppercase italic tracking-tighter">Page Sections</h1>
-                    <p className="text-text-muted font-medium">Curate custom rows for your Home and Sports pages.</p>
-                  </div>
-                  <button 
-                    onClick={() => {
-                      setEditingSectionId(null);
-                      setSectionForm({ title: '', page: 'home', contentIds: [], type: 'normal', order: (sections.length > 0 ? Math.max(...sections.map(s => s.order)) + 1 : 0), isActive: true });
-                      setIsAddingSection(true);
-                    }}
-                    className="btn-primary flex items-center gap-2"
-                  >
-                    <Plus className="w-4 h-4" />
-                    New Section
-                  </button>
-                </div>
+           {activeTab === 'categories' && (
+             <motion.div key="categories" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} className="space-y-12">
+                {!selectedCategory ? (
+                  <>
+                    <div className="space-y-2">
+                      <h1 className="text-5xl font-black uppercase italic tracking-tighter">Sports Network</h1>
+                      <p className="text-text-muted font-medium">Select a category to manage its dynamic sections and tournament content.</p>
+                    </div>
 
-                <div className="grid grid-cols-1 gap-4">
-                  {sections.map(section => (
-                    <div key={section.id} className="glass-card p-6 flex items-center justify-between group">
-                      <div className="flex items-center gap-6">
-                        <div className="w-10 h-10 bg-surface flex items-center justify-center rounded-lg border border-border">
-                          <Layers className="w-5 h-5 text-brand" />
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      <button
+                        onClick={() => setSelectedCategory('home' as any)}
+                        className="p-8 group hover:border-brand/40 transition-all text-left relative overflow-hidden bg-surface/30 border border-white/5 rounded-3xl"
+                      >
+                        <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity">
+                          <LayoutDashboard className="w-32 h-32" />
                         </div>
-                        <div>
-                          <h3 className="font-bold text-lg uppercase italic">{section.title}</h3>
-                          <div className="flex items-center gap-3 text-[10px] font-black uppercase tracking-widest text-text-muted">
-                            <span className="text-brand">{section.type}</span>
-                            <span>•</span>
-                            <span>Page: {section.page}</span>
-                            <span>•</span>
-                            <span>{section.contentIds.length} Assets</span>
-                            <span>•</span>
-                            <span className={section.isActive ? "text-green-500" : "text-red-500"}>{section.isActive ? 'Active' : 'Inactive'}</span>
+                        <div className="relative z-10 space-y-4">
+                          <div className="w-12 h-12 bg-blue-500/10 rounded-xl flex items-center justify-center text-blue-500">
+                            <LayoutDashboard className="w-6 h-6" />
+                          </div>
+                          <div>
+                            <h3 className="text-2xl font-display font-black uppercase italic tracking-wider">Home Page</h3>
+                            <p className="text-[10px] text-text-muted uppercase font-bold tracking-widest">
+                              {sections.filter(s => s.page === 'home').length} Dynamic Sections
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2 text-brand text-[10px] font-black uppercase italic tracking-widest group-hover:gap-3 transition-all">
+                            Manage Content <ChevronRight className="w-4 h-4" />
                           </div>
                         </div>
+                      </button>
+
+                      {['cricket', 'football', 'basketball', 'tennis', 'others'].map((cat) => (
+                        <button
+                          key={cat}
+                          onClick={() => setSelectedCategory(cat as Category)}
+                          className="p-8 group hover:border-brand/40 transition-all text-left relative overflow-hidden bg-surface/30 border border-white/5 rounded-3xl"
+                        >
+                          <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity">
+                            <Trophy className="w-32 h-32" />
+                          </div>
+                          <div className="relative z-10 space-y-4">
+                            <div className="w-12 h-12 bg-brand/10 rounded-xl flex items-center justify-center text-brand">
+                              <Trophy className="w-6 h-6" />
+                            </div>
+                            <div>
+                              <h3 className="text-2xl font-display font-black uppercase italic tracking-wider">{cat}</h3>
+                              <p className="text-[10px] text-text-muted uppercase font-bold tracking-widest">
+                                {sections.filter(s => s.page === cat).length} Dynamic Sections
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2 text-brand text-[10px] font-black uppercase italic tracking-widest group-hover:gap-3 transition-all">
+                              Manage Content <ChevronRight className="w-4 h-4" />
+                            </div>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <div className="space-y-8">
+                    <div className="flex items-center gap-4">
+                      <button 
+                        onClick={() => setSelectedCategory(null)}
+                        className="p-2 hover:bg-white/5 rounded-full transition-colors"
+                      >
+                        <Plus className="w-6 h-6 rotate-45" />
+                      </button>
+                      <div>
+                        <div className="flex items-center gap-2 text-brand mb-1">
+                          <Activity className="w-4 h-4" />
+                          <span className="text-[10px] font-black uppercase tracking-widest">
+                            {String(selectedCategory) === 'home' ? 'Home Main' : `${selectedCategory} Category`}
+                          </span>
+                        </div>
+                        <h2 className="text-4xl font-black uppercase italic tracking-tighter">Section Management</h2>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <button onClick={() => handleSectionEdit(section)} className="p-3 hover:text-brand transition-colors"><Edit2 className="w-5 h-5" /></button>
-                        <button onClick={() => handleSectionDelete(section.id)} className="p-3 hover:text-red-500 transition-colors"><Trash2 className="w-5 h-5" /></button>
+                      <div className="flex items-center gap-2 ml-auto">
+                        <button 
+                          onClick={() => {
+                            setEditingSliderId(null);
+                            setSliderForm({ 
+                              title: '', 
+                              description: '', 
+                              imageUrl: '', 
+                              videoUrl: '', 
+                              actionUrl: '', 
+                              isLive: false, 
+                              order: (slider.length > 0 ? Math.max(...slider.map(s => s.order)) + 1 : 0), 
+                              isActive: true, 
+                              animationType: 'fade',
+                              page: selectedCategory 
+                            });
+                            setIsAddingSlider(true);
+                          }}
+                          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase italic tracking-widest flex items-center gap-2"
+                        >
+                          <ImageIcon className="w-4 h-4" />
+                          Add Hero Content
+                        </button>
+                        <button 
+                          onClick={() => {
+                            setEditingSectionId(null);
+                            setSectionForm({ 
+                              title: '', 
+                              page: selectedCategory, 
+                              contentIds: [], 
+                              type: 'normal', 
+                              order: (sections.length > 0 ? Math.max(...sections.map(s => s.order)) + 1 : 0), 
+                              isActive: true 
+                            });
+                            setIsAddingSection(true);
+                          }}
+                          className="btn-primary flex items-center gap-2"
+                        >
+                          <Plus className="w-4 h-4" />
+                          Add Tournament Section
+                        </button>
                       </div>
                     </div>
-                  ))}
+
+                    {/* Category Hero Slides */}
+                    <div className="space-y-4">
+                      <h3 className="text-sm font-black uppercase italic tracking-widest text-brand">Hero Banners</h3>
+                      {slider.filter(s => s.page === selectedCategory).length > 0 ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {slider.filter(s => s.page === selectedCategory).map(slide => (
+                            <div key={`cat-slide-${slide.id}`} className="glass-card overflow-hidden group border-white/5">
+                              <div className="aspect-video relative bg-bg">
+                                {slide.imageUrl && <img src={slide.imageUrl} className="w-full h-full object-cover opacity-60" alt="" />}
+                                <div className="absolute inset-0 flex items-end p-4 bg-gradient-to-t from-black/80 to-transparent">
+                                  <div>
+                                    <p className="text-xs font-black uppercase italic">{slide.title}</p>
+                                    <p className="text-[10px] text-white/40 line-clamp-1">{slide.description}</p>
+                                  </div>
+                                </div>
+                                <div className="absolute top-2 right-2 flex gap-1">
+                                  <button onClick={() => { setSliderForm(slide); setEditingSliderId(slide.id); setIsAddingSlider(true); }} className="p-2 bg-black/60 rounded-lg hover:text-brand transition-colors"><Edit2 className="w-3 h-3" /></button>
+                                  <button onClick={() => handleSliderDelete(slide.id)} className="p-2 bg-black/60 rounded-lg hover:text-red-500 transition-colors"><Trash2 className="w-3 h-3" /></button>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="py-12 text-center glass-card border-dashed border-white/10 opacity-60 mb-8">
+                           <ImageIcon className="w-8 h-8 text-text-muted mx-auto mb-3" />
+                           <p className="text-[10px] font-black uppercase italic tracking-widest">No Hero Content for {selectedCategory}</p>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="space-y-4">
+                      <h3 className="text-sm font-black uppercase italic tracking-widest text-brand">Tournament Sections</h3>
+                      <div className="grid grid-cols-1 gap-4">
+                        {sections.filter(s => s.page === selectedCategory).map(section => (
+                        <div key={section.id} className="glass-card p-6 flex items-center justify-between group">
+                          <div className="flex items-center gap-6">
+                            <div className="w-10 h-10 bg-surface flex items-center justify-center rounded-lg border border-border">
+                              <Layers className="w-5 h-5 text-brand" />
+                            </div>
+                            <div>
+                              <h3 className="font-bold text-lg uppercase italic">{section.title}</h3>
+                              <div className="flex items-center gap-3 text-[10px] font-black uppercase tracking-widest text-text-muted">
+                                <span className="text-brand">{section.type}</span>
+                                <span>•</span>
+                                <span>{section.contentIds.length} Assets Attached</span>
+                                <span>•</span>
+                                <span className={section.isActive ? "text-green-500" : "text-red-500"}>{section.isActive ? 'Active' : 'Inactive'}</span>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button onClick={() => handleSectionEdit(section)} className="p-3 hover:text-brand transition-colors"><Edit2 className="w-5 h-5" /></button>
+                            <button onClick={() => handleSectionDelete(section.id)} className="p-3 hover:text-red-500 transition-colors"><Trash2 className="w-5 h-5" /></button>
+                          </div>
+                        </div>
+                      ))}
+                      {sections.filter(s => s.page === selectedCategory).length === 0 && (
+                        <div className="py-20 text-center glass-card border-dashed border-white/10 opacity-60">
+                           <Layers className="w-12 h-12 text-text-muted mx-auto mb-4" />
+                           <p className="font-black uppercase italic tracking-widest">No sections in {selectedCategory} yet</p>
+                           <p className="text-xs text-text-muted mt-2">Add your first tournament or highlight row above.</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
-             </motion.div>
-           )}
+              )}
+            </motion.div>
+          )}
 
            {activeTab === 'slider' && (
              <motion.div key="slider" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} className="space-y-8">
@@ -823,6 +968,7 @@ export default function Admin() {
                         <div className="flex items-center gap-4">
                           <span>Order: {slide.order}</span>
                           <span className={slide.isActive ? "text-green-500" : "text-red-500"}>{slide.isActive ? 'Active' : 'Inactive'}</span>
+                          <span className="text-brand">Page: {slide.page}</span>
                         </div>
                         <span>{slide.animationType} effect</span>
                       </div>
@@ -863,7 +1009,7 @@ export default function Admin() {
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   {content.filter(c => c.type === 'live' || c.status === 'live').map(item => (
-                    <div key={item.id} className="glass-card p-6 border-l-4 border-l-brand">
+                    <div key={`live-center-${item.id}`} className="glass-card p-6 border-l-4 border-l-brand">
                       <div className="flex justify-between items-start mb-4">
                         <div className="h-10 w-16 bg-bg border border-border rounded overflow-hidden">
                           {item.thumbnailUrl && <img src={item.thumbnailUrl} className="w-full h-full object-cover" alt="" />}
@@ -956,7 +1102,7 @@ export default function Admin() {
                   </thead>
                   <tbody className="divide-y divide-border">
                     {subscribers.map((sub) => (
-                      <tr key={sub.id} className="hover:bg-surface-hover/30 transition-colors">
+                      <tr key={`sub-${sub.id}`} className="hover:bg-surface-hover/30 transition-colors">
                         <td className="px-6 py-4">
                           <div>
                             <p className="text-sm font-bold">{sub.displayName}</p>
@@ -1300,7 +1446,7 @@ export default function Admin() {
                       </div>
                     ) : (
                       mediaItems.map(item => (
-                        <div key={item.id} className="glass-card p-4 group flex gap-4 items-center">
+                        <div key={`library-${item.id}`} className="glass-card p-4 group flex gap-4 items-center">
                           <div className="w-20 h-20 bg-bg rounded-xl overflow-hidden shrink-0 flex items-center justify-center relative">
                             <video src={item.url} className="w-full h-full object-cover opacity-50" />
                             <div className="absolute inset-0 flex items-center justify-center group-hover:bg-black/20 transition-all">
@@ -1360,6 +1506,9 @@ export default function Admin() {
                     <select value={form.category} onChange={e => setForm({...form, category: e.target.value as Category})} className="w-full bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none">
                       <option value="football">Football</option>
                       <option value="cricket">Cricket</option>
+                      <option value="basketball">Basketball</option>
+                      <option value="tennis">Tennis</option>
+                      <option value="others">Others</option>
                     </select>
                   </div>
                   <div className="space-y-2">
@@ -1434,9 +1583,12 @@ export default function Admin() {
                   <div className="space-y-2">
                     <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Page</label>
                     <select value={sectionForm.page} onChange={e => setSectionForm({...sectionForm, page: e.target.value as any})} className="w-full bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none">
-                      <option value="home">Home</option>
-                      <option value="football">Football Page</option>
-                      <option value="cricket">Cricket Page</option>
+                      <option value="home">Home Page</option>
+                      <option value="football">Football Category</option>
+                      <option value="cricket">Cricket Category</option>
+                      <option value="basketball">Basketball Category</option>
+                      <option value="tennis">Tennis Category</option>
+                      <option value="others">Others Category</option>
                     </select>
                   </div>
                   <div className="space-y-2">
@@ -1453,9 +1605,11 @@ export default function Admin() {
                 <div className="space-y-2">
                   <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Select Content (Click to toggle)</label>
                   <div className="grid grid-cols-1 gap-2 max-h-[300px] overflow-y-auto p-2 bg-bg border border-white/10 rounded-md">
-                    {content.map(item => (
+                    {content
+                      .filter(item => sectionForm.page === 'home' || item.category === sectionForm.page)
+                      .map(item => (
                       <div 
-                        key={item.id} 
+                        key={`section-picker-${item.id}`} 
                         onClick={() => {
                           const ids = [...(sectionForm.contentIds || [])];
                           if (ids.includes(item.id)) {
@@ -1536,6 +1690,17 @@ export default function Admin() {
                     </select>
                   </div>
                 </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Page / Category</label>
+                  <select value={sliderForm.page} onChange={e => setSliderForm({...sliderForm, page: e.target.value as any})} className="w-full bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none">
+                    <option value="home">Home Page</option>
+                    <option value="football">Football Category</option>
+                    <option value="cricket">Cricket Category</option>
+                    <option value="basketball">Basketball Category</option>
+                    <option value="tennis">Tennis Category</option>
+                    <option value="others">Others Category</option>
+                  </select>
+                </div>
                 <div className="flex gap-4">
                   <div className="flex-grow flex items-center gap-3 bg-white/5 p-4 rounded-md">
                      <input type="checkbox" id="isLiveSlide" checked={sliderForm.isLive} onChange={e => setSliderForm({...sliderForm, isLive: e.target.checked})} className="w-4 h-4 accent-brand" />
@@ -1556,8 +1721,7 @@ export default function Admin() {
         )}
 
         {/* Video Preview Modal */}
-        <AnimatePresence>
-          {isAddingPlan && (
+        {isAddingPlan && (
           <>
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsAddingPlan(false)} className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60]" />
             <motion.div initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }} className="fixed top-0 right-0 h-full w-full max-w-xl bg-surface border-l border-white/10 z-[70] p-8 overflow-y-auto">
@@ -1708,7 +1872,6 @@ export default function Admin() {
             </motion.div>
           )}
         </AnimatePresence>
-       </AnimatePresence>
     </div>
   );
 }

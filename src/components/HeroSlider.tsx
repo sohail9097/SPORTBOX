@@ -1,16 +1,21 @@
 import { useState, useEffect, useRef } from 'react';
 import { db } from '../lib/firebase';
 import { collection, query, where, orderBy, getDocs } from 'firebase/firestore';
-import { SliderElement } from '../types';
+import { SliderElement, Category } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { Play, ChevronLeft, ChevronRight, X, Info } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { cn } from '../lib/utils';
 import ReactPlayer from 'react-player';
 
 const Player = ReactPlayer as any;
 
-export default function HeroSlider() {
+interface HeroSliderProps {
+  page?: 'home' | Category;
+}
+
+export default function HeroSlider({ page = 'home' }: HeroSliderProps) {
+  const navigate = useNavigate();
   const [slides, setSlides] = useState<SliderElement[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -19,9 +24,10 @@ export default function HeroSlider() {
 
   useEffect(() => {
     fetchSlides();
-  }, []);
+  }, [page]);
 
   const fetchSlides = async () => {
+    setLoading(true);
     try {
       const q = query(
         collection(db, 'slider'),
@@ -29,7 +35,10 @@ export default function HeroSlider() {
         orderBy('order', 'asc')
       );
       const querySnapshot = await getDocs(q);
-      const items = querySnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as SliderElement));
+      const items = querySnapshot.docs
+        .map(doc => ({ ...doc.data(), id: doc.id } as SliderElement))
+        .filter(slide => (slide.page || 'home') === page);
+      
       setSlides(items);
     } catch (error) {
       console.error('Error fetching slides:', error);
@@ -55,8 +64,12 @@ export default function HeroSlider() {
     };
   }, [slides, videoModal, currentIndex]);
 
-  if (loading || slides.length === 0) {
+  if (loading) {
     return <div className="w-full aspect-[21/9] bg-surface/50 animate-pulse rounded-3xl" />;
+  }
+
+  if (slides.length === 0) {
+    return null;
   }
 
   const currentSlide = slides[currentIndex];
@@ -82,7 +95,11 @@ export default function HeroSlider() {
     if (currentSlide.videoUrl) {
       setVideoModal(currentSlide.videoUrl);
     } else {
-      window.location.href = currentSlide.actionUrl;
+      if (currentSlide.actionUrl.startsWith('/')) {
+        navigate(currentSlide.actionUrl);
+      } else {
+        window.location.href = currentSlide.actionUrl;
+      }
     }
   };
 
@@ -174,9 +191,9 @@ export default function HeroSlider() {
 
       {/* Indicators */}
       <div className="absolute bottom-8 right-8 flex gap-2">
-        {slides.map((_, i) => (
+        {slides.map((slide, i) => (
           <button
-            key={i}
+            key={`hero-dot-${slide.id || i}`}
             onClick={() => setCurrentIndex(i)}
             className={cn(
               "h-1 transition-all duration-500 rounded-full",

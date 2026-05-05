@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { db } from '../lib/firebase';
 import { collection, query, where, orderBy, getDocs, doc, getDoc } from 'firebase/firestore';
-import { ContentSection, SportsContent } from '../types';
+import { ContentSection, SportsContent, Category } from '../types';
 import ContentCard from './ContentCard';
 import { ChevronRight, Layers, Trophy } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -10,7 +10,7 @@ import { motion } from 'motion/react';
 import AutoScrollingRow from './AutoScrollingRow';
 
 interface DynamicSectionsProps {
-  page: 'home' | 'cricket' | 'football';
+  page: 'home' | Category;
 }
 
 export default function DynamicSections({ page }: DynamicSectionsProps) {
@@ -68,11 +68,11 @@ export default function DynamicSections({ page }: DynamicSectionsProps) {
     return (
       <div className="space-y-12">
         {[1, 2].map((i) => (
-          <div key={i} className="animate-pulse space-y-4">
+          <div key={`section-row-skeleton-${i}`} className="animate-pulse space-y-4">
             <div className="h-8 w-48 bg-white/5 rounded-lg" />
             <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
               {[1, 2, 3, 4].map((j) => (
-                <div key={j} className="aspect-video bg-white/5 rounded-2xl" />
+                <div key={`section-item-skeleton-${i}-${j}`} className="aspect-video bg-white/5 rounded-2xl" />
               ))}
             </div>
           </div>

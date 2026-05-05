@@ -79,7 +79,7 @@ export default function Home() {
             <Link
               key={cat.name}
               to={`/category/${cat.name.toLowerCase()}`}
-              className="bg-slate-900/50 backdrop-blur-xl border border-white/5 rounded-3xl p-6 flex flex-col items-center gap-4 hover:bg-slate-800 transition-all cursor-pointer group"
+              className="flex flex-col items-center gap-4 transition-all cursor-pointer group py-4 h-full min-w-[100px]"
             >
               <div className={cn("w-14 h-14 rounded-2xl flex items-center justify-center font-black text-xl italic group-hover:scale-110 transition-transform", cat.color)}>
                 {cat.short}
@@ -97,11 +97,11 @@ export default function Home() {
 
       {/* Live Section */}
       {liveNow.length > 0 && (
-        <section className="max-w-7xl mx-auto px-4 mt-24">
+        <section key="home-live-section" className="max-w-7xl mx-auto px-4 mt-24">
           <SectionHeader title="Live Events" icon={Play} link="/live" />
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
             {liveNow.map((item, i) => (
-              <ContentCard key={item.id} content={item} index={i} />
+              <ContentCard key={`home-live-${item.id}`} content={item} index={i} />
             ))}
           </div>
         </section>
@@ -121,11 +121,11 @@ export default function Home() {
       )}
 
       {/* Trending Section */}
-      <section className="max-w-7xl mx-auto px-4 mt-24">
+      <section key="home-trending-section" className="max-w-7xl mx-auto px-4 mt-24">
         <SectionHeader title="Trending Replays" icon={TrendingUp} />
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
           {trending.map((item, i) => (
-            <ContentCard key={item.id} content={item} index={i} />
+            <ContentCard key={`home-trending-${item.id}`} content={item} index={i} />
           ))}
         </div>
       </section>

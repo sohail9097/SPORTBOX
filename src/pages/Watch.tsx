@@ -18,6 +18,7 @@ export default function Watch() {
 
   useEffect(() => {
     if (id) {
+      window.scrollTo(0, 0);
       fetchContent();
       // Increment view count
       updateDoc(doc(db, 'content', id), {

@@ -88,7 +88,7 @@ export default function Plans() {
 
               <div className="flex items-center gap-5 mb-10">
                 <div className="w-16 h-16 bg-white/10 rounded-2xl flex items-center justify-center group-hover:rotate-6 transition-transform">
-                  <Icon className={cn("w-8 h-8", plan.id === 'pro' ? "text-white" : "text-brand")} />
+                  <Icon className={cn("w-8 h-8", (plan.id === 'pro' || plan.id === 'medium' || plan.popular) ? "text-white" : "text-brand")} />
                 </div>
                 <div>
                   <h3 className="font-black text-2xl uppercase italic tracking-tight">{plan.name}</h3>
@@ -116,7 +116,7 @@ export default function Plans() {
                 {plan.features.map((feature) => (
                   <div key={feature} className="flex items-center gap-4 text-sm font-bold tracking-tight">
                     <div className="w-6 h-6 rounded-xl bg-white/5 flex items-center justify-center flex-shrink-0 group-hover:bg-white/10 transition-colors">
-                      <Check className={cn("w-3.5 h-3.5", plan.id === 'pro' ? "text-white" : "text-brand")} />
+                      <Check className={cn("w-3.5 h-3.5", (plan.id === 'pro' || plan.id === 'medium' || plan.popular) ? "text-white" : "text-brand")} />
                     </div>
                     {feature}
                   </div>

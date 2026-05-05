@@ -3,8 +3,9 @@ import { Check, Crown, Zap, ShieldCheck, X, Loader2, CreditCard, Phone, Mail, St
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
 import { useAuth } from '../hooks/useAuth';
-import { db, handleFirestoreError, OperationType, signInWithGoogle } from '../lib/firebase';
+import { db, handleFirestoreError, OperationType, signInWithGoogle, auth } from '../lib/firebase';
 import { doc, updateDoc, collection, query, orderBy, getDocs } from 'firebase/firestore';
+import { RecaptchaVerifier, linkWithPhoneNumber } from 'firebase/auth';
 import { SubscriptionPlan } from '../types';
 
 const IconMap: Record<string, any> = {
@@ -24,33 +25,53 @@ export default function Plans() {
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const [confirmationResult, setConfirmationResult] = useState<any>(null);
   const [otpMode, setOtpMode] = useState(false);
   const [otpCode, setOtpCode] = useState('');
 
+  const setupRecaptcha = () => {
+    if (!(window as any).recaptchaVerifier && auth) {
+      (window as any).recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container-plans', {
+        'size': 'invisible'
+      });
+    }
+  };
+
   const handleSendOTP = async () => {
     if (!mobileNumber || mobileNumber.length < 10) {
-      alert("Please enter a valid mobile number.");
+      alert("Please enter a valid mobile number with country code (e.g., +919999999999)");
       return;
     }
     setIsProcessing(true);
     try {
-      await new Promise(r => setTimeout(r, 1000));
+      setupRecaptcha();
+      if (!user) return;
+      const result = await linkWithPhoneNumber(user, mobileNumber, (window as any).recaptchaVerifier);
+      setConfirmationResult(result);
       setOtpMode(true);
-      alert("OTP Sent! (Use 123456)");
+      alert("OTP Sent! Please check your mobile.");
+    } catch (err: any) {
+      console.error(err);
+      alert("Error sending OTP. Make sure you enable Phone Auth in Firebase Console and include country code.");
     } finally {
       setIsProcessing(false);
     }
   };
 
   const handleVerifyAndSubscribe = async () => {
-    if (otpCode !== '123456' && !profile?.isMobileVerified) {
-      alert("Invalid OTP code. Use 123456");
+    if (!otpCode || otpCode.length < 6) {
+      alert("Please enter the 6-digit OTP.");
       return;
     }
 
     setIsProcessing(true);
     try {
       if (!user || !selectedPlan) return;
+      
+      if (!profile?.isMobileVerified && confirmationResult) {
+        await confirmationResult.confirm(otpCode);
+      }
+
       const userRef = doc(db, 'users', user.uid);
       await updateDoc(userRef, {
         subscriptionTier: selectedPlan.id,
@@ -60,8 +81,9 @@ export default function Plans() {
         lastPaymentDate: new Date().toISOString()
       });
       setStep('success');
-    } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, `users/${user?.uid}`);
+    } catch (error: any) {
+      console.error(error);
+      alert("Verification failed. Please check the code.");
     } finally {
       setIsProcessing(false);
     }
@@ -277,6 +299,7 @@ export default function Plans() {
                       ) : (
                         <div className="space-y-6">
                             <div className="space-y-6">
+                              <div id="recaptcha-container-plans"></div>
                               <div className="space-y-4">
                                 <div className="flex justify-between items-center">
                                   <label className="text-[10px] font-black uppercase tracking-widest text-text-muted flex items-center gap-2">

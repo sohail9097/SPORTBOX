@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { User, Phone, CheckCircle2, ShieldCheck, Mail, LogOut, ChevronRight, Loader2, Key } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { auth } from '../lib/firebase';
+import { RecaptchaVerifier, linkWithPhoneNumber, PhoneAuthProvider } from 'firebase/auth';
 
 import { Link, useNavigate } from 'react-router-dom';
 
@@ -17,6 +18,9 @@ export default function Account() {
   const [otpMode, setOtpMode] = useState(false);
   const [otpCode, setOtpCode] = useState('');
   const [verificationSuccess, setVerificationSuccess] = useState(false);
+  const [confirmationResult, setConfirmationResult] = useState<any>(null);
+  
+  const recaptchaRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (profile?.mobileNumber) {
@@ -24,41 +28,73 @@ export default function Account() {
     }
   }, [profile]);
 
+  const setupRecaptcha = () => {
+    if (!(window as any).recaptchaVerifier && auth) {
+      (window as any).recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+        'size': 'invisible',
+        'callback': () => {
+          console.log('reCAPTCHA resolved');
+        }
+      });
+    }
+  };
+
   const handleSendOTP = async () => {
     if (!mobileNumber || mobileNumber.length < 10) {
-      alert("Please enter a valid mobile number.");
+      alert("Please enter a valid mobile number with country code (e.g., +919999999999)");
       return;
     }
+    
     setLoading(true);
-    // Simulate sending OTP
     try {
-      await new Promise(r => setTimeout(r, 1500));
+      setupRecaptcha();
+      const verifier = (window as any).recaptchaVerifier;
+      
+      if (!user) return;
+      
+      const result = await linkWithPhoneNumber(user, mobileNumber, verifier);
+      setConfirmationResult(result);
       setOtpMode(true);
-      alert("OTP Sent! (Use 123456 for testing)");
+      alert("OTP Sent! Please check your mobile.");
+    } catch (error: any) {
+      console.error("OTP Error:", error);
+      if (error.code === 'auth/invalid-phone-number') {
+        alert("Invalid phone number. Please include country code (e.g., +91)");
+      } else if (error.code === 'auth/captcha-check-failed') {
+        alert("reCAPTCHA check failed. Please refresh and try again.");
+      } else {
+        alert("Error sending OTP. Make sure Phone Auth is enabled in Firebase Console.");
+      }
     } finally {
       setLoading(false);
     }
   };
 
   const handleVerifyOTP = async () => {
-    if (otpCode !== '123456') {
-      alert("Invalid OTP code. Please use 123456");
+    if (!otpCode || otpCode.length < 6) {
+      alert("Please enter a 6-digit OTP code.");
       return;
     }
 
     setLoading(true);
     try {
-      if (!user) return;
+      if (!confirmationResult || !user) return;
+      
+      await confirmationResult.confirm(otpCode);
+      
+      // Update Firestore
       const userRef = doc(db, 'users', user.uid);
       await updateDoc(userRef, {
         mobileNumber: mobileNumber,
         isMobileVerified: true
       });
+      
       setVerificationSuccess(true);
       setOtpMode(false);
       setTimeout(() => setVerificationSuccess(false), 3000);
-    } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, `users/${user?.uid}`);
+    } catch (error: any) {
+      console.error("Verification Error:", error);
+      alert("Invalid OTP code. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -131,6 +167,7 @@ export default function Account() {
             <div className="p-8 space-y-8">
               {/* Mobile Verification */}
               <div className="space-y-4">
+                <div id="recaptcha-container"></div>
                 <div className="flex justify-between items-center">
                   <label className="text-[10px] font-black uppercase tracking-widest text-text-muted flex items-center gap-2">
                     <Phone className="w-3 h-3" />

@@ -38,6 +38,7 @@ export interface UserProfile {
   email: string;
   displayName: string;
   mobileNumber?: string;
+  isMobileVerified?: boolean;
   subscriptionTier: 'free' | 'pro' | 'premium';
   subscriptionStatus: 'active' | 'expired' | 'none';
   lastPaymentDate?: string;

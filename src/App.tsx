@@ -5,6 +5,7 @@ import Live from './pages/Live';
 import CategoryPage from './pages/CategoryPage';
 import Watch from './pages/Watch';
 import Plans from './pages/Plans';
+import Account from './pages/Account';
 import Admin from './pages/Admin';
 import { ThemeProvider } from './lib/ThemeContext';
 import { AuthProvider } from './hooks/useAuth';
@@ -21,6 +22,7 @@ function App() {
               <Route path="/category/:category" element={<CategoryPage />} />
               <Route path="/watch/:id" element={<Watch />} />
               <Route path="/plans" element={<Plans />} />
+              <Route path="/account" element={<Account />} />
               <Route path="/admin" element={<Admin />} />
             </Routes>
           </Layout>

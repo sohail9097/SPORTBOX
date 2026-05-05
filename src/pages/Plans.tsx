@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Check, Crown, Zap, ShieldCheck, X, Loader2, CreditCard, Phone, Mail, Star, Activity, Percent } from 'lucide-react';
+import { Check, Crown, Zap, ShieldCheck, X, Loader2, CreditCard, Phone, Mail, Star, Activity, Percent, CheckCircle2, Key } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
 import { useAuth } from '../hooks/useAuth';
@@ -24,9 +24,73 @@ export default function Plans() {
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const [otpMode, setOtpMode] = useState(false);
+  const [otpCode, setOtpCode] = useState('');
+
+  const handleSendOTP = async () => {
+    if (!mobileNumber || mobileNumber.length < 10) {
+      alert("Please enter a valid mobile number.");
+      return;
+    }
+    setIsProcessing(true);
+    try {
+      await new Promise(r => setTimeout(r, 1000));
+      setOtpMode(true);
+      alert("OTP Sent! (Use 123456)");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleVerifyAndSubscribe = async () => {
+    if (otpCode !== '123456' && !profile?.isMobileVerified) {
+      alert("Invalid OTP code. Use 123456");
+      return;
+    }
+
+    setIsProcessing(true);
+    try {
+      if (!user || !selectedPlan) return;
+      const userRef = doc(db, 'users', user.uid);
+      await updateDoc(userRef, {
+        subscriptionTier: selectedPlan.id,
+        subscriptionStatus: 'active',
+        mobileNumber: mobileNumber,
+        isMobileVerified: true,
+        lastPaymentDate: new Date().toISOString()
+      });
+      setStep('success');
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `users/${user?.uid}`);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleDirectSubscribe = async () => {
+    setIsProcessing(true);
+    try {
+      if (!user || !selectedPlan) return;
+      const userRef = doc(db, 'users', user.uid);
+      await updateDoc(userRef, {
+        subscriptionTier: selectedPlan.id,
+        subscriptionStatus: 'active',
+        lastPaymentDate: new Date().toISOString()
+      });
+      setStep('success');
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `users/${user?.uid}`);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   useEffect(() => {
     fetchPlans();
-  }, []);
+    if (profile?.mobileNumber) {
+      setMobileNumber(profile.mobileNumber);
+    }
+  }, [profile]);
 
   const fetchPlans = async () => {
     try {
@@ -212,114 +276,101 @@ export default function Plans() {
                         </div>
                       ) : (
                         <div className="space-y-6">
-                          {step === 'details' ? (
                             <div className="space-y-6">
                               <div className="space-y-4">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-text-muted flex items-center gap-2">
-                                  <Phone className="w-3 h-3" />
-                                  Mobile Number
-                                </label>
-                                <input 
-                                  type="tel"
-                                  placeholder="+1 234 567 890"
-                                  value={mobileNumber}
-                                  onChange={e => setMobileNumber(e.target.value)}
-                                  className="w-full bg-bg border border-white/10 p-5 rounded-2xl focus:border-brand outline-none text-sm font-bold"
-                                />
-                              </div>
-                              <div className="space-y-4">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-text-muted flex items-center gap-2">
-                                  <Mail className="w-3 h-3" />
-                                  Confirm Email
-                                </label>
-                                <input 
-                                  type="email"
-                                  value={user.email || ''}
-                                  readOnly
-                                  className="w-full bg-white/5 border border-white/5 p-5 rounded-2xl text-sm font-bold text-text-muted"
-                                />
-                              </div>
-                              <button 
-                                onClick={() => mobileNumber ? setStep('payment') : alert('Please enter your mobile number')}
-                                className="w-full py-5 bg-brand text-white font-black uppercase tracking-[0.3em] rounded-2xl shadow-xl shadow-brand/20"
-                              >
-                                Continue To Payment
-                              </button>
-                            </div>
-                          ) : (
-                            <div className="space-y-6">
-                              <div className="p-6 bg-white/5 rounded-2xl border border-white/5">
-                                <div className="flex justify-between items-center mb-4">
-                                  <span className="text-xs font-bold uppercase tracking-widest text-text-muted">Total Due</span>
-                                  <div className="text-right">
-                                     {selectedPlan.offer?.isActive && (
-                                       <span className="text-xs line-through text-white/40 block">₹{selectedPlan.price}</span>
-                                     )}
-                                     <span className="text-2xl font-black">
-                                       ₹{Math.round(selectedPlan.price * (1 - (selectedPlan.offer?.isActive ? selectedPlan.offer.percentage : 0) / 100))}
-                                     </span>
-                                  </div>
+                                <div className="flex justify-between items-center">
+                                  <label className="text-[10px] font-black uppercase tracking-widest text-text-muted flex items-center gap-2">
+                                    <Phone className="w-3 h-3" />
+                                    Mobile Number
+                                  </label>
+                                  {profile?.isMobileVerified && (
+                                    <span className="flex items-center gap-1 text-[10px] font-black uppercase text-green-500">
+                                      <CheckCircle2 className="w-3 h-3" />
+                                      Verified
+                                    </span>
+                                  )}
                                 </div>
-                                <div className="space-y-4">
-                                  <div className="relative">
-                                    <CreditCard className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-text-muted" />
+                                
+                                {!otpMode ? (
+                                  <div className="flex gap-3">
                                     <input 
-                                      type="text"
-                                      placeholder="Card Number"
-                                      value="4242 4242 4242 4242"
-                                      readOnly
-                                      className="w-full bg-bg border border-white/10 p-5 pl-14 rounded-2xl focus:border-brand outline-none text-sm font-bold"
+                                      type="tel"
+                                      placeholder="+1 234 567 890"
+                                      value={mobileNumber}
+                                      onChange={e => setMobileNumber(e.target.value)}
+                                      disabled={profile?.isMobileVerified}
+                                      className="flex-grow bg-bg border border-white/10 p-5 rounded-2xl focus:border-brand outline-none text-sm font-bold disabled:opacity-50"
                                     />
+                                    {!profile?.isMobileVerified && (
+                                      <button 
+                                        onClick={handleSendOTP}
+                                        disabled={isProcessing || !mobileNumber}
+                                        className="px-6 bg-white text-black font-black uppercase tracking-widest text-[10px] rounded-2xl disabled:opacity-50"
+                                      >
+                                        {isProcessing ? <Loader2 className="w-4 h-4 animate-spin text-black" /> : 'Send OTP'}
+                                      </button>
+                                    )}
                                   </div>
-                                  <div className="grid grid-cols-2 gap-4">
-                                    <input type="text" placeholder="MM/YY" value="12/26" readOnly className="w-full bg-bg border border-white/10 p-5 rounded-2xl focus:border-brand outline-none text-sm font-bold" />
-                                    <input type="text" placeholder="CVC" value="123" readOnly className="w-full bg-bg border border-white/10 p-5 rounded-2xl focus:border-brand outline-none text-sm font-bold" />
+                                ) : (
+                                  <div className="space-y-4">
+                                    <div className="flex gap-3">
+                                      <div className="relative flex-grow">
+                                        <Key className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-brand" />
+                                        <input 
+                                          type="text"
+                                          placeholder="6-digit OTP"
+                                          value={otpCode}
+                                          onChange={e => setOtpCode(e.target.value)}
+                                          className="w-full bg-bg border border-brand/50 p-5 pl-12 rounded-2xl focus:border-brand outline-none text-sm font-bold tracking-[0.3em]"
+                                        />
+                                      </div>
+                                      <button 
+                                        onClick={handleVerifyAndSubscribe}
+                                        disabled={isProcessing || otpCode.length < 6}
+                                        className="px-8 bg-brand text-white font-black uppercase tracking-widest text-[10px] rounded-2xl disabled:opacity-50"
+                                      >
+                                        {isProcessing ? <Loader2 className="w-4 h-4 animate-spin text-white" /> : 'Verify'}
+                                      </button>
+                                    </div>
+                                    <button 
+                                      onClick={() => setOtpMode(false)}
+                                      className="text-[10px] font-black uppercase tracking-widest text-text-muted hover:text-white"
+                                    >
+                                      Change Number
+                                    </button>
                                   </div>
+                                )}
+                              </div>
+
+                              <div className="p-6 bg-white/5 rounded-2xl border border-white/5 space-y-4">
+                                <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-text-muted">
+                                  <span>Subscription Fee</span>
+                                  <span className="text-white line-through">₹{selectedPlan.price}</span>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                  <span className="text-xs font-bold uppercase tracking-widest">Special Discount</span>
+                                  <span className="text-green-500 font-black">-100% OFF</span>
+                                </div>
+                                <div className="pt-4 border-t border-white/5 flex justify-between items-center">
+                                  <span className="text-sm font-black uppercase italic">Total Due</span>
+                                  <span className="text-2xl font-black text-brand">₹0</span>
                                 </div>
                               </div>
-                              <button 
-                                onClick={async () => {
-                                  setIsProcessing(true);
-                                  try {
-                                    // Simulate payment processing
-                                    await new Promise(r => setTimeout(r, 2000));
-                                    
-                                    const userRef = doc(db, 'users', user.uid);
-                                    await updateDoc(userRef, {
-                                      subscriptionTier: selectedPlan.id,
-                                      subscriptionStatus: 'active',
-                                      mobileNumber: mobileNumber,
-                                      lastPaymentDate: new Date().toISOString()
-                                    });
-                                    
-                                    setStep('success');
-                                  } catch (error) {
-                                    handleFirestoreError(error, OperationType.UPDATE, `users/${user.uid}`);
-                                  } finally {
-                                    setIsProcessing(false);
-                                  }
-                                }}
-                                disabled={isProcessing}
-                                className="w-full py-5 bg-brand text-white font-black uppercase tracking-[0.2em] rounded-full flex items-center justify-center gap-3 disabled:opacity-50"
-                              >
-                                {isProcessing ? (
-                                  <>
-                                    <Loader2 className="w-4 h-4 animate-spin" />
-                                    Processing...
-                                  </>
-                                ) : (
-                                  `Confirm Payment`
-                                )}
-                              </button>
-                              <button 
-                                onClick={() => setStep('details')}
-                                disabled={isProcessing}
-                                className="w-full text-xs font-black uppercase tracking-widest text-text-muted hover:text-white transition-colors"
-                              >
-                                Back to details
-                              </button>
+
+                              {profile?.isMobileVerified && (
+                                <button 
+                                  onClick={handleDirectSubscribe}
+                                  disabled={isProcessing}
+                                  className="w-full py-5 bg-brand text-white font-black uppercase tracking-[0.3em] rounded-2xl shadow-xl shadow-brand/20 disabled:opacity-50"
+                                >
+                                  {isProcessing ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Activate Subscription'}
+                                </button>
+                              )}
+                              
+                              {!profile?.isMobileVerified && !otpMode && (
+                                <p className="text-[10px] font-bold text-center text-white/20 uppercase tracking-widest italic">Verify your number to activate subscription</p>
+                              )}
                             </div>
-                          )}
                         </div>
                       )}
                     </div>

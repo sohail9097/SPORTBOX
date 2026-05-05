@@ -90,15 +90,12 @@ export default function Layout({ children }: { children: ReactNode }) {
                       Admin
                     </Link>
                   )}
-                  <div className="flex items-center gap-2 p-1 pl-4 bg-white/5 rounded-full border border-white/5">
+                  <Link to="/account" className="flex items-center gap-2 p-1 pl-4 bg-white/5 rounded-full border border-white/5 hover:bg-white/10 transition-colors">
                     <span className="text-[10px] font-bold uppercase tracking-widest text-text-muted">{profile?.displayName?.split(' ')[0]}</span>
-                    <button 
-                      onClick={() => auth.signOut()}
-                      className="w-8 h-8 bg-surface rounded-full flex items-center justify-center hover:bg-brand transition-colors group"
-                    >
-                      <LogOut className="w-3.5 h-3.5 group-hover:text-white" />
-                    </button>
-                  </div>
+                    <div className="w-8 h-8 bg-surface rounded-full flex items-center justify-center">
+                      <User className="w-3.5 h-3.5 text-text-muted" />
+                    </div>
+                  </Link>
                 </div>
               ) : (
                 <button

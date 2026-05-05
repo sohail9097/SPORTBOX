@@ -428,22 +428,34 @@ export default function Admin() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this content?')) return;
+    if (!window.confirm('Are you sure you want to delete this content?')) return;
+    setLoading(true);
     try {
       await deleteDoc(doc(db, 'content', id));
-      fetchContent();
+      await fetchContent();
+      alert("Content deleted successfully!");
     } catch (error) {
+      console.error("Delete error:", error);
+      alert("Failed to delete content.");
       handleFirestoreError(error, OperationType.DELETE, `content/${id}`);
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleSliderDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this slide?')) return;
+    if (!window.confirm('Are you sure you want to delete this slide?')) return;
+    setLoading(true);
     try {
       await deleteDoc(doc(db, 'slider', id));
-      fetchSlider();
+      await fetchSlider();
+      alert("Slide deleted successfully!");
     } catch (error) {
+      console.error("Slider delete error:", error);
+      alert("Failed to delete slide.");
       handleFirestoreError(error, OperationType.DELETE, `slider/${id}`);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -822,9 +834,31 @@ export default function Admin() {
 
            {activeTab === 'live' && (
              <motion.div key="live" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} className="space-y-8">
-                <div className="space-y-2">
-                  <h2 className="text-5xl font-black uppercase italic tracking-tighter">Live Control Center</h2>
-                  <p className="text-text-muted font-medium">Quickly manage broadcasting events and their status.</p>
+                <div className="flex justify-between items-end">
+                  <div className="space-y-2">
+                    <h2 className="text-5xl font-black uppercase italic tracking-tighter">Live Control Center</h2>
+                    <p className="text-text-muted font-medium">Quickly manage broadcasting events and their status.</p>
+                  </div>
+                  <button 
+                    onClick={() => {
+                      setEditingId(null);
+                      setForm({ 
+                        title: '', 
+                        description: '', 
+                        category: 'football', 
+                        type: 'live', 
+                        videoUrl: '', 
+                        thumbnailUrl: '', 
+                        isPremium: false, 
+                        status: 'scheduled' 
+                      });
+                      setIsAdding(true);
+                    }}
+                    className="btn-primary flex items-center gap-2"
+                  >
+                    <Radio className="w-4 h-4" />
+                    New Live Event
+                  </button>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -847,28 +881,49 @@ export default function Admin() {
                       <div className="flex gap-2">
                         {item.status === 'live' ? (
                           <button 
+                            disabled={loading}
                             onClick={async () => {
-                              const docRef = doc(db, 'content', item.id);
-                              await updateDoc(docRef, { status: 'ended' });
-                              fetchContent();
+                              setLoading(true);
+                              try {
+                                const docRef = doc(db, 'content', item.id);
+                                await updateDoc(docRef, { status: 'ended' });
+                                await fetchContent();
+                                alert("Stream ended successfully.");
+                              } catch (err) {
+                                console.error(err);
+                                alert("Failed to stop stream.");
+                              } finally {
+                                setLoading(false);
+                              }
                             }}
-                            className="flex-grow py-2 bg-red-600 text-white text-[10px] font-black uppercase tracking-widest rounded-lg"
+                            className="flex-grow py-2 bg-red-600 text-white text-[10px] font-black uppercase tracking-widest rounded-lg disabled:opacity-50"
                           >
                             Stop Stream
                           </button>
                         ) : (
                           <button 
+                            disabled={loading}
                             onClick={async () => {
-                              const docRef = doc(db, 'content', item.id);
-                              await updateDoc(docRef, { status: 'live' });
-                              fetchContent();
+                              setLoading(true);
+                              try {
+                                const docRef = doc(db, 'content', item.id);
+                                await updateDoc(docRef, { status: 'live' });
+                                await fetchContent();
+                                alert("Stream is now LIVE!");
+                              } catch (err) {
+                                console.error(err);
+                                alert("Failed to start stream.");
+                              } finally {
+                                setLoading(false);
+                              }
                             }}
-                            className="flex-grow py-2 bg-green-600 text-white text-[10px] font-black uppercase tracking-widest rounded-lg"
+                            className="flex-grow py-2 bg-green-600 text-white text-[10px] font-black uppercase tracking-widest rounded-lg disabled:opacity-50"
                           >
                             Go Live
                           </button>
                         )}
-                        <button onClick={() => handleEdit(item)} className="p-2 border border-border rounded-lg hover:bg-surface transition-colors"><Edit2 className="w-4 h-4" /></button>
+                        <button disabled={loading} onClick={() => handleEdit(item)} className="p-2 border border-border rounded-lg hover:bg-surface transition-colors disabled:opacity-50" title="Edit Event"><Edit2 className="w-4 h-4" /></button>
+                        <button disabled={loading} onClick={() => handleDelete(item.id)} className="p-2 border border-border rounded-lg hover:bg-red-500/10 hover:text-red-500 transition-colors disabled:opacity-50" title="Delete Event"><Trash2 className="w-4 h-4" /></button>
                       </div>
                     </div>
                   ))}
@@ -1005,8 +1060,8 @@ export default function Admin() {
                       <div className="space-y-2">
                         <p className="text-[10px] font-black uppercase tracking-widest text-text-muted">Active Features</p>
                         <div className="space-y-1">
-                          {plan.features.slice(0, 3).map(f => (
-                            <div key={f} className="flex items-center gap-2 text-xs font-medium">
+                          {plan.features.slice(0, 3).map((f, i) => (
+                            <div key={`${f}-${i}`} className="flex items-center gap-2 text-xs font-medium">
                               <div className="w-1.5 h-1.5 rounded-full bg-brand" />
                               {f}
                             </div>

@@ -101,7 +101,7 @@ export default function DynamicSections({ page }: DynamicSectionsProps) {
             {section.type === 'top10' ? (
               <div className="flex gap-8 overflow-x-auto pb-8 hide-scrollbar scroll-smooth snap-x">
                 {contents.map((item, i) => (
-                  <div key={item.id} className="relative flex-shrink-0 w-80 group snap-start">
+                  <div key={`${i}-${item.id}`} className="relative flex-shrink-0 w-80 group snap-start">
                     <div className="absolute -left-4 top-1/2 -translate-y-1/2 text-[180px] font-black italic leading-none text-white/5 select-none pointer-events-none group-hover:text-brand/10 transition-colors z-0">
                       {i + 1}
                     </div>
@@ -116,7 +116,7 @@ export default function DynamicSections({ page }: DynamicSectionsProps) {
             ) : section.type === 'featured' ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 {contents.map((item, i) => (
-                   <div key={item.id} className={cn(i === 0 ? "md:col-span-2" : "")}>
+                   <div key={`${i}-${item.id}`} className={cn(i === 0 ? "md:col-span-2" : "")}>
                       <ContentCard content={item} index={i} featured={i === 0} />
                    </div>
                 ))}
@@ -124,7 +124,7 @@ export default function DynamicSections({ page }: DynamicSectionsProps) {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
                 {contents.map((item, i) => (
-                  <ContentCard key={item.id} content={item} index={i} />
+                  <ContentCard key={`${i}-${item.id}`} content={item} index={i} />
                 ))}
               </div>
             )}

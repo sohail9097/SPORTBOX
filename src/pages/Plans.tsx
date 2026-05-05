@@ -113,8 +113,8 @@ export default function Plans() {
               </p>
 
               <div className="space-y-4 mb-12 flex-grow">
-                {plan.features.map((feature) => (
-                  <div key={feature} className="flex items-center gap-4 text-sm font-bold tracking-tight">
+                {plan.features.map((feature, idx) => (
+                  <div key={`${feature}-${idx}`} className="flex items-center gap-4 text-sm font-bold tracking-tight">
                     <div className="w-6 h-6 rounded-xl bg-white/5 flex items-center justify-center flex-shrink-0 group-hover:bg-white/10 transition-colors">
                       <Check className={cn("w-3.5 h-3.5", (plan.id === 'pro' || plan.id === 'medium' || plan.popular) ? "text-white" : "text-brand")} />
                     </div>

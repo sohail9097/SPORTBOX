@@ -1,48 +1,44 @@
-import { useState } from 'react';
-import { Check, Crown, Zap, ShieldCheck, X, Loader2, CreditCard, Phone, Mail } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Check, Crown, Zap, ShieldCheck, X, Loader2, CreditCard, Phone, Mail, Star, Activity, Percent } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
 import { useAuth } from '../hooks/useAuth';
 import { db, handleFirestoreError, OperationType, signInWithGoogle } from '../lib/firebase';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, updateDoc, collection, query, orderBy, getDocs } from 'firebase/firestore';
+import { SubscriptionPlan } from '../types';
+
+const IconMap: Record<string, any> = {
+  Zap,
+  Crown,
+  ShieldCheck,
+  Star,
+  Activity
+};
 
 export default function Plans() {
   const { user, profile } = useAuth();
-  const [selectedPlan, setSelectedPlan] = useState<any | null>(null);
+  const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan | null>(null);
   const [mobileNumber, setMobileNumber] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [step, setStep] = useState<'details' | 'payment' | 'success'>('details');
+  const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const plans = [
-    {
-      id: 'free',
-      name: 'Free Starter',
-      price: 0,
-      description: 'Ideal for casual viewers who want basic sports updates.',
-      features: ['Limited Live Matches', 'Basic Highlights', 'Ads included', 'Single device'],
-      icon: Zap,
-      color: 'from-slate-800 to-slate-900 border-white/5'
-    },
-    {
-      id: 'pro',
-      name: 'Pro Stadium',
-      price: 9.99,
-      description: 'The standard choice for dedicated sports fans.',
-      features: ['All Live Matches', 'No Ads', 'Full Match Replays', '2 Devices at once', 'Full HD Resolution'],
-      icon: Crown,
-      popular: true,
-      color: 'from-red-600 to-red-900 border-red-500/50 shadow-red-600/10'
-    },
-    {
-      id: 'premium',
-      name: 'All-Access VIP',
-      price: 19.99,
-      description: 'Ultimate experience with exclusive angles and analytics.',
-      features: ['Every Match in 4K', 'Director\'s Cut Views', 'Live Analytics Pro', 'Multi-View Mode', 'Priority Support', 'Offline Downloads'],
-      icon: ShieldCheck,
-      color: 'from-slate-900 to-black border-brand-alt/50 shadow-brand-alt/10'
+  useEffect(() => {
+    fetchPlans();
+  }, []);
+
+  const fetchPlans = async () => {
+    try {
+      const q = query(collection(db, 'subscription_plans'), orderBy('order', 'asc'));
+      const snap = await getDocs(q);
+      setPlans(snap.docs.map(d => ({ id: d.id, ...d.data() } as SubscriptionPlan)));
+    } catch (err) {
+      console.error("Fetch plans error:", err);
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
 
   return (
     <div className="py-24 px-4 max-w-7xl mx-auto">
@@ -56,70 +52,92 @@ export default function Plans() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-        {plans.map((plan, i) => (
-          <motion.div
-            key={plan.id}
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ delay: i * 0.1, duration: 0.5 }}
-            className={cn(
-              "relative rounded-[40px] p-12 flex flex-col border bg-gradient-to-br transition-all hover:scale-[1.03] group shadow-2xl",
-              plan.color
-            )}
-          >
-            {plan.popular && (
-              <div className="absolute top-0 right-12 -translate-y-1/2 bg-white text-brand px-6 py-1.5 font-black text-[10px] uppercase tracking-[0.3em] rounded-full shadow-xl">
-                Most Popular
-              </div>
-            )}
+        {loading ? (
+          <div className="col-span-full py-20 flex flex-col items-center justify-center gap-4">
+             <Loader2 className="w-8 h-8 animate-spin text-brand" />
+             <p className="text-[10px] font-black uppercase tracking-widest text-text-muted">Loading Leagues...</p>
+          </div>
+        ) : plans.map((plan, i) => {
+          const Icon = IconMap[plan.icon] || Zap;
+          const discount = plan.offer?.isActive ? plan.offer.percentage : 0;
+          const finalPrice = Math.max(0, plan.price * (1 - discount / 100)).toFixed(2);
 
-            <div className="flex items-center gap-5 mb-10">
-              <div className="w-16 h-16 bg-white/10 rounded-2xl flex items-center justify-center group-hover:rotate-6 transition-transform">
-                <plan.icon className={cn("w-8 h-8", plan.id === 'pro' ? "text-white" : "text-brand")} />
-              </div>
-              <div>
-                <h3 className="font-black text-2xl uppercase italic tracking-tight">{plan.name}</h3>
-                {profile?.subscriptionTier === plan.id && (
-                  <span className="text-[10px] font-black text-white/60 uppercase tracking-widest bg-white/10 px-2 py-0.5 rounded-full">Active Plan</span>
-                )}
-              </div>
-            </div>
-
-            <div className="mb-10 items-baseline gap-2">
-              <span className="text-6xl font-black uppercase italic tracking-tighter">${plan.price}</span>
-              <span className="text-white/40 uppercase text-xs font-black tracking-widest">/ Month</span>
-            </div>
-
-            <p className="text-sm text-white/50 mb-12 font-medium leading-relaxed">
-              {plan.description}
-            </p>
-
-            <div className="space-y-4 mb-12 flex-grow">
-              {plan.features.map((feature) => (
-                <div key={feature} className="flex items-center gap-4 text-sm font-bold tracking-tight">
-                  <div className="w-6 h-6 rounded-xl bg-white/5 flex items-center justify-center flex-shrink-0 group-hover:bg-white/10 transition-colors">
-                    <Check className={cn("w-3.5 h-3.5", plan.id === 'pro' ? "text-white" : "text-brand")} />
-                  </div>
-                  {feature}
-                </div>
-              ))}
-            </div>
-
-            <button 
-              onClick={() => setSelectedPlan(plan)}
-              disabled={profile?.subscriptionTier === plan.id}
+          return (
+            <motion.div
+              key={plan.id}
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: i * 0.1, duration: 0.5 }}
               className={cn(
-                "w-full py-5 font-black text-sm uppercase tracking-[0.3em] transition-all rounded-3xl shadow-xl disabled:opacity-50 disabled:cursor-not-allowed",
-                plan.id === 'pro' 
-                  ? "bg-white text-red-600 hover:scale-105" 
-                  : "bg-brand text-white hover:bg-brand-alt"
+                "relative rounded-[40px] p-12 flex flex-col border bg-gradient-to-br transition-all hover:scale-[1.03] group shadow-2xl overflow-hidden",
+                plan.color
               )}
             >
-              {profile?.subscriptionTier === plan.id ? 'Current Plan' : (plan.price === 0 ? 'Start Free' : 'Subscribe Now')}
-            </button>
-          </motion.div>
-        ))}
+              {plan.popular && (
+                <div className="absolute top-0 right-12 -translate-y-1/2 bg-white text-brand px-6 py-1.5 font-black text-[10px] uppercase tracking-[0.3em] rounded-full shadow-xl">
+                  Most Popular
+                </div>
+              )}
+
+              {plan.offer?.isActive && (
+                <div className="absolute top-8 -right-12 rotate-45 bg-yellow-400 text-black px-12 py-1 font-black text-[10px] uppercase tracking-widest shadow-xl">
+                  {plan.offer.percentage}% OFF
+                </div>
+              )}
+
+              <div className="flex items-center gap-5 mb-10">
+                <div className="w-16 h-16 bg-white/10 rounded-2xl flex items-center justify-center group-hover:rotate-6 transition-transform">
+                  <Icon className={cn("w-8 h-8", plan.id === 'pro' ? "text-white" : "text-brand")} />
+                </div>
+                <div>
+                  <h3 className="font-black text-2xl uppercase italic tracking-tight">{plan.name}</h3>
+                  {profile?.subscriptionTier === plan.id && (
+                    <span className="text-[10px] font-black text-white/60 uppercase tracking-widest bg-white/10 px-2 py-0.5 rounded-full">Active Plan</span>
+                  )}
+                </div>
+              </div>
+
+              <div className="mb-10 space-y-1">
+                <div className="flex items-baseline gap-3">
+                  {plan.offer?.isActive && (
+                    <span className="text-2xl line-through text-white/20 font-black italic">₹{plan.price}</span>
+                  )}
+                  <span className="text-6xl font-black uppercase italic tracking-tighter">₹{Math.round(parseFloat(finalPrice))}</span>
+                  <span className="text-white/40 uppercase text-xs font-black tracking-widest">/ Month</span>
+                </div>
+              </div>
+
+              <p className="text-sm text-white/50 mb-12 font-medium leading-relaxed">
+                {plan.description}
+              </p>
+
+              <div className="space-y-4 mb-12 flex-grow">
+                {plan.features.map((feature) => (
+                  <div key={feature} className="flex items-center gap-4 text-sm font-bold tracking-tight">
+                    <div className="w-6 h-6 rounded-xl bg-white/5 flex items-center justify-center flex-shrink-0 group-hover:bg-white/10 transition-colors">
+                      <Check className={cn("w-3.5 h-3.5", plan.id === 'pro' ? "text-white" : "text-brand")} />
+                    </div>
+                    {feature}
+                  </div>
+                ))}
+              </div>
+
+              <button 
+                onClick={() => setSelectedPlan(plan)}
+                disabled={profile?.subscriptionTier === plan.id}
+                className={cn(
+                  "w-full py-5 font-black text-sm uppercase tracking-[0.3em] transition-all rounded-3xl shadow-xl disabled:opacity-50 disabled:cursor-not-allowed",
+                  plan.id === 'pro' 
+                    ? "bg-white text-red-600 hover:scale-105" 
+                    : "bg-brand text-white hover:bg-brand-alt"
+                )}
+              >
+                {profile?.subscriptionTier === plan.id ? 'Current Plan' : (plan.price === 0 ? 'Start Free' : 'Subscribe Now')}
+              </button>
+            </motion.div>
+          );
+        })}
       </div>
 
       {/* Comparison Table Link */}
@@ -167,15 +185,18 @@ export default function Plans() {
                     </button>
 
                     <div className="p-12 space-y-8">
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-brand/10 rounded-xl flex items-center justify-center">
-                          <selectedPlan.icon className="w-6 h-6 text-brand" />
+                        <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 bg-brand/10 rounded-xl flex items-center justify-center">
+                            {(() => {
+                              const Icon = IconMap[selectedPlan.icon] || Zap;
+                              return <Icon className="w-6 h-6 text-brand" />;
+                            })()}
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-black uppercase tracking-widest text-text-muted">Subscription Upgrade</p>
+                            <h3 className="text-2xl font-black uppercase italic tracking-tighter">{selectedPlan.name}</h3>
+                          </div>
                         </div>
-                        <div>
-                          <p className="text-[10px] font-black uppercase tracking-widest text-text-muted">Subscription Upgrade</p>
-                          <h3 className="text-2xl font-black uppercase italic tracking-tighter">{selectedPlan.name}</h3>
-                        </div>
-                      </div>
 
                       {!user ? (
                         <div className="space-y-6">
@@ -230,7 +251,14 @@ export default function Plans() {
                               <div className="p-6 bg-white/5 rounded-2xl border border-white/5">
                                 <div className="flex justify-between items-center mb-4">
                                   <span className="text-xs font-bold uppercase tracking-widest text-text-muted">Total Due</span>
-                                  <span className="text-2xl font-black">${selectedPlan.price}</span>
+                                  <div className="text-right">
+                                     {selectedPlan.offer?.isActive && (
+                                       <span className="text-xs line-through text-white/40 block">₹{selectedPlan.price}</span>
+                                     )}
+                                     <span className="text-2xl font-black">
+                                       ₹{Math.round(selectedPlan.price * (1 - (selectedPlan.offer?.isActive ? selectedPlan.offer.percentage : 0) / 100))}
+                                     </span>
+                                  </div>
                                 </div>
                                 <div className="space-y-4">
                                   <div className="relative">

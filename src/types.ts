@@ -16,6 +16,23 @@ export interface SportsContent {
   status: Status;
 }
 
+export interface SubscriptionPlan {
+  id: string;
+  name: string;
+  price: number;
+  description: string;
+  features: string[];
+  icon: string; // Icon name from lucide
+  popular: boolean;
+  order: number;
+  color: string;
+  offer?: {
+    isActive: boolean;
+    percentage: number; // 0 to 100
+    label?: string; // e.g. "Limited Time"
+  };
+}
+
 export interface UserProfile {
   uid: string;
   email: string;

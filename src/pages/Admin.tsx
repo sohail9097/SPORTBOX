@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { collection, addDoc, getDocs, getDoc, deleteDoc, doc, updateDoc, query, orderBy, setDoc } from 'firebase/firestore';
-import { SportsContent, Category, ContentType, ContentSection, SliderElement, VideoPromoSettings, SiteConfig, PlayerSettings } from '../types';
-import { Plus, Trash2, Edit2, Play, LayoutDashboard, Film, Users, Settings, Save, X, Eye, Radio, Crown, Layers, MoveUp, MoveDown, CheckSquare, Square, Image as ImageIcon, Upload, Library } from 'lucide-react';
+import { SportsContent, Category, ContentType, ContentSection, SliderElement, VideoPromoSettings, SiteConfig, PlayerSettings, SubscriptionPlan } from '../types';
+import { Plus, Trash2, Edit2, Play, LayoutDashboard, Film, Users, Settings, Save, X, Eye, Radio, Crown, Layers, MoveUp, MoveDown, CheckSquare, Square, Image as ImageIcon, Upload, Library, ShieldCheck, Zap, Percent } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn, formatDate, transformGDriveUrl } from '../lib/utils';
 import { useAuth } from '../hooks/useAuth';
@@ -13,12 +13,13 @@ import StadiumPlayer from '../components/StadiumPlayer';
 export default function Admin() {
   const { user, isAdmin, loading: authLoading } = useAuth();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'content' | 'live' | 'sections' | 'slider' | 'users' | 'settings' | 'media'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'content' | 'live' | 'sections' | 'slider' | 'users' | 'settings' | 'media' | 'plans'>('dashboard');
   const [content, setContent] = useState<SportsContent[]>([]);
   const [mediaItems, setMediaItems] = useState<any[]>([]);
   const [sections, setSections] = useState<ContentSection[]>([]);
   const [slider, setSlider] = useState<SliderElement[]>([]);
   const [subscribers, setSubscribers] = useState<any[]>([]);
+  const [subscriptionPlans, setSubscriptionPlans] = useState<SubscriptionPlan[]>([]);
   const [siteConfig, setSiteConfig] = useState<SiteConfig>({
     founderImageUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=1000&auto=format&fit=crop'
   });
@@ -43,6 +44,7 @@ export default function Admin() {
   const [isAdding, setIsAdding] = useState(false);
   const [isAddingSection, setIsAddingSection] = useState(false);
   const [isAddingSlider, setIsAddingSlider] = useState(false);
+  const [isAddingPlan, setIsAddingPlan] = useState(false);
   const [loading, setLoading] = useState(true);
 
   // Content Form state
@@ -84,6 +86,24 @@ export default function Admin() {
     animationType: 'fade'
   });
 
+  // Plan Form state
+  const [editingPlanId, setEditingPlanId] = useState<string | null>(null);
+  const [planForm, setPlanForm] = useState<Partial<SubscriptionPlan>>({
+    name: '',
+    price: 0,
+    description: '',
+    features: [],
+    icon: 'Zap',
+    popular: false,
+    order: 0,
+    color: 'from-slate-800 to-slate-900 border-white/5',
+    offer: {
+      isActive: false,
+      percentage: 0,
+      label: 'Limited Offer'
+    }
+  });
+
   useEffect(() => {
     if (!authLoading && !isAdmin) {
       navigate('/');
@@ -100,8 +120,63 @@ export default function Admin() {
       fetchVideoPromo();
       fetchMediaItems();
       fetchPlayerConfig();
+      fetchSubscriptionPlans();
     }
   }, [isAdmin]);
+
+  const fetchSubscriptionPlans = async () => {
+    try {
+      const q = query(collection(db, 'subscription_plans'), orderBy('order', 'asc'));
+      const snap = await getDocs(q);
+      if (snap.empty) {
+        // Initialize default plans if none exist in Firestore
+        const defaultPlans = [
+          {
+            id: 'basic',
+            name: 'Basic Plan',
+            price: 49,
+            description: 'Essential access for every sports fan.',
+            features: ['Live Matches (SD)', 'Match Highlights', 'Ad Supported', 'Single Screen'],
+            icon: 'Zap',
+            popular: false,
+            order: 1,
+            color: 'from-slate-800 to-slate-900 border-white/5'
+          },
+          {
+            id: 'medium',
+            name: 'Medium Plan',
+            price: 199,
+            description: 'The sweet spot for high-quality entertainment.',
+            features: ['Live Matches (HD)', 'No Ads', 'Multi-Device Support', 'Exclusive Interviews'],
+            icon: 'Activity',
+            popular: true,
+            order: 2,
+            color: 'from-red-600 to-red-900 border-red-500/50 shadow-red-600/10'
+          },
+          {
+            id: 'pro',
+            name: 'Pro Plan',
+            price: 499,
+            description: 'The ultimate VIP stadium experience.',
+            features: ['Live Matches (4K)', 'Multi-Angle Views', 'Priority Support', 'No Ads Forever', '5 Screens'],
+            icon: 'Crown',
+            popular: false,
+            order: 3,
+            color: 'from-slate-900 to-black border-brand-alt/50 shadow-brand-alt/10'
+          }
+        ];
+        
+        for (const plan of defaultPlans) {
+          await setDoc(doc(db, 'subscription_plans', plan.id), plan);
+        }
+        setSubscriptionPlans(defaultPlans as SubscriptionPlan[]);
+      } else {
+        setSubscriptionPlans(snap.docs.map(d => ({ id: d.id, ...d.data() } as SubscriptionPlan)));
+      }
+    } catch (err) {
+      console.error("Fetch plans error:", err);
+    }
+  };
 
   const fetchPlayerConfig = async () => {
     try {
@@ -372,6 +447,45 @@ export default function Admin() {
     }
   };
 
+  const handlePlanSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const planId = editingPlanId || planForm.id || planForm.name?.toLowerCase().replace(/\s+/g, '-') || 'plan-' + Date.now();
+      const docRef = doc(db, 'subscription_plans', planId);
+      
+      // Ensure we have a valid offer object if it's active
+      const finalPlan = {
+        ...planForm,
+        id: planId,
+        offer: planForm.offer?.isActive ? planForm.offer : { isActive: false, percentage: 0, label: '' }
+      };
+
+      await setDoc(docRef, finalPlan);
+      
+      setIsAddingPlan(false);
+      setEditingPlanId(null);
+      await fetchSubscriptionPlans();
+      alert("Plan saved successfully!");
+    } catch (error) {
+      console.error("Plan save error:", error);
+      alert("Failed to save plan. Check console for details.");
+      handleFirestoreError(error, editingPlanId ? OperationType.UPDATE : OperationType.CREATE, 'subscription_plans');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePlanDelete = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this plan?')) return;
+    try {
+      await deleteDoc(doc(db, 'subscription_plans', id));
+      fetchSubscriptionPlans();
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, `subscription_plans/${id}`);
+    }
+  };
+
   const handleSectionDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this section?')) return;
     try {
@@ -402,6 +516,7 @@ export default function Admin() {
           <SidebarLink icon={ImageIcon} label="Hero Slider" active={activeTab === 'slider'} onClick={() => setActiveTab('slider')} />
           <SidebarLink icon={Radio} label="Live Center" active={activeTab === 'live'} onClick={() => setActiveTab('live')} />
           <SidebarLink icon={Users} label="Users" active={activeTab === 'users'} onClick={() => setActiveTab('users')} />
+          <SidebarLink icon={Crown} label="Subscription Plans" active={activeTab === 'plans'} onClick={() => setActiveTab('plans')} />
           <SidebarLink icon={Settings} label="Settings" active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} />
           <SidebarLink icon={Library} label="Media Uploads" active={activeTab === 'media'} onClick={() => setActiveTab('media')} />
         </div>
@@ -822,6 +937,86 @@ export default function Admin() {
                     )}
                   </tbody>
                 </table>
+              </div>
+            </motion.div>
+          )}
+
+          {activeTab === 'plans' && (
+            <motion.div key="plans" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} className="space-y-8">
+               <div className="flex justify-between items-end">
+                <div className="space-y-2">
+                  <h1 className="text-5xl font-black uppercase italic tracking-tighter">Subscription Plans</h1>
+                  <p className="text-text-muted font-medium">Manage pricing, features, and special offers for your users.</p>
+                </div>
+                <button 
+                  onClick={() => {
+                    setEditingPlanId(null);
+                    setPlanForm({ name: '', price: 0, description: '', features: [], icon: 'Zap', popular: false, color: 'from-slate-800 to-slate-900 border-white/5', offer: { isActive: false, percentage: 0, label: 'Limited Offer' } });
+                    setIsAddingPlan(true);
+                  }}
+                  className="btn-primary flex items-center gap-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add New Plan
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                {subscriptionPlans.map((plan) => (
+                  <div key={plan.id} className={cn("glass-card overflow-hidden group border", plan.popular ? "border-brand/40" : "border-white/5")}>
+                    <div className={cn("p-8 bg-gradient-to-br", plan.color)}>
+                      <div className="flex justify-between items-start mb-6">
+                        <div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center">
+                          <Crown className="w-6 h-6 text-white" />
+                        </div>
+                        <div className="flex gap-2">
+                          <button onClick={() => { setPlanForm(plan); setEditingPlanId(plan.id); setIsAddingPlan(true); }} className="p-2 bg-black/20 backdrop-blur-md rounded-lg hover:text-white transition-colors"><Edit2 className="w-4 h-4" /></button>
+                          <button onClick={() => handlePlanDelete(plan.id)} className="p-2 bg-black/20 backdrop-blur-md rounded-lg hover:text-red-500 transition-colors"><Trash2 className="w-4 h-4" /></button>
+                        </div>
+                      </div>
+                      
+                      <h3 className="text-2xl font-black uppercase italic tracking-tighter mb-2">{plan.name}</h3>
+                      <div className="flex flex-col mb-4">
+                        {plan.offer?.isActive && (
+                          <span className="text-sm line-through text-white/30 font-bold italic">₹{plan.price}</span>
+                        )}
+                        <div className="flex items-baseline gap-2">
+                          <span className="text-4xl font-black">
+                            ₹{plan.offer?.isActive 
+                              ? Math.round(plan.price * (1 - plan.offer.percentage / 100)) 
+                              : plan.price}
+                          </span>
+                          <span className="text-white/40 uppercase text-[10px] font-black tracking-widest">/ Month</span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="p-8 space-y-6">
+                      {plan.offer?.isActive && (
+                        <div className="bg-brand/10 border border-brand/20 p-4 rounded-2xl flex items-center justify-between">
+                          <div>
+                            <p className="text-[10px] font-black uppercase tracking-widest text-brand">{plan.offer.label}</p>
+                            <p className="text-sm font-bold">{plan.offer.percentage}% Instant Discount</p>
+                          </div>
+                          <Percent className="w-5 h-5 text-brand" />
+                        </div>
+                      )}
+                      
+                      <div className="space-y-2">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-text-muted">Active Features</p>
+                        <div className="space-y-1">
+                          {plan.features.slice(0, 3).map(f => (
+                            <div key={f} className="flex items-center gap-2 text-xs font-medium">
+                              <div className="w-1.5 h-1.5 rounded-full bg-brand" />
+                              {f}
+                            </div>
+                          ))}
+                          {plan.features.length > 3 && <p className="text-[10px] text-text-muted italic">+{plan.features.length - 3} more features</p>}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
             </motion.div>
           )}
@@ -1307,7 +1502,136 @@ export default function Admin() {
 
         {/* Video Preview Modal */}
         <AnimatePresence>
-          {previewContent && (
+          {isAddingPlan && (
+          <>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsAddingPlan(false)} className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60]" />
+            <motion.div initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }} className="fixed top-0 right-0 h-full w-full max-w-xl bg-surface border-l border-white/10 z-[70] p-8 overflow-y-auto">
+              <div className="flex items-center justify-between mb-8">
+                <h2 className="text-2xl font-display uppercase font-black tracking-widest italic">{editingPlanId ? 'Edit Plan' : 'New Plan'}</h2>
+                <button onClick={() => setIsAddingPlan(false)}><X className="w-6 h-6 hover:text-brand" /></button>
+              </div>
+              <form onSubmit={handlePlanSubmit} className="space-y-6">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Plan Name</label>
+                  <input type="text" required value={planForm.name} onChange={e => setPlanForm({...planForm, name: e.target.value})} className="w-full bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none" placeholder="e.g. Pro Stadium" />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Price (Monthly INR)</label>
+                  <input type="number" step="1" required value={planForm.price} onChange={e => setPlanForm({...planForm, price: parseFloat(e.target.value)})} className="w-full bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none" />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Description</label>
+                  <textarea rows={2} value={planForm.description} onChange={e => setPlanForm({...planForm, description: e.target.value})} className="w-full bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none" />
+                </div>
+                
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Features (One per line)</label>
+                  <textarea 
+                    rows={4} 
+                    value={planForm.features?.join('\n')} 
+                    onChange={e => setPlanForm({...planForm, features: e.target.value.split('\n').filter(f => f.trim())})} 
+                    className="w-full bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none"
+                    placeholder="All Live Matches&#10;No Ads&#10;Full HD"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Lucide Icon Name</label>
+                    <select value={planForm.icon} onChange={e => setPlanForm({...planForm, icon: e.target.value})} className="w-full bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none">
+                      <option value="Zap">Zap (Basic)</option>
+                      <option value="Crown">Crown (Pro)</option>
+                      <option value="ShieldCheck">ShieldCheck (Premium)</option>
+                      <option value="Star">Star</option>
+                      <option value="Activity">Activity</option>
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Is Popular Plan?</label>
+                    <div className="flex items-center gap-3 bg-white/5 p-3 rounded-md h-[46px]">
+                       <input type="checkbox" id="isPopularPlan" checked={planForm.popular} onChange={e => setPlanForm({...planForm, popular: e.target.checked})} className="w-4 h-4 accent-brand" />
+                       <label htmlFor="isPopularPlan" className="text-xs font-bold uppercase cursor-pointer">Yes, Highlight it</label>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Display Order</label>
+                    <input type="number" value={planForm.order} onChange={e => setPlanForm({...planForm, order: parseInt(e.target.value)})} className="w-full bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none" />
+                  </div>
+                </div>
+
+                <div className="space-y-4 pt-4 border-t border-white/10">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-xs font-black uppercase tracking-widest text-brand">Special Offer / Promotion</h3>
+                    <button 
+                      type="button"
+                      onClick={() => setPlanForm({
+                        ...planForm, 
+                        offer: { 
+                          isActive: !planForm.offer?.isActive, 
+                          percentage: planForm.offer?.percentage || 0,
+                          label: planForm.offer?.label || 'Limited Offer'
+                        }
+                      })}
+                      className={cn("w-12 h-6 rounded-full transition-all relative", planForm.offer?.isActive ? "bg-brand" : "bg-surface")}
+                    >
+                      <div className={cn("absolute top-1 w-4 h-4 rounded-full bg-white transition-all", planForm.offer?.isActive ? "right-1" : "left-1")} />
+                    </button>
+                  </div>
+
+                  {planForm.offer?.isActive && (
+                    <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4 bg-white/5 p-4 rounded-xl">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Discount Percentage (0-100%)</label>
+                        <div className="flex items-center gap-4">
+                          <input 
+                            type="range" 
+                            min="0" 
+                            max="100" 
+                            value={planForm.offer?.percentage || 0} 
+                            onChange={e => setPlanForm({
+                              ...planForm, 
+                              offer: { 
+                                isActive: true,
+                                label: planForm.offer?.label || 'Limited Offer',
+                                percentage: parseInt(e.target.value) 
+                              }
+                            })} 
+                            className="flex-grow accent-brand" 
+                          />
+                          <span className="text-lg font-black font-mono w-12">{planForm.offer?.percentage || 0}%</span>
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Offer Label (Badge)</label>
+                        <input 
+                          type="text" 
+                          value={planForm.offer?.label || ''} 
+                          onChange={e => setPlanForm({
+                            ...planForm, 
+                            offer: { 
+                              isActive: true,
+                              percentage: planForm.offer?.percentage || 0,
+                              label: e.target.value 
+                            }
+                          })} 
+                          className="w-full bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none" 
+                          placeholder="e.g. 50% Ramadan Special" 
+                        />
+                      </div>
+                    </motion.div>
+                  )}
+                </div>
+
+                <button type="submit" className="btn-primary w-full flex items-center justify-center gap-2 py-4">
+                  <Save className="w-5 h-5" />
+                  Save Subscription Plan
+                </button>
+              </form>
+            </motion.div>
+          </>
+        )}
+
+        {previewContent && (
             <motion.div 
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}

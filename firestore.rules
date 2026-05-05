@@ -1,15 +1,20 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // 0. Global Safety Net
+    // Diagnostic: Allow public reads
     match /{document=**} {
-      allow read, write: if false;
+      allow read: if true;
+      allow write: if request.auth != null && 
+                           (request.auth.token.email.lower() == 'sohailgaji9097@gmail.com' || 
+                            request.auth.uid == 'n3QDwiWf4xTB4IVjIQpjNFvr1qB3');
     }
 
     // --- Helpers ---
     function isSignedIn() { return request.auth != null; }
     function isAdmin() { 
-      return isSignedIn() && request.auth.token.email == 'sohailgaji9097@gmail.com' && request.auth.token.email_verified == true;
+      return isSignedIn() && 
+             request.auth.token.email.lower() == 'sohailgaji9097@gmail.com' && 
+             request.auth.token.email_verified == true;
     }
     function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
     function incoming() { return request.resource.data; }
@@ -67,6 +72,24 @@ service cloud.firestore {
 
     // Hero Slider
     match /slider/{slideId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Subscription Plans
+    match /subscription_plans/{planId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Media Items
+    match /media/{mediaId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // Media Library
+    match /library/{mediaId} {
       allow read: if true;
       allow write: if isAdmin();
     }

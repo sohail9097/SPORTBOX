@@ -3,7 +3,7 @@ import { useAuth } from '../hooks/useAuth';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
 import { motion, AnimatePresence } from 'motion/react';
-import { User, Phone, CheckCircle2, ShieldCheck, Mail, LogOut, ChevronRight, Loader2, Key } from 'lucide-react';
+import { User, Phone, CheckCircle2, ShieldCheck, Mail, LogOut, ChevronRight, Loader2, Key, Settings } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { auth } from '../lib/firebase';
 
@@ -108,6 +108,15 @@ export default function Account() {
             )}>
               {profile?.subscriptionTier || 'Free'} Member
             </div>
+
+            <Link 
+              to="/admin"
+              className="md:hidden w-full flex items-center justify-center gap-2 py-3 text-[9px] font-black uppercase tracking-[0.2em] bg-white/5 text-brand border border-brand/20 rounded-lg transition-colors mt-2"
+            >
+              <Settings className="w-3.5 h-3.5" />
+              Admin Panel
+            </Link>
+
             <button 
               onClick={() => {
                 auth.signOut();

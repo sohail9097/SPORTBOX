@@ -82,14 +82,14 @@ export default function DynamicSections({ page }: DynamicSectionsProps) {
   }
 
   return (
-    <div className="space-y-12">
+    <div className="space-y-6 md:space-y-12">
       {sections.map((section) => {
         const contents = sectionData[section.id] || [];
         if (contents.length === 0) return null;
 
         return (
           <section key={section.id} className="relative">
-            <div className="flex items-center justify-between mb-4 mt-8">
+            <div className="flex items-center justify-between mb-2 md:mb-4 mt-4 md:mt-8">
               <div className="flex items-center gap-2">
                 <div className="p-1.5 bg-brand/10 rounded-sm">
                   {(section.type === 'top10' || section.type === 'tournament') ? <Trophy className="w-5 h-5 text-brand" /> : <Layers className="w-5 h-5 text-brand" />}
@@ -99,7 +99,7 @@ export default function DynamicSections({ page }: DynamicSectionsProps) {
             </div>
 
             {section.type === 'top10' ? (
-              <div className="flex gap-2 overflow-x-auto pb-4 hide-scrollbar scroll-smooth snap-x">
+              <div className="flex gap-1 overflow-x-auto pb-4 hide-scrollbar scroll-smooth snap-x">
                 {contents.slice(0, 10).map((item, i) => (
                   <div key={`${i}-${item.id}`} className="relative flex-none w-[110px] md:w-[180px] group snap-start">
                     <div className="relative z-10 pl-3 md:pl-10 h-full">
@@ -116,7 +116,7 @@ export default function DynamicSections({ page }: DynamicSectionsProps) {
             ) : section.type === 'single-row' ? (
               <AutoScrollingRow contents={contents} aspectRatio={section.aspectRatio || 'landscape'} />
             ) : section.type === 'featured' ? (
-              <div className="flex md:grid md:grid-cols-2 gap-1.5 overflow-x-auto md:overflow-visible pb-4 md:pb-0 hide-scrollbar snap-x">
+              <div className="flex md:grid md:grid-cols-2 gap-1 md:gap-1.5 overflow-x-auto md:overflow-visible pb-4 md:pb-0 hide-scrollbar snap-x">
                 {contents.map((item, i) => (
                    <div key={`${i}-${item.id}`} className={cn(
                      "flex-shrink-0 md:flex-shrink snap-start",
@@ -128,7 +128,7 @@ export default function DynamicSections({ page }: DynamicSectionsProps) {
               </div>
             ) : (
               <div className={cn(
-                "flex md:grid gap-1.5 md:gap-1 overflow-x-auto md:overflow-visible pb-4 md:pb-0 hide-scrollbar snap-x",
+                "flex md:grid gap-1 md:gap-1.5 overflow-x-auto md:overflow-visible pb-4 md:pb-0 hide-scrollbar snap-x",
                 section.aspectRatio === 'portrait' 
                   ? "md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7" 
                   : "md:grid-cols-3 lg:grid-cols-6"

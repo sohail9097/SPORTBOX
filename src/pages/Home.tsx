@@ -111,9 +111,9 @@ export default function Home() {
 
       {/* Live Section */}
       {liveNow.length > 0 && (
-        <section key="home-live-section" className="max-w-[1600px] mx-auto px-4 mt-8">
+        <section key="home-live-section" className="max-w-[1600px] mx-auto px-4 mt-4 md:mt-8">
           <SectionHeader title="Live Today" icon={Play} link="/live" />
-          <div className="flex md:grid md:grid-cols-4 lg:grid-cols-6 gap-2 md:gap-1 overflow-x-auto md:overflow-visible pb-4 md:pb-0 hide-scrollbar snap-x">
+          <div className="flex md:grid md:grid-cols-4 lg:grid-cols-6 gap-1 md:gap-1 overflow-x-auto md:overflow-visible pb-4 md:pb-0 hide-scrollbar snap-x">
             {liveNow.map((item, i) => (
               <div key={`home-live-${item.id}`} className="flex-shrink-0 w-[125px] md:w-auto snap-start">
                 <ContentCard content={item} index={i} />
@@ -137,9 +137,9 @@ export default function Home() {
       )}
 
       {/* Trending Section */}
-      <section key="home-trending-section" className="max-w-[1600px] mx-auto px-4 mt-8">
+      <section key="home-trending-section" className="max-w-[1600px] mx-auto px-4 mt-4 md:mt-8">
         <SectionHeader title="Trending Replays" icon={TrendingUp} />
-        <div className="flex md:grid md:grid-cols-4 lg:grid-cols-6 gap-2 md:gap-1 overflow-x-auto md:overflow-visible pb-4 md:pb-0 hide-scrollbar snap-x">
+        <div className="flex md:grid md:grid-cols-4 lg:grid-cols-6 gap-1 md:gap-1 overflow-x-auto md:overflow-visible pb-4 md:pb-0 hide-scrollbar snap-x">
           {trending.map((item, i) => (
             <div key={`home-trending-${item.id}`} className="flex-shrink-0 w-[125px] md:w-auto snap-start">
               <ContentCard key={`home-trending-${item.id}`} content={item} index={i} />

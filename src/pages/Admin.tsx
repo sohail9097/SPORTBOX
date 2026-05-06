@@ -13,7 +13,7 @@ import StadiumPlayer from '../components/StadiumPlayer';
 export default function Admin() {
   const { user, isAdmin, loading: authLoading } = useAuth();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'content' | 'live' | 'sections' | 'categories' | 'slider' | 'users' | 'settings' | 'media' | 'plans'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'content' | 'live' | 'sections' | 'categories' | 'slider' | 'users' | 'settings' | 'media' | 'plans' | 'trending'>('dashboard');
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [content, setContent] = useState<SportsContent[]>([]);
   const [mediaItems, setMediaItems] = useState<any[]>([]);
@@ -531,6 +531,7 @@ export default function Admin() {
           <SidebarLink icon={ImageIcon} label="Hero Slider" active={activeTab === 'slider'} onClick={() => setActiveTab('slider')} />
           <SidebarLink icon={Radio} label="Live Center" active={activeTab === 'live'} onClick={() => setActiveTab('live')} />
           <SidebarLink icon={Users} label="Users" active={activeTab === 'users'} onClick={() => setActiveTab('users')} />
+          <SidebarLink icon={Activity} label="Trending Editor" active={activeTab === 'trending'} onClick={() => setActiveTab('trending')} />
           <SidebarLink icon={Crown} label="Subscription Plans" active={activeTab === 'plans'} onClick={() => setActiveTab('plans')} />
           <SidebarLink icon={Settings} label="Settings" active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} />
           <SidebarLink icon={Library} label="Media Uploads" active={activeTab === 'media'} onClick={() => setActiveTab('media')} />
@@ -1428,6 +1429,50 @@ export default function Admin() {
                 </div>
               </div>
             </motion.div>
+          )}
+          {activeTab === 'trending' && (
+             <motion.div key="trending" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} className="space-y-8">
+               <div className="space-y-2">
+                 <h1 className="text-5xl font-black uppercase italic tracking-tighter">Trending Center</h1>
+                 <p className="text-text-muted font-medium">Manually curate the trending section or let the algorithm handle it.</p>
+               </div>
+
+               <div className="glass-card p-4 md:p-8 bg-surface/30 border border-white/5 rounded-3xl">
+                 <div className="flex items-center gap-4 mb-6">
+                    <div className="p-3 bg-amber-400/10 text-amber-400 rounded-2xl">
+                      <Activity className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-display font-black uppercase italic tracking-wider">Trending Management</h3>
+                      <p className="text-[10px] text-text-muted uppercase font-bold tracking-widest">Configuration & Best Practices</p>
+                    </div>
+                 </div>
+                 
+                 <div className="space-y-6">
+                    <div className="p-6 bg-brand/5 border border-brand/20 rounded-2xl">
+                      <h4 className="font-bold text-brand mb-2 uppercase text-xs tracking-widest">How to edit Trending Section?</h4>
+                      <p className="text-sm text-text-muted leading-relaxed mb-4">
+                        The "Trending Replays" section on the Home page can be manually managed by creating a Dynamic Section.
+                      </p>
+                      <ul className="text-xs text-text-muted space-y-2 mb-6 list-disc pl-4">
+                        <li>Go to <span className="text-white">"Sections"</span> tab (via Categories &rarr; Home Page).</li>
+                        <li>Create or edit a section with the title <span className="text-white">"Trending Replays"</span>.</li>
+                        <li>Include the specific videos you want to feature as trending.</li>
+                        <li>This manual section will override the automatic "most viewed" list.</li>
+                      </ul>
+                      <button 
+                        onClick={() => {
+                          setSelectedCategory('home' as any);
+                          setActiveTab('categories');
+                        }}
+                        className="w-full py-4 bg-brand text-white rounded-xl text-[10px] font-black uppercase italic tracking-[0.2em] shadow-xl shadow-brand/20 hover:scale-[1.02] transition-all"
+                      >
+                        Manage Home Row Sections
+                      </button>
+                    </div>
+                 </div>
+               </div>
+             </motion.div>
           )}
           {activeTab === 'media' && (
             <motion.div key="media" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} className="space-y-8">

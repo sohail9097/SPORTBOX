@@ -42,9 +42,9 @@ export default function Layout({ children }: { children: ReactNode }) {
 
   const mobileNavLinks = [
     { name: 'Home', path: '/', icon: Home },
-    { name: 'Search', path: '/live', icon: Search },
-    { name: 'Coming soon', path: '/live', icon: Calendar },
-    { name: 'Live TV', path: '/live', icon: Tv },
+    { name: 'Search', path: '/live', icon: Search }, // Temporary using /live for search context
+    { name: 'Live', path: '/live', icon: Tv },
+    { name: 'Plans', path: '/plans', icon: Crown },
     { name: 'Profile', path: user ? '/account' : '/plans', icon: UserCircle },
   ];
 

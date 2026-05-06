@@ -79,7 +79,7 @@ export default function CategoryPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
-            className="text-6xl md:text-8xl font-black uppercase italic tracking-tighter leading-none"
+            className="text-4xl md:text-8xl font-black uppercase italic tracking-tighter leading-none"
           >
             {categoryName} <span className="text-white/10">Universe</span>
           </motion.h1>
@@ -87,7 +87,7 @@ export default function CategoryPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
-            className="max-w-2xl text-slate-400 text-lg font-medium"
+            className="max-w-2xl text-slate-400 text-sm md:text-lg font-medium"
           >
             Explore the best {category} matches, high-octane replays, and exclusive behind-the-scenes content.
           </motion.p>
@@ -147,18 +147,18 @@ export default function CategoryPage() {
 function SectionHeader({ title, icon: Icon, link }: { title: string, icon: any, link?: string }) {
   return (
     <div className="flex items-center justify-between mb-4">
-      <div className="flex items-center gap-2">
-        <div className="p-1.5 bg-brand/10 rounded-lg">
-          <Icon className="w-4 h-4 text-brand" />
+        <div className="flex items-center gap-2">
+          <div className="p-1.5 bg-brand/10 rounded-sm">
+            <Icon className="w-5 h-5 text-brand" />
+          </div>
+          <h2 className="text-xl md:text-2xl font-display font-black uppercase italic tracking-tight">{title}</h2>
         </div>
-        <h2 className="text-lg md:text-xl font-display uppercase tracking-wider">{title}</h2>
-      </div>
-      {link && (
-        <Link to={link} className="flex items-center gap-1 text-text-muted hover:text-brand transition-colors group text-xs font-bold uppercase tracking-widest">
-          View All
-          <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-        </Link>
-      )}
+        {link && (
+          <Link to={link} className="flex items-center gap-1 text-text-muted hover:text-brand transition-colors group text-[10px] md:text-xs font-black uppercase italic tracking-widest">
+            View All
+            <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+          </Link>
+        )}
     </div>
   );
 }

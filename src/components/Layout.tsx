@@ -56,10 +56,10 @@ export default function Layout({ children }: { children: ReactNode }) {
           <div className="flex items-center justify-between h-14 md:h-16">
             <div className="flex items-center gap-4 md:gap-8">
               <Link to="/" className="flex items-center gap-2 group">
-                <div className="w-6 h-6 md:w-8 md:h-8 bg-brand rounded-sm flex items-center justify-center font-black text-lg md:text-xl italic group-hover:scale-110 transition-transform">
+                <div className="w-5 h-5 md:w-8 md:h-8 bg-brand rounded-sm flex items-center justify-center font-black text-sm md:text-xl italic group-hover:scale-110 transition-transform flex-shrink-0">
                   S
                 </div>
-                <span className="font-display font-black text-lg md:text-xl tracking-tighter uppercase italic hidden sm:inline">
+                <span className="font-display font-black text-sm md:text-xl tracking-tighter uppercase italic whitespace-nowrap">
                   Sport<span className="text-brand">Box</span>
                 </span>
               </Link>
@@ -80,18 +80,35 @@ export default function Layout({ children }: { children: ReactNode }) {
               </div>
             </div>
 
-            <div className="flex items-center gap-2 md:gap-6">
+            <div className="flex items-center gap-0.5 md:gap-6">
               <button 
-                className="p-2 text-text-muted hover:text-text-base md:hidden"
+                className="p-1 px-2 text-text-muted hover:text-text-base md:hidden"
               >
-                <Search className="w-5 h-5" />
+                <Search className="w-4 h-4" />
               </button>
               
               <button 
-                className="p-2 text-text-muted hover:text-text-base md:hidden"
+                className="p-1 px-2 text-text-muted hover:text-text-base md:hidden"
               >
-                <Bell className="w-5 h-5" />
+                <Bell className="w-4 h-4" />
               </button>
+
+              {!user && (
+                <button 
+                  onClick={signInWithGoogle}
+                  className="p-1 px-2 text-brand md:hidden"
+                >
+                  <UserCircle className="w-4 h-4" />
+                </button>
+              )}
+              {user && (
+                <Link 
+                  to="/account"
+                  className="p-1.5 text-text-muted md:hidden"
+                >
+                  <User className="w-5 h-5" />
+                </Link>
+              )}
 
               <div className="hidden md:flex items-center gap-6">
                 <button 
@@ -219,11 +236,17 @@ export default function Layout({ children }: { children: ReactNode }) {
               <div className="flex-shrink-0 relative group">
                 <div className="absolute -inset-2 bg-brand/20 rounded-full blur-2xl group-hover:bg-brand/30 transition-all duration-700"></div>
                 <div className="absolute -inset-0.5 bg-gradient-to-tr from-brand via-brand/50 to-transparent rounded-full opacity-40 group-hover:opacity-100 transition-opacity duration-500"></div>
-                <img 
-                  src={siteConfig.founderImageUrl} 
-                  alt="Founder" 
-                  className="relative w-32 h-32 md:w-40 md:h-40 rounded-full object-cover grayscale brightness-110 hover:grayscale-0 transition-all duration-700 border-2 border-white/10 shadow-2xl shadow-brand/20"
-                />
+                {siteConfig.founderImageUrl && siteConfig.founderImageUrl.trim() !== '' ? (
+                  <img 
+                    src={siteConfig.founderImageUrl} 
+                    alt="Founder" 
+                    className="relative w-32 h-32 md:w-40 md:h-40 rounded-full object-cover grayscale brightness-110 hover:grayscale-0 transition-all duration-700 border-2 border-white/10 shadow-2xl shadow-brand/20"
+                  />
+                ) : (
+                  <div className="relative w-32 h-32 md:w-40 md:h-40 rounded-full bg-white/5 border-2 border-white/10 flex items-center justify-center">
+                    <User className="w-12 h-12 text-white/10" />
+                  </div>
+                )}
               </div>
               <div className="flex-grow space-y-4">
                 <Link to="/" className="flex items-center justify-center md:justify-start gap-2">

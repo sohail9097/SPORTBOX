@@ -161,7 +161,7 @@ export default function StadiumPlayer({ url, poster, isLive, useIframe: initialU
 
   if (isGDrive && driveId) {
     return (
-      <div className="relative w-full aspect-video bg-black group rounded-3xl overflow-hidden border border-white/10 shadow-2xl">
+      <div className="relative w-full aspect-video bg-black group rounded-xl overflow-hidden border border-white/10 shadow-2xl">
         <iframe 
           src={`https://drive.google.com/file/d/${driveId}/preview`}
           className="absolute inset-0 w-full h-full border-0"
@@ -280,10 +280,10 @@ export default function StadiumPlayer({ url, poster, isLive, useIframe: initialU
                 <div className="flex items-center gap-6">
                   {/* Playback Rate */}
                   <div className="relative group/rate">
-                     <button className="text-white/70 hover:text-white transition-colors text-[10px] font-bold uppercase tracking-widest px-2 py-1 bg-white/5 rounded">
+                     <button className="text-white/70 hover:text-white transition-colors text-[10px] font-bold uppercase tracking-widest px-2 py-1 bg-white/5 rounded-sm">
                         {playbackRate}x
                      </button>
-                     <div className="absolute bottom-full mb-2 bg-black/90 backdrop-blur-xl border border-white/10 rounded-lg overflow-hidden hidden group-hover/rate:block min-w-[80px]">
+                     <div className="absolute bottom-full mb-2 bg-black/90 backdrop-blur-xl border border-white/10 rounded-md overflow-hidden hidden group-hover/rate:block min-w-[80px]">
                         {config.playbackRates.map(rate => (
                            <button 
                               key={rate} 
@@ -312,12 +312,12 @@ export default function StadiumPlayer({ url, poster, isLive, useIframe: initialU
       {/* Quality Badge (Optional Jio Hotstar Feel) */}
       <div className="absolute top-8 right-8 z-20 flex gap-2">
          <div 
-            className="backdrop-blur-md border px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest"
+            className="backdrop-blur-md border px-3 py-1 rounded-sm text-[10px] font-black uppercase tracking-widest"
             style={{ backgroundColor: `${config.primaryColor}33`, borderColor: `${config.primaryColor}4d`, color: config.primaryColor }}
          >
             Ultra HD
          </div>
-         <div className="bg-white/10 backdrop-blur-md border border-white/20 px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest text-white/90">
+         <div className="bg-white/10 backdrop-blur-md border border-white/20 px-3 py-1 rounded-sm text-[10px] font-black uppercase tracking-widest text-white/90">
             5.1 Audio
          </div>
       </div>

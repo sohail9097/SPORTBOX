@@ -89,24 +89,24 @@ export default function DynamicSections({ page }: DynamicSectionsProps) {
 
         return (
           <section key={section.id} className="relative">
-            <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center justify-between mb-4 mt-8">
               <div className="flex items-center gap-2">
-                <div className="p-1.5 bg-brand/10 rounded-lg">
-                  {(section.type === 'top10' || section.type === 'tournament') ? <Trophy className="w-4 h-4 text-brand" /> : <Layers className="w-4 h-4 text-brand" />}
+                <div className="p-1.5 bg-brand/10 rounded-sm">
+                  {(section.type === 'top10' || section.type === 'tournament') ? <Trophy className="w-5 h-5 text-brand" /> : <Layers className="w-5 h-5 text-brand" />}
                 </div>
-                <h2 className="text-lg font-black uppercase italic tracking-tighter">{section.title}</h2>
+                <h2 className="text-xl md:text-2xl font-display font-black uppercase italic tracking-tight">{section.title}</h2>
               </div>
             </div>
 
             {section.type === 'top10' ? (
               <div className="flex gap-2 overflow-x-auto pb-4 hide-scrollbar scroll-smooth snap-x">
                 {contents.slice(0, 10).map((item, i) => (
-                  <div key={`${i}-${item.id}`} className="relative flex-none w-[140px] md:w-[180px] group snap-start">
-                    <div className="relative z-10 pl-6 md:pl-10 h-full">
+                  <div key={`${i}-${item.id}`} className="relative flex-none w-[110px] md:w-[180px] group snap-start">
+                    <div className="relative z-10 pl-3 md:pl-10 h-full">
                       <ContentCard content={item} aspectRatio="portrait" hideDetails index={i} />
                     </div>
                     <div className="absolute left-0 bottom-[-10px] z-20 flex items-center justify-center">
-                      <span className="text-7xl md:text-[9rem] font-black text-white/20 drop-shadow-[0_4px_12px_rgba(255,255,255,0.1)] italic leading-none select-none" style={{ WebkitTextStroke: '1.5px rgba(255,255,255,0.5)' }}>
+                      <span className="text-6xl md:text-[9rem] font-black text-white/20 drop-shadow-[0_4px_12px_rgba(255,255,255,0.1)] italic leading-none select-none" style={{ WebkitTextStroke: '1.5px rgba(255,255,255,0.5)' }}>
                         {i + 1}
                       </span>
                     </div>
@@ -116,27 +116,37 @@ export default function DynamicSections({ page }: DynamicSectionsProps) {
             ) : section.type === 'single-row' ? (
               <AutoScrollingRow contents={contents} aspectRatio={section.aspectRatio || 'landscape'} />
             ) : section.type === 'featured' ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-1.5">
+              <div className="flex md:grid md:grid-cols-2 gap-1.5 overflow-x-auto md:overflow-visible pb-4 md:pb-0 hide-scrollbar snap-x">
                 {contents.map((item, i) => (
-                   <div key={`${i}-${item.id}`} className={cn(i === 0 ? "md:col-span-2" : "")}>
+                   <div key={`${i}-${item.id}`} className={cn(
+                     "flex-shrink-0 md:flex-shrink snap-start",
+                     i === 0 ? "w-[220px] md:w-auto md:col-span-2" : "w-[125px] md:w-auto"
+                   )}>
                       <ContentCard content={item} index={i} featured={i === 0} />
                    </div>
                 ))}
               </div>
             ) : (
               <div className={cn(
-                "grid gap-1",
+                "flex md:grid gap-1.5 md:gap-1 overflow-x-auto md:overflow-visible pb-4 md:pb-0 hide-scrollbar snap-x",
                 section.aspectRatio === 'portrait' 
-                  ? "grid-cols-3 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7" 
-                  : "grid-cols-2 md:grid-cols-3 lg:grid-cols-6"
+                  ? "md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7" 
+                  : "md:grid-cols-3 lg:grid-cols-6"
               )}>
                 {contents.map((item, i) => (
-                  <ContentCard 
+                  <div 
                     key={`${i}-${item.id}`} 
-                    content={item} 
-                    index={i} 
-                    aspectRatio={section.aspectRatio || 'landscape'} 
-                  />
+                    className={cn(
+                      "flex-shrink-0 snap-start",
+                      section.aspectRatio === 'portrait' ? "w-[110px] md:w-auto" : "w-[125px] md:w-auto"
+                    )}
+                  >
+                    <ContentCard 
+                      content={item} 
+                      index={i} 
+                      aspectRatio={section.aspectRatio || 'landscape'} 
+                    />
+                  </div>
                 ))}
               </div>
             )}

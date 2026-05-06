@@ -36,10 +36,10 @@ export default function ContentCard({
         )}
       >
         <div className={cn(
-          "relative overflow-hidden rounded-xl border border-white/5 shadow-2xl transition-all duration-300 group-hover:border-brand/30", 
+          "relative overflow-hidden rounded-[4px] border border-white/5 shadow-2xl transition-all duration-300 group-hover:border-brand/30", 
           featured ? "aspect-[21/9]" : (aspectRatio === 'portrait' ? "aspect-[2/3]" : "aspect-video")
         )}>
-          {content.thumbnailUrl ? (
+          {content.thumbnailUrl && content.thumbnailUrl.trim() !== '' ? (
             <img 
               src={content.thumbnailUrl} 
               alt={content.title}
@@ -57,11 +57,11 @@ export default function ContentCard({
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-60 group-hover:opacity-40 transition-opacity" />
           
           <div className="absolute top-3 left-3 flex flex-wrap gap-2">
-            <span className="px-2 py-0.5 bg-black/60 backdrop-blur-md rounded text-[10px] font-bold uppercase tracking-widest border border-white/10">
+            <span className="px-2 py-0.5 bg-black/60 backdrop-blur-md rounded-sm text-[10px] font-bold uppercase tracking-widest border border-white/10">
               {content.category}
             </span>
             {isLocked && (
-              <span className="px-2 py-0.5 bg-brand text-white rounded text-[10px] font-black uppercase tracking-widest flex items-center gap-1 shadow-lg">
+              <span className="px-2 py-0.5 bg-brand text-white rounded-sm text-[10px] font-black uppercase tracking-widest flex items-center gap-1 shadow-lg">
                 <Lock className="w-2.5 h-2.5" />
                 Locked
               </span>
@@ -75,7 +75,7 @@ export default function ContentCard({
           </div>
 
           {content.type === 'live' && (
-            <div className="absolute top-3 right-3 flex items-center gap-1.5 px-2 py-0.5 bg-red-600 rounded text-[10px] font-bold uppercase tracking-widest animate-pulse">
+            <div className="absolute top-3 right-3 flex items-center gap-1.5 px-2 py-0.5 bg-red-600 rounded-sm text-[10px] font-bold uppercase tracking-widest animate-pulse">
               <div className="w-1.5 h-1.5 bg-white rounded-full" />
               Live
             </div>
@@ -98,17 +98,17 @@ export default function ContentCard({
         </div>
 
         {!hideDetails && (
-          <div className="mt-2 px-1">
-            <h3 className="font-display text-xs uppercase tracking-wider group-hover:text-brand transition-colors line-clamp-1">
+          <div className="mt-1 md:mt-2 px-1">
+            <h3 className="font-display text-[10px] md:text-xs uppercase tracking-wider group-hover:text-brand transition-colors line-clamp-1 leading-tight">
               {content.title}
             </h3>
-            <div className="flex items-center gap-3 mt-1 text-[9px] text-text-muted font-medium uppercase tracking-widest">
+            <div className="flex items-center gap-2 md:gap-3 mt-0.5 md:mt-1 text-[8px] md:text-[9px] text-text-muted font-medium uppercase tracking-widest">
               <span className="flex items-center gap-1">
-                <Eye className="w-3 h-3" />
+                <Eye className="w-2.5 h-2.5 md:w-3 md:h-3" />
                 {content.viewCount?.toLocaleString() || 0}
               </span>
               <span className="flex items-center gap-1">
-                <Clock className="w-3 h-3" />
+                <Clock className="w-2.5 h-2.5 md:w-3 md:h-3" />
                 {formatDate(content.createdAt)}
               </span>
             </div>

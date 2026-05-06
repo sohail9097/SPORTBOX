@@ -113,9 +113,11 @@ export default function Home() {
       {liveNow.length > 0 && (
         <section key="home-live-section" className="max-w-[1600px] mx-auto px-4 mt-8">
           <SectionHeader title="Live Today" icon={Play} link="/live" />
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-1">
+          <div className="flex md:grid md:grid-cols-4 lg:grid-cols-6 gap-2 md:gap-1 overflow-x-auto md:overflow-visible pb-4 md:pb-0 hide-scrollbar snap-x">
             {liveNow.map((item, i) => (
-              <ContentCard key={`home-live-${item.id}`} content={item} index={i} />
+              <div key={`home-live-${item.id}`} className="flex-shrink-0 w-[125px] md:w-auto snap-start">
+                <ContentCard content={item} index={i} />
+              </div>
             ))}
           </div>
         </section>
@@ -137,9 +139,11 @@ export default function Home() {
       {/* Trending Section */}
       <section key="home-trending-section" className="max-w-[1600px] mx-auto px-4 mt-8">
         <SectionHeader title="Trending Replays" icon={TrendingUp} />
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-1">
+        <div className="flex md:grid md:grid-cols-4 lg:grid-cols-6 gap-2 md:gap-1 overflow-x-auto md:overflow-visible pb-4 md:pb-0 hide-scrollbar snap-x">
           {trending.map((item, i) => (
-            <ContentCard key={`home-trending-${item.id}`} content={item} index={i} />
+            <div key={`home-trending-${item.id}`} className="flex-shrink-0 w-[125px] md:w-auto snap-start">
+              <ContentCard key={`home-trending-${item.id}`} content={item} index={i} />
+            </div>
           ))}
         </div>
       </section>
@@ -149,15 +153,15 @@ export default function Home() {
 
 function SectionHeader({ title, icon: Icon, link }: { title: string, icon: any, link?: string }) {
   return (
-    <div className="flex items-center justify-between mb-4">
+    <div className="flex items-center justify-between mb-4 mt-8">
       <div className="flex items-center gap-2">
         <div className="p-1.5 bg-brand/10 rounded-sm">
-          <Icon className="w-4 h-4 text-brand" />
+          <Icon className="w-5 h-5 text-brand" />
         </div>
-        <h2 className="text-lg md:text-xl font-display uppercase tracking-wider">{title}</h2>
+        <h2 className="text-xl md:text-2xl font-display font-black uppercase italic tracking-tight">{title}</h2>
       </div>
       {link && (
-        <Link to={link} className="flex items-center gap-1 text-text-muted hover:text-brand transition-colors group text-xs font-bold uppercase tracking-widest">
+        <Link to={link} className="flex items-center gap-1 text-text-muted hover:text-brand transition-colors group text-[10px] font-black uppercase italic tracking-widest">
           View All
           <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
         </Link>

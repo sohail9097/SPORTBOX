@@ -96,13 +96,13 @@ export default function Plans() {
   };
 
   return (
-    <div className="py-24 px-4 max-w-[1600px] mx-auto">
-      <div className="text-center max-w-2xl mx-auto mb-20 space-y-4">
-        <h1 className="text-6xl md:text-8xl font-black uppercase italic tracking-tighter leading-none">
+    <div className="py-12 md:py-24 px-4 max-w-[1600px] mx-auto">
+      <div className="text-center max-w-2xl mx-auto mb-8 md:mb-20 space-y-2">
+        <h1 className="text-3xl md:text-8xl font-black uppercase italic tracking-tighter leading-none">
           Choose Your <span className="text-brand">League</span>
         </h1>
-        <p className="text-slate-400 text-lg font-medium">
-          Select a plan that fits your passion. Upgrade or cancel anytime. No hidden fees.
+        <p className="text-slate-400 text-xs md:text-lg font-medium">
+          Select a plan that fits your passion. Upgrade or cancel anytime.
         </p>
       </div>
 
@@ -125,12 +125,12 @@ export default function Plans() {
               viewport={{ once: true }}
               transition={{ delay: i * 0.1, duration: 0.5 }}
               className={cn(
-                "relative rounded-[40px] p-12 flex flex-col border bg-gradient-to-br transition-all hover:scale-[1.03] group shadow-2xl overflow-hidden",
+                "relative rounded-xl md:rounded-2xl p-8 md:p-12 flex flex-col border bg-gradient-to-br transition-all hover:scale-[1.03] group shadow-2xl overflow-hidden",
                 plan.color
               )}
             >
               {plan.popular && (
-                <div className="absolute top-0 right-12 -translate-y-1/2 bg-white text-brand px-6 py-1.5 font-black text-[10px] uppercase tracking-[0.3em] rounded-full shadow-xl">
+                <div className="absolute top-0 right-8 md:right-12 -translate-y-1/2 bg-white text-brand px-4 md:px-6 py-1 md:py-1.5 font-black text-[8px] md:text-[10px] uppercase tracking-[0.2em] md:tracking-[0.3em] rounded-full shadow-xl">
                   Most Popular
                 </div>
               )}
@@ -141,37 +141,37 @@ export default function Plans() {
                 </div>
               )}
 
-              <div className="flex items-center gap-5 mb-10">
-                <div className="w-16 h-16 bg-white/10 rounded-2xl flex items-center justify-center group-hover:rotate-6 transition-transform">
-                  <Icon className={cn("w-8 h-8", (plan.id === 'pro' || plan.id === 'medium' || plan.popular) ? "text-white" : "text-brand")} />
+              <div className="flex items-center gap-3 md:gap-5 mb-4 md:mb-10">
+                <div className="w-10 h-10 md:w-16 md:h-16 bg-white/10 rounded-md md:rounded-xl flex items-center justify-center group-hover:rotate-6 transition-transform">
+                  <Icon className={cn("w-5 h-5 md:w-8 md:h-8", (plan.id === 'pro' || plan.id === 'medium' || plan.popular) ? "text-white" : "text-brand")} />
                 </div>
                 <div>
-                  <h3 className="font-black text-2xl uppercase italic tracking-tight">{plan.name}</h3>
+                  <h3 className="font-black text-lg md:text-2xl uppercase italic tracking-tight">{plan.name}</h3>
                   {profile?.subscriptionTier === plan.id && (
-                    <span className="text-[10px] font-black text-white/60 uppercase tracking-widest bg-white/10 px-2 py-0.5 rounded-full">Active Plan</span>
+                    <span className="text-[7px] md:text-[10px] font-black text-white/60 uppercase tracking-widest bg-white/10 px-2 py-0.5 rounded-full">Active Plan</span>
                   )}
                 </div>
               </div>
 
-              <div className="mb-10 space-y-1">
-                <div className="flex items-baseline gap-3">
+              <div className="mb-4 md:mb-10 space-y-1">
+                <div className="flex items-baseline gap-2 md:gap-3">
                   {plan.offer?.isActive && (
-                    <span className="text-2xl line-through text-white/20 font-black italic">₹{plan.price}</span>
+                    <span className="text-base md:text-2xl line-through text-white/20 font-black italic">₹{plan.price}</span>
                   )}
-                  <span className="text-6xl font-black uppercase italic tracking-tighter">₹{Math.round(parseFloat(finalPrice))}</span>
-                  <span className="text-white/40 uppercase text-xs font-black tracking-widest">/ Month</span>
+                  <span className="text-3xl md:text-6xl font-black uppercase italic tracking-tighter">₹{Math.round(parseFloat(finalPrice))}</span>
+                  <span className="text-white/40 uppercase text-[8px] md:text-xs font-black tracking-widest">/ Month</span>
                 </div>
               </div>
 
-              <p className="text-sm text-white/50 mb-12 font-medium leading-relaxed">
+              <p className="text-[11px] md:text-sm text-white/50 mb-6 md:mb-12 font-medium leading-relaxed">
                 {plan.description}
               </p>
 
-              <div className="space-y-4 mb-12 flex-grow">
+              <div className="space-y-2 md:space-y-4 mb-6 md:mb-12 flex-grow">
                 {plan.features.map((feature, idx) => (
-                  <div key={`${feature}-${idx}`} className="flex items-center gap-4 text-sm font-bold tracking-tight">
-                    <div className="w-6 h-6 rounded-xl bg-white/5 flex items-center justify-center flex-shrink-0 group-hover:bg-white/10 transition-colors">
-                      <Check className={cn("w-3.5 h-3.5", (plan.id === 'pro' || plan.id === 'medium' || plan.popular) ? "text-white" : "text-brand")} />
+                  <div key={`${feature}-${idx}`} className="flex items-center gap-2 md:gap-4 text-[10px] md:text-sm font-bold tracking-tight">
+                    <div className="w-4 h-4 md:w-6 md:h-6 rounded bg-white/5 flex items-center justify-center flex-shrink-0 group-hover:bg-white/10 transition-colors">
+                      <Check className={cn("w-2.5 md:w-3.5 h-2.5 md:h-3.5", (plan.id === 'pro' || plan.id === 'medium' || plan.popular) ? "text-white" : "text-brand")} />
                     </div>
                     {feature}
                   </div>
@@ -182,7 +182,7 @@ export default function Plans() {
                 onClick={() => setSelectedPlan(plan)}
                 disabled={profile?.subscriptionTier === plan.id}
                 className={cn(
-                  "w-full py-5 font-black text-sm uppercase tracking-[0.3em] transition-all rounded-3xl shadow-xl disabled:opacity-50 disabled:cursor-not-allowed",
+                  "w-full py-4 md:py-5 font-black text-xs md:text-sm uppercase tracking-[0.2em] md:tracking-[0.3em] transition-all rounded-lg md:rounded-xl shadow-xl disabled:opacity-50 disabled:cursor-not-allowed",
                   plan.id === 'pro' 
                     ? "bg-white text-red-600 hover:scale-105" 
                     : "bg-brand text-white hover:bg-brand-alt"
@@ -207,70 +207,70 @@ export default function Plans() {
               className="fixed inset-0 bg-black/90 backdrop-blur-md z-[100] flex items-center justify-center p-4"
               onClick={() => !isProcessing && setSelectedPlan(null)}
             >
-              <motion.div 
-                initial={{ scale: 0.9, opacity: 0, y: 20 }}
-                animate={{ scale: 1, opacity: 1, y: 0 }}
-                exit={{ scale: 0.9, opacity: 0, y: 20 }}
-                className="bg-surface w-full max-w-lg rounded-[40px] border border-white/10 overflow-hidden shadow-2xl"
-                onClick={e => e.stopPropagation()}
-              >
-                {step === 'success' ? (
-                  <div className="p-12 text-center space-y-8">
-                    <div className="w-24 h-24 bg-green-500/20 rounded-[2.5rem] mx-auto flex items-center justify-center">
-                      <Check className="w-12 h-12 text-green-500" />
+                <motion.div 
+                  initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                  animate={{ scale: 1, opacity: 1, y: 0 }}
+                  exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                  className="bg-surface w-full max-w-lg rounded-xl md:rounded-2xl border border-white/10 overflow-hidden shadow-2xl"
+                  onClick={e => e.stopPropagation()}
+                >
+                  {step === 'success' ? (
+                    <div className="p-6 md:p-12 text-center space-y-4 md:space-y-8">
+                      <div className="w-16 h-16 md:w-24 md:h-24 bg-green-500/20 rounded-xl md:rounded-2xl mx-auto flex items-center justify-center">
+                        <Check className="w-8 h-8 md:w-12 md:h-12 text-green-500" />
+                      </div>
+                      <div className="space-y-2">
+                        <h2 className="text-2xl md:text-4xl font-black uppercase italic tracking-tighter">Welcome to the Stadium</h2>
+                        <p className="text-xs md:text-text-muted font-medium">Your {selectedPlan.name} is now active. Enjoy high-priority sports streaming.</p>
+                      </div>
+                      <button 
+                        onClick={() => setSelectedPlan(null)}
+                        className="w-full py-4 md:py-5 bg-brand text-white font-black uppercase tracking-[0.2em] md:tracking-[0.3em] rounded-lg md:rounded-xl"
+                      >
+                        Start Watching
+                      </button>
                     </div>
-                    <div className="space-y-2">
-                      <h2 className="text-4xl font-black uppercase italic tracking-tighter">Welcome to the Stadium</h2>
-                      <p className="text-text-muted font-medium">Your {selectedPlan.name} is now active. Enjoy high-priority sports streaming.</p>
-                    </div>
-                    <button 
-                      onClick={() => setSelectedPlan(null)}
-                      className="w-full py-5 bg-brand text-white font-black uppercase tracking-[0.3em] rounded-2xl"
-                    >
-                      Start Watching
-                    </button>
-                  </div>
-                ) : (
-                  <div className="relative">
-                    <button 
-                      onClick={() => setSelectedPlan(null)}
-                      className="absolute top-8 right-8 text-white/20 hover:text-white transition-colors"
-                    >
-                      <X className="w-6 h-6" />
-                    </button>
+                  ) : (
+                    <div className="relative">
+                      <button 
+                        onClick={() => setSelectedPlan(null)}
+                        className="absolute top-6 right-6 md:top-8 md:right-8 text-white/20 hover:text-white transition-colors"
+                      >
+                        <X className="w-5 h-5 md:w-6 md:h-6" />
+                      </button>
 
-                    <div className="p-12 space-y-8">
-                        <div className="flex items-center gap-4">
-                          <div className="w-12 h-12 bg-brand/10 rounded-xl flex items-center justify-center">
-                            {(() => {
-                              const Icon = IconMap[selectedPlan.icon] || Zap;
-                              return <Icon className="w-6 h-6 text-brand" />;
-                            })()}
+                      <div className="p-6 md:p-12 space-y-6 md:space-y-8">
+                          <div className="flex items-center gap-3 md:gap-4">
+                            <div className="w-10 h-10 md:w-12 md:h-12 bg-brand/10 rounded-lg md:rounded-xl flex items-center justify-center">
+                              {(() => {
+                                const Icon = IconMap[selectedPlan.icon] || Zap;
+                                return <Icon className="w-5 h-5 md:w-6 md:h-6 text-brand" />;
+                              })()}
+                            </div>
+                            <div>
+                              <p className="text-[8px] md:text-[10px] font-black uppercase tracking-widest text-text-muted">Subscription Upgrade</p>
+                              <h3 className="text-xl md:text-2xl font-black uppercase italic tracking-tighter">{selectedPlan.name}</h3>
+                            </div>
                           </div>
-                          <div>
-                            <p className="text-[10px] font-black uppercase tracking-widest text-text-muted">Subscription Upgrade</p>
-                            <h3 className="text-2xl font-black uppercase italic tracking-tighter">{selectedPlan.name}</h3>
-                          </div>
-                        </div>
 
                       {!user ? (
-                        <div className="space-y-6">
-                           <div className="p-6 bg-white/5 rounded-2xl border border-white/5 space-y-4">
-                              <p className="text-sm font-medium text-text-muted">You need to be signed in to subscribe.</p>
+                        <div className="space-y-4 md:space-y-6">
+                           <div className="p-5 md:p-6 bg-white/5 rounded-2xl border border-white/5 space-y-4">
+                              <p className="text-xs md:text-sm font-medium text-text-muted">You need to be signed in to subscribe.</p>
                               <button 
                                 onClick={() => signInWithGoogle()}
-                                className="w-full py-4 bg-white text-black font-black uppercase tracking-widest text-xs rounded-xl flex items-center justify-center gap-2"
+                                className="w-full py-3.5 md:py-4 bg-white text-black font-black uppercase tracking-widest text-[10px] md:text-xs rounded-xl flex items-center justify-center gap-2"
                               >
                                 Sign in with Google
                               </button>
                            </div>
                         </div>
                       ) : (
-                        <div className="space-y-6">
-                            <div className="space-y-6">
-                              <div className="space-y-5">
+                        <div className="space-y-4 md:space-y-6">
+                            <div className="space-y-4 md:space-y-6">
+                              <div className="space-y-4 md:space-y-5">
                                 <div className="space-y-2">
-                                  <label className="text-[10px] font-black uppercase tracking-widest text-text-muted flex items-center gap-2">
+                                  <label className="text-[8px] md:text-[10px] font-black uppercase tracking-widest text-text-muted flex items-center gap-2">
                                     <Mail className="w-3 h-3" />
                                     Email Address
                                   </label>
@@ -278,12 +278,12 @@ export default function Plans() {
                                     type="email"
                                     value={user.email || ''}
                                     disabled
-                                    className="w-full bg-white/5 border border-white/5 p-4 rounded-2xl text-sm font-medium text-white/50 cursor-not-allowed"
+                                    className="w-full bg-white/5 border border-white/5 p-3.5 md:p-4 rounded-xl md:rounded-2xl text-xs md:text-sm font-medium text-white/50 cursor-not-allowed"
                                   />
                                 </div>
 
                                 <div className="space-y-2">
-                                  <label className="text-[10px] font-black uppercase tracking-widest text-text-muted flex items-center gap-2">
+                                  <label className="text-[8px] md:text-[10px] font-black uppercase tracking-widest text-text-muted flex items-center gap-2">
                                     <User className="w-3 h-3" />
                                     Full Name
                                   </label>
@@ -292,12 +292,12 @@ export default function Plans() {
                                     placeholder="Enter your name"
                                     value={displayName}
                                     onChange={e => setDisplayName(e.target.value)}
-                                    className="w-full bg-bg border border-white/10 p-5 rounded-2xl focus:border-brand outline-none text-sm font-bold"
+                                    className="w-full bg-bg border border-white/10 p-4 md:p-5 rounded-xl md:rounded-2xl focus:border-brand outline-none text-xs md:text-sm font-bold"
                                   />
                                 </div>
 
                                 <div className="space-y-2">
-                                  <label className="text-[10px] font-black uppercase tracking-widest text-text-muted flex items-center gap-2">
+                                  <label className="text-[8px] md:text-[10px] font-black uppercase tracking-widest text-text-muted flex items-center gap-2">
                                     <Phone className="w-3 h-3" />
                                     Mobile Number
                                   </label>
@@ -307,32 +307,32 @@ export default function Plans() {
                                       placeholder="Enter 10-digit number"
                                       value={mobileNumber}
                                       onChange={e => setMobileNumber(e.target.value)}
-                                      className="flex-grow bg-bg border border-white/10 p-5 rounded-2xl focus:border-brand outline-none text-sm font-bold"
+                                      className="flex-grow bg-bg border border-white/10 p-4 md:p-5 rounded-xl md:rounded-2xl focus:border-brand outline-none text-xs md:text-sm font-bold"
                                     />
                                   </div>
-                                  <p className="text-[10px] text-white/40 font-bold uppercase tracking-wider">India (+91) format supported</p>
+                                  <p className="text-[8px] md:text-[10px] text-white/40 font-bold uppercase tracking-wider">India (+91) format supported</p>
                                 </div>
                               </div>
 
-                              <div className="p-6 bg-white/5 rounded-2xl border border-white/5 space-y-4">
-                                <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-text-muted">
+                              <div className="p-4 md:p-6 bg-white/5 rounded-xl md:rounded-2xl border border-white/5 space-y-3 md:space-y-4">
+                                <div className="flex justify-between items-center text-[8px] md:text-[10px] font-black uppercase tracking-widest text-text-muted">
                                   <span>Subscription Fee</span>
                                   <span className="text-white line-through">₹{selectedPlan.price}</span>
                                 </div>
-                                <div className="flex justify-between items-center">
-                                  <span className="text-xs font-bold uppercase tracking-widest">Special Discount</span>
+                                <div className="flex justify-between items-center text-[10px] md:text-xs">
+                                  <span className="font-bold uppercase tracking-widest">Special Discount</span>
                                   <span className="text-green-500 font-black">-100% OFF</span>
                                 </div>
-                                <div className="pt-4 border-t border-white/5 flex justify-between items-center">
-                                  <span className="text-sm font-black uppercase italic">Total Due</span>
-                                  <span className="text-2xl font-black text-brand">₹0</span>
+                                <div className="pt-3 md:pt-4 border-t border-white/5 flex justify-between items-center">
+                                  <span className="text-xs md:text-sm font-black uppercase italic">Total Due</span>
+                                  <span className="text-xl md:text-2xl font-black text-brand">₹0</span>
                                 </div>
                               </div>
 
                               <button 
                                 onClick={handleSubscribe}
                                 disabled={isProcessing || !mobileNumber || !displayName}
-                                className="w-full py-5 bg-brand text-white font-black uppercase tracking-[0.3em] rounded-2xl shadow-xl shadow-brand/20 disabled:opacity-50"
+                                className="w-full py-4 md:py-5 bg-brand text-white font-black uppercase tracking-[0.2em] md:tracking-[0.3em] rounded-xl md:rounded-2xl shadow-xl shadow-brand/20 disabled:opacity-50 text-xs md:text-sm"
                               >
                                 {isProcessing ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : 'Join for Free'}
                               </button>

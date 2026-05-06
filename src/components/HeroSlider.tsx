@@ -65,7 +65,7 @@ export default function HeroSlider({ page = 'home' }: HeroSliderProps) {
   }, [slides, videoModal, currentIndex]);
 
   if (loading) {
-    return <div className="w-full aspect-[21/9] bg-surface/50 animate-pulse rounded-3xl" />;
+    return <div className="w-full aspect-[21/9] bg-surface/50 animate-pulse rounded-xl" />;
   }
 
   if (slides.length === 0) {
@@ -110,7 +110,7 @@ export default function HeroSlider({ page = 'home' }: HeroSliderProps) {
   };
 
   return (
-    <div className="relative w-full aspect-[4/5] md:aspect-[21/9] overflow-hidden rounded-2xl md:rounded-[2px] group shadow-2xl">
+    <div className="relative w-full aspect-[4/5] md:aspect-[21/9] overflow-hidden rounded-xl group shadow-2xl">
       <AnimatePresence mode="wait">
         <motion.div
           key={currentSlide.id}
@@ -120,12 +120,18 @@ export default function HeroSlider({ page = 'home' }: HeroSliderProps) {
           transition={anim.transition}
           className="absolute inset-0"
         >
-          <img 
-            src={currentSlide.imageUrl} 
-            className="w-full h-full object-cover" 
-            alt={currentSlide.title}
-            referrerPolicy="no-referrer"
-          />
+          {currentSlide.imageUrl && currentSlide.imageUrl.trim() !== '' ? (
+            <img 
+              src={currentSlide.imageUrl} 
+              className="w-full h-full object-cover" 
+              alt={currentSlide.title}
+              referrerPolicy="no-referrer"
+            />
+          ) : (
+            <div className="w-full h-full bg-surface-hover flex items-center justify-center">
+              <Play className="w-20 h-20 text-white/10" />
+            </div>
+          )}
           <div className="absolute inset-0 bg-gradient-to-t from-bg via-black/20 to-transparent md:bg-gradient-to-r md:from-black md:via-black/60 md:to-transparent" />
           <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent hidden md:block" />
           
@@ -227,7 +233,7 @@ export default function HeroSlider({ page = 'home' }: HeroSliderProps) {
                 initial={{ scale: 0.9, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 exit={{ scale: 0.9, opacity: 0 }}
-                className="relative w-full max-w-6xl aspect-video bg-black rounded-3xl overflow-hidden shadow-2xl border border-white/5"
+                className="relative w-full max-w-6xl aspect-video bg-black rounded-xl overflow-hidden shadow-2xl border border-white/5"
                 onClick={(e) => e.stopPropagation()}
               >
                 {isIframeUrl(videoModal) ? (

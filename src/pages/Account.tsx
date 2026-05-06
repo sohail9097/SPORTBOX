@@ -80,30 +80,30 @@ export default function Account() {
   }
 
   return (
-    <div className="py-24 px-4 max-w-4xl mx-auto">
-      <div className="mb-12">
-        <h1 className="text-6xl md:text-8xl font-black uppercase italic tracking-tighter leading-none mb-4">
+    <div className="py-12 md:py-24 px-4 max-w-4xl mx-auto">
+      <div className="mb-8 md:mb-12">
+        <h1 className="text-4xl md:text-8xl font-black uppercase italic tracking-tighter leading-none mb-2 md:mb-4">
           Your <span className="text-brand">Account</span>
         </h1>
-        <p className="text-slate-400 text-lg font-medium">Manage your subscription, security, and personal preferences.</p>
+        <p className="text-text-muted text-sm md:text-lg font-medium">Manage your subscription, security, and personal preferences.</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         <div className="md:col-span-1 space-y-4">
-          <div className="p-8 bg-surface border border-white/10 rounded-[32px] text-center space-y-4 shadow-2xl">
-            <div className="w-24 h-24 mx-auto bg-brand/10 rounded-[2.5rem] flex items-center justify-center border-2 border-brand/20">
-              {user.photoURL ? (
-                <img src={user.photoURL} alt="" className="w-20 h-20 rounded-[2rem] object-cover" />
+        <div className="p-6 md:p-8 bg-surface border border-white/10 rounded-xl md:rounded-2xl text-center space-y-3 shadow-2xl">
+            <div className="w-20 h-20 md:w-24 md:h-24 mx-auto bg-brand/10 rounded-xl md:rounded-2xl flex items-center justify-center border-2 border-brand/20">
+              {user.photoURL && user.photoURL.trim() !== '' ? (
+                <img src={user.photoURL} alt="" className="w-16 h-16 md:w-20 md:h-20 rounded-md md:rounded-xl object-cover" />
               ) : (
-                <User className="w-10 h-10 text-brand" />
+                <User className="w-8 h-8 md:w-10 md:h-10 text-brand" />
               )}
             </div>
             <div>
-              <h2 className="text-xl font-black uppercase italic">{profile?.displayName || 'Sports Fan'}</h2>
-              <p className="text-[10px] font-bold text-text-muted uppercase tracking-widest">{user.email}</p>
+              <h2 className="text-lg md:text-xl font-black uppercase italic">{profile?.displayName || 'Sports Fan'}</h2>
+              <p className="text-[9px] md:text-[10px] font-bold text-text-muted uppercase tracking-widest">{user.email}</p>
             </div>
             <div className={cn(
-              "inline-block px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-[0.2em]",
+              "inline-block px-3 py-1 rounded-full text-[8px] md:text-[10px] font-black uppercase tracking-[0.2em]",
               profile?.subscriptionTier === 'free' ? "bg-white/5 text-white/40" : "bg-brand text-white shadow-lg shadow-brand/20"
             )}>
               {profile?.subscriptionTier || 'Free'} Member
@@ -113,7 +113,7 @@ export default function Account() {
                 auth.signOut();
                 navigate('/');
               }}
-              className="w-full flex items-center justify-center gap-2 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-red-500 hover:bg-red-500/10 rounded-2xl transition-colors mt-4"
+              className="w-full flex items-center justify-center gap-2 py-3 text-[9px] font-black uppercase tracking-[0.2em] text-red-500 hover:bg-red-500/10 rounded-lg transition-colors mt-2"
             >
               <LogOut className="w-3.5 h-3.5" />
               Sign Out
@@ -123,17 +123,17 @@ export default function Account() {
 
         <div className="md:col-span-2 space-y-6">
           {/* Security Section */}
-          <div className="bg-surface border border-white/10 rounded-[32px] overflow-hidden shadow-2xl">
-            <div className="p-8 border-b border-white/5 bg-white/[0.02] flex items-center justify-between">
+          <div className="bg-surface border border-white/10 rounded-xl md:rounded-2xl overflow-hidden shadow-2xl">
+            <div className="p-6 md:p-8 border-b border-white/5 bg-white/[0.02] flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <ShieldCheck className="w-5 h-5 text-brand" />
-                <h3 className="font-black uppercase italic text-lg">Security & Verification</h3>
+                <ShieldCheck className="w-4 h-4 md:w-5 md:h-5 text-brand" />
+                <h3 className="font-black uppercase italic text-base md:text-lg">Security & Verification</h3>
               </div>
             </div>
-            <div className="p-8 space-y-8">
-              <div className="space-y-6">
+            <div className="p-6 md:p-8 space-y-6 md:space-y-8">
+              <div className="space-y-4 md:space-y-6">
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-text-muted flex items-center gap-2">
+                  <label className="text-[8px] md:text-[10px] font-black uppercase tracking-widest text-text-muted flex items-center gap-2">
                     <User className="w-3 h-3" />
                     Full Name
                   </label>
@@ -142,33 +142,33 @@ export default function Account() {
                     placeholder="Enter your name"
                     value={displayName}
                     onChange={e => setDisplayName(e.target.value)}
-                    className="w-full bg-bg border border-white/10 p-5 rounded-2xl focus:border-brand outline-none text-sm font-bold"
+                    className="w-full bg-bg border border-white/10 p-4 md:p-5 rounded-lg md:rounded-xl focus:border-brand outline-none text-xs md:text-sm font-bold"
                   />
                 </div>
 
                 <div className="space-y-2">
                   <div className="flex justify-between items-center">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-text-muted flex items-center gap-2">
+                    <label className="text-[8px] md:text-[10px] font-black uppercase tracking-widest text-text-muted flex items-center gap-2">
                       <Phone className="w-3 h-3" />
                       Mobile Number
                     </label>
                     {profile?.isMobileVerified && (
-                      <span className="flex items-center gap-1 text-[10px] font-black uppercase text-green-500 flex-shrink-0">
-                        <CheckCircle2 className="w-3 h-3" />
+                      <span className="flex items-center gap-1 text-[8px] md:text-[10px] font-black uppercase text-green-500 flex-shrink-0">
+                        <CheckCircle2 className="w-2.5 h-2.5 md:w-3 md:h-3" />
                         Verified
                       </span>
                     )}
                   </div>
-                  <div className="flex gap-4">
-                    <div className="flex-grow space-y-2">
+                  <div className="flex flex-col md:flex-row gap-3 md:gap-4">
+                    <div className="flex-grow space-y-1.5 md:space-y-2">
                       <input 
                         type="tel"
                         placeholder="Enter 10-digit number"
                         value={mobileNumber}
                         onChange={e => setMobileNumber(e.target.value)}
-                        className="bg-bg border border-white/10 p-5 rounded-2xl focus:border-brand outline-none text-sm font-bold w-full"
+                        className="bg-bg border border-white/10 p-4 md:p-5 rounded-lg md:rounded-xl focus:border-brand outline-none text-xs md:text-sm font-bold w-full"
                       />
-                      <p className="text-[10px] text-white/40 font-bold uppercase tracking-wider">India (+91) format supported</p>
+                      <p className="text-[8px] md:text-[10px] text-white/40 font-bold uppercase tracking-wider">India (+91) format supported</p>
                     </div>
                   </div>
                 </div>
@@ -176,9 +176,9 @@ export default function Account() {
                 <button 
                   onClick={handleUpdateProfile}
                   disabled={loading || !displayName || !mobileNumber}
-                  className="w-full py-5 bg-white text-black font-black uppercase tracking-widest text-[10px] rounded-2xl disabled:opacity-50 hover:bg-slate-200 transition-colors shadow-xl"
+                  className="w-full py-4 md:py-5 bg-white text-black font-black uppercase tracking-widest text-[9px] md:text-[10px] rounded-lg md:rounded-xl disabled:opacity-50 hover:bg-slate-200 transition-colors shadow-xl"
                 >
-                  {loading ? <Loader2 className="w-5 h-5 animate-spin mx-auto text-black" /> : 'Update Profile'}
+                  {loading ? <Loader2 className="w-4 h-4 md:w-5 md:h-5 animate-spin mx-auto text-black" /> : 'Update Profile'}
                 </button>
 
                 {verificationSuccess && (
@@ -206,12 +206,12 @@ export default function Account() {
             </div>
           </div>
 
-          <Link to="/plans" className="bg-surface border border-white/10 rounded-[32px] p-8 flex items-center justify-between group cursor-pointer hover:border-brand/30 transition-all shadow-xl">
+          <Link to="/plans" className="bg-surface border border-white/10 rounded-xl md:rounded-2xl p-6 md:p-8 flex items-center justify-between group cursor-pointer hover:border-brand/30 transition-all shadow-xl">
              <div>
-               <h4 className="font-black uppercase italic text-lg">Billing & Plans</h4>
-               <p className="text-text-muted text-xs font-medium">Manage your {profile?.subscriptionTier || 'Free'} subscription and view history.</p>
+               <h4 className="font-black uppercase italic text-base md:text-lg">Billing & Plans</h4>
+               <p className="text-text-muted text-[10px] md:text-xs font-medium">Manage your {profile?.subscriptionTier || 'Free'} subscription and view history.</p>
              </div>
-             <ChevronRight className="w-6 h-6 text-text-muted group-hover:text-brand transition-all group-hover:translate-x-1" />
+             <ChevronRight className="w-5 h-5 md:w-6 md:h-6 text-text-muted group-hover:text-brand transition-all group-hover:translate-x-1" />
           </Link>
         </div>
       </div>

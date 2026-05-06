@@ -35,20 +35,20 @@ export default function Live() {
   return (
     <div className="min-h-screen pb-20 pt-12">
       <div className="max-w-[1600px] mx-auto px-4">
-        <header className="mb-12 space-y-4">
+        <header className="mb-10 space-y-2">
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
-            className="flex items-center gap-3 text-red-600"
+            className="flex items-center gap-2 text-red-600"
           >
-            <Radio className="w-5 h-5 animate-pulse" />
-            <span className="text-xs font-black uppercase tracking-[0.3em]">Direct from Stadium</span>
+            <Radio className="w-4 h-4 animate-pulse" />
+            <span className="text-[10px] font-black uppercase tracking-[0.2em]">Direct from Stadium</span>
           </motion.div>
           <motion.h1
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
-            className="text-6xl md:text-8xl font-black uppercase italic tracking-tighter leading-none"
+            className="text-4xl md:text-8xl font-black uppercase italic tracking-tighter leading-none"
           >
             Live <span className="text-red-600">Now</span>
           </motion.h1>
@@ -56,7 +56,7 @@ export default function Live() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
-            className="max-w-2xl text-text-muted text-lg font-medium"
+            className="max-w-2xl text-text-muted text-sm md:text-lg font-medium"
           >
             Don't miss a second of the action. Real-time streams from every major league.
           </motion.p>

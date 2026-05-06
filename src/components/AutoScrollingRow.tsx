@@ -76,7 +76,7 @@ export default function AutoScrollingRow({ contents, aspectRatio = 'landscape' }
             key={`${item.id}-${i}`} 
             className={cn(
               "flex-shrink-0 snap-start",
-              aspectRatio === 'portrait' ? "w-[160px] md:w-[180px]" : "w-72 md:w-80"
+              aspectRatio === 'portrait' ? "w-[110px] md:w-[180px]" : "w-[125px] md:w-80"
             )}
           >
             <ContentCard content={item} index={i} aspectRatio={aspectRatio} />

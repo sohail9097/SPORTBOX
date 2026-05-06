@@ -691,7 +691,7 @@ export default function Admin() {
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-4">
                             <div className="h-12 w-20 rounded-lg overflow-hidden bg-bg border border-border">
-                              {item.thumbnailUrl && <img src={item.thumbnailUrl} className="w-full h-full object-cover" alt="" />}
+                              {item.thumbnailUrl && item.thumbnailUrl.trim() !== '' && <img src={item.thumbnailUrl} className="w-full h-full object-cover" alt="" />}
                             </div>
                             <div>
                               <p className="text-sm font-bold truncate max-w-[200px]">{item.title}</p>
@@ -864,7 +864,7 @@ export default function Admin() {
                           {slider.filter(s => s.page === selectedCategory).map(slide => (
                             <div key={`cat-slide-${slide.id}`} className="glass-card overflow-hidden group border-white/5">
                               <div className="aspect-video relative bg-bg">
-                                {slide.imageUrl && <img src={slide.imageUrl} className="w-full h-full object-cover opacity-60" alt="" />}
+                                {slide.imageUrl && slide.imageUrl.trim() !== '' && <img src={slide.imageUrl} className="w-full h-full object-cover opacity-60" alt="" />}
                                 <div className="absolute inset-0 flex items-end p-4 bg-gradient-to-t from-black/80 to-transparent">
                                   <div>
                                     <p className="text-xs font-black uppercase italic">{slide.title}</p>
@@ -956,7 +956,7 @@ export default function Admin() {
                   {slider.map(slide => (
                     <div key={slide.id} className="glass-card overflow-hidden group">
                       <div className="aspect-video relative bg-bg border-b border-border">
-                        {slide.imageUrl && <img src={slide.imageUrl} className="w-full h-full object-cover" alt="" />}
+                        {slide.imageUrl && slide.imageUrl.trim() !== '' && <img src={slide.imageUrl} className="w-full h-full object-cover" alt="" />}
                         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex items-end p-6">
                           <div>
                             <h3 className="text-xl font-black uppercase italic leading-none">{slide.title}</h3>
@@ -1019,7 +1019,7 @@ export default function Admin() {
                     <div key={`live-center-${item.id}`} className="glass-card p-6 border-l-4 border-l-brand">
                       <div className="flex justify-between items-start mb-4">
                         <div className="h-10 w-16 bg-bg border border-border rounded overflow-hidden">
-                          {item.thumbnailUrl && <img src={item.thumbnailUrl} className="w-full h-full object-cover" alt="" />}
+                          {item.thumbnailUrl && item.thumbnailUrl.trim() !== '' && <img src={item.thumbnailUrl} className="w-full h-full object-cover" alt="" />}
                         </div>
                         <span className={cn(
                           "px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest border",
@@ -1258,7 +1258,9 @@ export default function Admin() {
                             placeholder="Paste direct image link (Drive, Pinterest, Vimeo thumbnail, etc.)"
                           />
                           <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-brand/20 bg-bg shrink-0">
-                            <img src={siteConfig.founderImageUrl} alt="Preview" className="w-full h-full object-cover grayscale" />
+                            {siteConfig.founderImageUrl && siteConfig.founderImageUrl.trim() !== '' && (
+                              <img src={siteConfig.founderImageUrl} alt="Preview" className="w-full h-full object-cover grayscale" />
+                            )}
                           </div>
                         </div>
                         <p className="text-[10px] text-text-muted mt-2 italic">Pro-Tip: Use high-quality portrait shots (transparent or solid backgrounds work best).</p>
@@ -1770,7 +1772,7 @@ export default function Admin() {
                           className="flex items-center gap-3 p-2 rounded-lg bg-surface hover:bg-brand/10 border border-transparent hover:border-brand/50 transition-all text-left w-full"
                         >
                           <div className="w-10 h-6 rounded bg-bg overflow-hidden shrink-0 border border-border">
-                            {item.thumbnailUrl && <img src={item.thumbnailUrl} className="w-full h-full object-cover" />}
+                            {item.thumbnailUrl && item.thumbnailUrl.trim() !== '' && <img src={item.thumbnailUrl} className="w-full h-full object-cover" />}
                           </div>
                           <span className="text-[10px] font-bold truncate">{item.title}</span>
                         </button>

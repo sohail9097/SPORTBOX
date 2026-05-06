@@ -58,15 +58,15 @@
 
 @layer components {
   .btn-primary {
-    @apply px-8 py-3 bg-brand text-white font-bold text-sm uppercase tracking-widest rounded-full hover:bg-brand-alt transition-all duration-300 shadow-lg shadow-brand/20;
+    @apply px-8 py-3 bg-brand text-white font-bold text-sm uppercase tracking-widest rounded-md hover:bg-brand-alt transition-all duration-300 shadow-lg shadow-brand/20;
   }
   
   .glass-card {
-    @apply bg-surface/50 backdrop-blur-md border border-border rounded-3xl overflow-hidden shadow-xl;
+    @apply bg-surface/50 backdrop-blur-md border border-border rounded-xl overflow-hidden shadow-xl;
   }
 
   .premium-badge {
-    @apply px-3 py-1 bg-brand text-[10px] font-black uppercase rounded-full text-white tracking-widest shadow-lg;
+    @apply px-3 py-1 bg-brand text-[10px] font-black uppercase rounded-sm text-white tracking-widest shadow-lg;
   }
 
   .hide-scrollbar::-webkit-scrollbar {

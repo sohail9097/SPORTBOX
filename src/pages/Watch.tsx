@@ -64,7 +64,7 @@ export default function Watch() {
                   whileInView={{ scale: 1, opacity: 1 }}
                   className="max-w-md text-center space-y-8"
                 >
-                  <div className="w-24 h-24 bg-brand/10 border border-brand/20 rounded-[2.5rem] mx-auto flex items-center justify-center shadow-2xl shadow-brand/20">
+                  <div className="w-24 h-24 bg-brand/10 border border-brand/20 rounded-xl mx-auto flex items-center justify-center shadow-2xl shadow-brand/20">
                     <Crown className="w-12 h-12 text-brand" />
                   </div>
                   <div className="space-y-3">
@@ -73,7 +73,7 @@ export default function Watch() {
                   </div>
                   <Link 
                     to="/plans" 
-                    className="inline-block px-12 py-5 bg-brand text-white font-black text-xs uppercase tracking-[0.3em] rounded-2xl hover:scale-105 transition-transform"
+                    className="inline-block px-12 py-5 bg-brand text-white font-black text-xs uppercase tracking-[0.3em] rounded-lg hover:scale-105 transition-transform"
                   >
                     Get Pro Access
                   </Link>
@@ -81,18 +81,23 @@ export default function Watch() {
               </div>
             ) : content.videoUrl ? (
               <div className="absolute inset-0 w-full h-full">
-                {isIframeUrl(content.videoUrl) ? (
+                {content.videoUrl && content.videoUrl.trim() !== '' && isIframeUrl(content.videoUrl) ? (
                   <iframe
                     src={content.videoUrl}
                     className="w-full h-full border-0"
                     allowFullScreen
                     allow="autoplay; encrypted-media; picture-in-picture"
                   />
-                ) : (
+                ) : !isLocked && content.videoUrl && content.videoUrl.trim() !== '' ? (
                   <StadiumPlayer 
                     url={transformGDriveUrl(content.videoUrl, 'video')} 
                     isLive={content.status === 'live'} 
                   />
+                ) : (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-center bg-surface/90 backdrop-blur-3xl">
+                    <Play className="w-12 h-12 text-white/10 mb-4" />
+                    <p className="text-text-muted font-medium">Video feed currently unavailable.</p>
+                  </div>
                 )}
               </div>
             ) : (
@@ -105,7 +110,7 @@ export default function Watch() {
             {/* In-Player Critical HUD */}
             <div className="absolute top-8 left-8 z-30 flex items-center gap-4">
               {content.status === 'live' && (
-                <div className="flex items-center gap-3 px-4 py-2 bg-red-600 rounded-xl shadow-2xl shadow-red-600/40">
+                <div className="flex items-center gap-3 px-4 py-2 bg-red-600 rounded-md shadow-2xl shadow-red-600/40">
                   <span className="relative flex h-2 w-2">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
                     <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
@@ -113,7 +118,7 @@ export default function Watch() {
                   <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white">Live Now</span>
                 </div>
               )}
-              <div className="px-4 py-2 bg-black/40 backdrop-blur-xl border border-white/10 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] text-white/90">
+              <div className="px-4 py-2 bg-black/40 backdrop-blur-xl border border-white/10 rounded-md text-[10px] font-black uppercase tracking-[0.2em] text-white/90">
                 {content.category} • {content.viewCount?.toLocaleString()} Spectators
               </div>
             </div>
@@ -177,7 +182,7 @@ export default function Watch() {
             <ChatMessage user="GlobalFan" message="Anyone watching from Spain? 🇪🇸" color="text-blue-400" />
             <ChatMessage user="SportPro_X" message="The goalkeeper is having a nightmare today..." color="text-yellow-500" />
             <ChatMessage user="VipMember" message="Premium feed quality is insane in 4K" color="text-brand" isPro />
-            <ChatMessage user="Admin" message="Welcome to the SportBox Live Center. Please keep it respectful." color="text-white bg-brand/20 p-2 rounded" />
+            <ChatMessage user="Admin" message="Welcome to the SportBox Live Center. Please keep it respectful." color="text-white bg-brand/20 p-2 rounded-sm" />
             
             <div className="py-20 flex flex-col items-center justify-center text-center opacity-10">
               <Play className="w-12 h-12 mb-4" />
@@ -192,9 +197,9 @@ export default function Watch() {
                 type="text" 
                 placeholder="Join the discussion..." 
                 disabled
-                className="w-full bg-bg border border-border p-4 pr-16 rounded-2xl text-xs font-medium outline-none focus:border-brand transition-all cursor-not-allowed"
+                className="w-full bg-bg border border-border p-4 pr-16 rounded-lg text-xs font-medium outline-none focus:border-brand transition-all cursor-not-allowed"
               />
-              <div className="absolute right-3 top-1/2 -translate-y-1/2 p-2 bg-surface border border-border rounded-lg text-[8px] font-black uppercase tracking-tighter text-text-muted">
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 p-2 bg-surface border border-border rounded text-[8px] font-black uppercase tracking-tighter text-text-muted">
                 ENTER
               </div>
             </div>
@@ -222,7 +227,7 @@ function ChatMessage({ user, message, color, isPro }: { user: string, message: s
 
 function ActionButton({ icon: Icon, label }: { icon: any, label: string }) {
   return (
-    <button className="flex items-center gap-2 px-6 py-3 bg-surface border border-border hover:border-brand/40 rounded-2xl transition-all text-xs font-black uppercase tracking-[0.2em] group">
+    <button className="flex items-center gap-2 px-6 py-3 bg-surface border border-border hover:border-brand/40 rounded-lg transition-all text-xs font-black uppercase tracking-[0.2em] group">
       <Icon className="w-4 h-4 text-text-muted group-hover:text-brand transition-colors" />
       <span>{label}</span>
     </button>

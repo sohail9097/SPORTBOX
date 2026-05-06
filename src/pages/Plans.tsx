@@ -96,7 +96,7 @@ export default function Plans() {
   };
 
   return (
-    <div className="py-24 px-4 max-w-7xl mx-auto">
+    <div className="py-24 px-4 max-w-[1600px] mx-auto">
       <div className="text-center max-w-2xl mx-auto mb-20 space-y-4">
         <h1 className="text-6xl md:text-8xl font-black uppercase italic tracking-tighter leading-none">
           Choose Your <span className="text-brand">League</span>

@@ -3,7 +3,7 @@ import { db } from '../lib/firebase';
 import { collection, query, where, orderBy, getDocs } from 'firebase/firestore';
 import { SliderElement, Category } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
-import { Play, ChevronLeft, ChevronRight, X, Info } from 'lucide-react';
+import { Play, ChevronLeft, ChevronRight, X, Info, Calendar } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { cn } from '../lib/utils';
 import ReactPlayer from 'react-player';
@@ -110,7 +110,7 @@ export default function HeroSlider({ page = 'home' }: HeroSliderProps) {
   };
 
   return (
-    <div className="relative w-full aspect-[21/9] overflow-hidden rounded-3xl group shadow-2xl">
+    <div className="relative w-full aspect-[16/9] md:aspect-[21/9] overflow-hidden rounded-[2px] group shadow-2xl">
       <AnimatePresence mode="wait">
         <motion.div
           key={currentSlide.id}
@@ -126,26 +126,32 @@ export default function HeroSlider({ page = 'home' }: HeroSliderProps) {
             alt={currentSlide.title}
             referrerPolicy="no-referrer"
           />
-          <div className="absolute inset-0 bg-gradient-to-r from-black via-black/40 to-transparent" />
-          <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent md:bg-gradient-to-r md:from-black md:via-black/60 md:to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent hidden md:block" />
           
-          <div className="absolute inset-0 p-8 md:p-16 flex flex-col justify-center max-w-3xl space-y-6">
+          <div className="absolute inset-0 p-6 md:p-16 flex flex-col justify-end md:justify-center max-w-3xl space-y-4 md:space-y-6">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3 }}
-              className="flex flex-col space-y-4"
+              className="flex flex-col space-y-2 md:space-y-4"
             >
-              {currentSlide.isLive && (
-                <div className="flex items-center gap-2 px-3 py-1 bg-red-600 rounded-full w-fit">
-                  <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
-                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white">Live Now</span>
-                </div>
-              )}
-              <h1 className="text-4xl md:text-7xl font-black uppercase italic tracking-tighter leading-none decoration-brand">
+              <div className="flex items-center gap-3">
+                {currentSlide.isLive && (
+                  <div className="flex items-center gap-2 px-2 md:px-3 py-1 bg-red-600 rounded-sm w-fit">
+                    <div className="w-1.5 h-1.5 md:w-2 md:h-2 bg-white rounded-full animate-pulse" />
+                    <span className="text-[8px] md:text-[10px] font-black uppercase tracking-[0.2em] text-white">Live</span>
+                  </div>
+                )}
+                <span className="text-[8px] md:text-[10px] text-white/60 font-medium uppercase tracking-[0.2em] flex items-center gap-1.5">
+                  <Calendar className="w-2.5 h-2.5 md:w-3 md:h-3" />
+                  2024
+                </span>
+              </div>
+              <h1 className="text-3xl md:text-7xl font-black uppercase italic tracking-tighter leading-none decoration-brand">
                 {currentSlide.title}
               </h1>
-              <p className="text-sm md:text-lg text-white/70 font-medium line-clamp-3 leading-relaxed">
+              <p className="text-xs md:text-lg text-white/70 font-medium line-clamp-2 md:line-clamp-3 leading-relaxed">
                 {currentSlide.description}
               </p>
             </motion.div>
@@ -154,20 +160,20 @@ export default function HeroSlider({ page = 'home' }: HeroSliderProps) {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.5 }}
-              className="flex items-center gap-4 pt-4"
+              className="flex items-center gap-3 pt-2 md:pt-4"
             >
               <button 
                 onClick={handleWatchNow}
-                className="px-8 py-4 bg-brand text-white font-black text-xs uppercase tracking-[0.3em] rounded-2xl flex items-center gap-3 hover:scale-105 transition-transform"
+                className="flex-1 md:flex-none px-6 md:px-8 py-3 md:py-4 bg-brand text-white font-black text-[10px] md:text-xs uppercase tracking-[0.2em] md:tracking-[0.3em] rounded-sm flex items-center justify-center gap-3 hover:scale-105 transition-transform"
               >
-                <Play className="w-4 h-4 fill-white" />
+                <Play className="w-3.5 h-3.5 md:w-4 md:h-4 fill-white" />
                 Watch Now
               </button>
               <Link 
                 to={currentSlide.actionUrl}
-                className="px-8 py-4 bg-white/10 backdrop-blur-md text-white font-black text-xs uppercase tracking-[0.3em] rounded-2xl flex items-center gap-3 hover:bg-white/20 transition-all border border-white/10"
+                className="flex-1 md:flex-none px-6 md:px-8 py-3 md:py-4 bg-white/10 backdrop-blur-md text-white font-black text-[10px] md:text-xs uppercase tracking-[0.2em] md:tracking-[0.3em] rounded-sm flex items-center justify-center gap-3 hover:bg-white/20 transition-all border border-white/10"
               >
-                <Info className="w-4 h-4" />
+                <Info className="w-3.5 h-3.5 md:w-4 md:h-4" />
                 Details
               </Link>
             </motion.div>
@@ -190,7 +196,7 @@ export default function HeroSlider({ page = 'home' }: HeroSliderProps) {
       </button>
 
       {/* Indicators */}
-      <div className="absolute bottom-8 right-8 flex gap-2">
+      <div className="absolute bottom-6 right-8 flex gap-1.5">
         {slides.map((slide, i) => (
           <button
             key={`hero-dot-${slide.id || i}`}

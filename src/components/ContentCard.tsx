@@ -5,7 +5,19 @@ import { Link } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { useAuth } from '../hooks/useAuth';
 
-export default function ContentCard({ content, index, featured }: { content: SportsContent, index: number, featured?: boolean }) {
+export default function ContentCard({ 
+  content, 
+  index, 
+  featured,
+  aspectRatio = 'landscape',
+  hideDetails = false
+}: { 
+  content: SportsContent, 
+  index: number, 
+  featured?: boolean,
+  aspectRatio?: 'landscape' | 'portrait',
+  hideDetails?: boolean
+}) {
   const { profile, isAdmin } = useAuth();
   const isLocked = (!profile || profile.subscriptionTier === 'free') && !isAdmin;
 
@@ -23,7 +35,10 @@ export default function ContentCard({ content, index, featured }: { content: Spo
           featured ? "p-0" : ""
         )}
       >
-        <div className={cn("relative overflow-hidden rounded-xl border border-white/5", featured ? "aspect-[21/9]" : "aspect-video")}>
+        <div className={cn(
+          "relative overflow-hidden rounded-xl border border-white/5 shadow-2xl transition-all duration-300 group-hover:border-brand/30", 
+          featured ? "aspect-[21/9]" : (aspectRatio === 'portrait' ? "aspect-[2/3]" : "aspect-video")
+        )}>
           {content.thumbnailUrl ? (
             <img 
               src={content.thumbnailUrl} 
@@ -82,21 +97,23 @@ export default function ContentCard({ content, index, featured }: { content: Spo
           </div>
         </div>
 
-        <div className="mt-4 px-1">
-          <h3 className="font-display text-sm uppercase tracking-wider group-hover:text-brand transition-colors line-clamp-1">
-            {content.title}
-          </h3>
-          <div className="flex items-center gap-4 mt-2 text-[10px] text-text-muted font-medium uppercase tracking-widest">
-            <span className="flex items-center gap-1">
-              <Eye className="w-3 h-3" />
-              {content.viewCount?.toLocaleString() || 0}
-            </span>
-            <span className="flex items-center gap-1">
-              <Clock className="w-3 h-3" />
-              {formatDate(content.createdAt)}
-            </span>
+        {!hideDetails && (
+          <div className="mt-2 px-1">
+            <h3 className="font-display text-xs uppercase tracking-wider group-hover:text-brand transition-colors line-clamp-1">
+              {content.title}
+            </h3>
+            <div className="flex items-center gap-3 mt-1 text-[9px] text-text-muted font-medium uppercase tracking-widest">
+              <span className="flex items-center gap-1">
+                <Eye className="w-3 h-3" />
+                {content.viewCount?.toLocaleString() || 0}
+              </span>
+              <span className="flex items-center gap-1">
+                <Clock className="w-3 h-3" />
+                {formatDate(content.createdAt)}
+              </span>
+            </div>
           </div>
-        </div>
+        )}
       </Link>
     </motion.div>
   );

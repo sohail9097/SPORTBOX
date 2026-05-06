@@ -34,7 +34,7 @@ export default function Live() {
 
   return (
     <div className="min-h-screen pb-20 pt-12">
-      <div className="max-w-7xl mx-auto px-4">
+      <div className="max-w-[1600px] mx-auto px-4">
         <header className="mb-12 space-y-4">
           <motion.div
             initial={{ opacity: 0, x: -20 }}
@@ -63,13 +63,13 @@ export default function Live() {
         </header>
 
         {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-1.5">
             {[...Array(4)].map((_, i) => (
-              <div key={`skeleton-live-${i}`} className="aspect-video bg-surface rounded-3xl animate-pulse" />
+              <div key={`skeleton-live-${i}`} className="aspect-video bg-surface rounded-sm animate-pulse" />
             ))}
           </div>
         ) : content.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-1.5">
             {content.map((item, i) => (
               <ContentCard key={item.id} content={item} index={i} />
             ))}

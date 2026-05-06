@@ -59,13 +59,25 @@ export default function Home() {
   return (
     <div className="pb-20">
       {/* Hero Slider Section */}
-      <section className="w-full h-auto max-w-7xl mx-auto px-4 pt-8">
+      <section className="w-full h-auto max-w-[1600px] mx-auto px-4 pt-4 md:pt-8">
         <HeroSlider />
       </section>
 
+      {/* Live Section */}
+      {liveNow.length > 0 && (
+        <section key="home-live-section" className="max-w-[1600px] mx-auto px-4 mt-8">
+          <SectionHeader title="Live Events" icon={Play} link="/live" />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-1">
+            {liveNow.map((item, i) => (
+              <ContentCard key={`home-live-${item.id}`} content={item} index={i} />
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* Categories Bar */}
-      <section className="mt-8 relative z-10 max-w-7xl mx-auto px-4">
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4 overflow-x-auto pb-4 hide-scrollbar">
+      <section className="mt-8 relative z-10 max-w-[1600px] mx-auto px-4">
+        <div className="grid grid-cols-4 sm:grid-cols-8 gap-4 md:gap-2 pb-4">
           {[
             { name: 'Football', color: 'bg-green-500/10 text-green-500', short: 'FB' },
             { name: 'Cricket', color: 'bg-orange-500/10 text-orange-500', short: 'CK' },
@@ -79,33 +91,21 @@ export default function Home() {
             <Link
               key={cat.name}
               to={`/category/${cat.name.toLowerCase()}`}
-              className="flex flex-col items-center gap-4 transition-all cursor-pointer group py-4 h-full min-w-[100px]"
+              className="flex flex-col items-center gap-2 transition-all cursor-pointer group py-2"
             >
-              <div className={cn("w-14 h-14 rounded-2xl flex items-center justify-center font-black text-xl italic group-hover:scale-110 transition-transform", cat.color)}>
+              <div className={cn("w-12 h-12 md:w-14 md:h-14 rounded-2xl flex items-center justify-center font-black text-sm md:text-base italic group-hover:scale-110 transition-transform", cat.color)}>
                 {cat.short}
               </div>
-              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-text-muted group-hover:text-text-base">{cat.name}</span>
+              <span className="text-[8px] md:text-[10px] font-black uppercase tracking-[0.2em] text-text-muted group-hover:text-text-base text-center">{cat.name}</span>
             </Link>
           ))}
         </div>
       </section>
 
       {/* Dynamic Admin-Managed Sections */}
-      <div className="max-w-7xl mx-auto px-4 mt-24">
+      <div className="max-w-[1600px] mx-auto px-4 mt-8">
         <DynamicSections page="home" />
       </div>
-
-      {/* Live Section */}
-      {liveNow.length > 0 && (
-        <section key="home-live-section" className="max-w-7xl mx-auto px-4 mt-24">
-          <SectionHeader title="Live Events" icon={Play} link="/live" />
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {liveNow.map((item, i) => (
-              <ContentCard key={`home-live-${item.id}`} content={item} index={i} />
-            ))}
-          </div>
-        </section>
-      )}
 
       {/* Video Promo Banner (Dynamic) */}
       {videoPromo?.isActive && (
@@ -121,9 +121,9 @@ export default function Home() {
       )}
 
       {/* Trending Section */}
-      <section key="home-trending-section" className="max-w-7xl mx-auto px-4 mt-24">
+      <section key="home-trending-section" className="max-w-[1600px] mx-auto px-4 mt-8">
         <SectionHeader title="Trending Replays" icon={TrendingUp} />
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-1">
           {trending.map((item, i) => (
             <ContentCard key={`home-trending-${item.id}`} content={item} index={i} />
           ))}
@@ -131,27 +131,27 @@ export default function Home() {
       </section>
 
       {/* Featured Trophy Section (Static/Original) */}
-      <section className="max-w-7xl mx-auto px-4 mt-32">
-        <div className="relative overflow-hidden bg-gradient-to-br from-brand to-brand-alt rounded-[40px] p-12 md:p-16 flex flex-col md:flex-row items-center justify-between gap-12 group shadow-2xl shadow-brand/20">
+      <section className="max-w-[1600px] mx-auto px-4 mt-12 md:mt-24">
+        <div className="relative overflow-hidden bg-gradient-to-br from-brand to-brand-alt rounded-sm p-8 md:p-16 flex flex-col md:flex-row items-center justify-between gap-12 group shadow-2xl shadow-brand/20">
           <div className="absolute right-0 top-0 w-[500px] h-[500px] bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 group-hover:scale-110 transition-transform duration-700" />
-          <div className="relative z-10 flex flex-col gap-6">
-            <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center">
-              <Trophy className="w-8 h-8 text-white" />
+          <div className="relative z-10 flex flex-col gap-4 md:gap-6 items-center md:items-start text-center md:text-left">
+            <div className="w-12 h-12 md:w-16 md:h-16 bg-white/20 rounded-sm flex items-center justify-center">
+              <Trophy className="w-6 h-6 md:w-8 md:h-8 text-white" />
             </div>
-            <h2 className="text-5xl md:text-7xl font-black uppercase italic tracking-tighter text-white leading-none">Go Unlimited</h2>
-            <p className="text-white/80 max-w-sm font-semibold text-lg">Experience every match live in 4K with multi-view and no interruptions.</p>
-            <Link to="/plans" className="mt-4 px-12 py-5 bg-white text-brand font-black uppercase tracking-[0.2em] w-fit hover:scale-105 transition-transform rounded-2xl shadow-2xl text-sm">
+            <h2 className="text-4xl md:text-7xl font-black uppercase italic tracking-tighter text-white leading-none">Go Unlimited</h2>
+            <p className="text-white/80 max-w-sm font-semibold text-base md:text-lg">Experience every match live in 4K with multi-view and no interruptions.</p>
+            <Link to="/plans" className="mt-4 px-10 md:px-12 py-4 md:py-5 bg-white text-brand font-black uppercase tracking-[0.2em] w-fit hover:scale-105 transition-transform rounded-sm shadow-2xl text-xs md:text-sm">
               Subscribe Now
             </Link>
           </div>
-          <div className="relative z-10 grid grid-cols-2 gap-6">
-            <div className="p-8 bg-black/20 backdrop-blur-xl rounded-3xl flex flex-col items-center justify-center gap-3 border border-white/10">
-              <span className="text-4xl font-black text-white italic">14.99</span>
-              <span className="text-[10px] font-black uppercase tracking-[0.25em] text-white/60">USD / Month</span>
+          <div className="relative z-10 grid grid-cols-2 gap-4 md:gap-6 w-full md:w-auto">
+            <div className="p-4 md:p-8 bg-black/20 backdrop-blur-xl rounded-sm flex flex-col items-center justify-center gap-2 md:gap-3 border border-white/10">
+              <span className="text-2xl md:text-4xl font-black text-white italic">14.99</span>
+              <span className="text-[8px] md:text-[10px] font-black uppercase tracking-[0.25em] text-white/60">USD / Month</span>
             </div>
-            <div className="p-8 bg-black/20 backdrop-blur-xl rounded-3xl flex flex-col items-center justify-center gap-3 border border-white/10">
-              <span className="text-4xl font-black text-white italic">4K</span>
-              <span className="text-[10px] font-black uppercase tracking-[0.25em] text-white/60">Ultra HD</span>
+            <div className="p-4 md:p-8 bg-black/20 backdrop-blur-xl rounded-sm flex flex-col items-center justify-center gap-2 md:gap-3 border border-white/10">
+              <span className="text-2xl md:text-4xl font-black text-white italic">4K</span>
+              <span className="text-[8px] md:text-[10px] font-black uppercase tracking-[0.25em] text-white/60">Ultra HD</span>
             </div>
           </div>
         </div>
@@ -162,12 +162,12 @@ export default function Home() {
 
 function SectionHeader({ title, icon: Icon, link }: { title: string, icon: any, link?: string }) {
   return (
-    <div className="flex items-center justify-between mb-8">
-      <div className="flex items-center gap-3">
-        <div className="p-2 bg-brand/10 rounded-lg">
-          <Icon className="w-5 h-5 text-brand" />
+    <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center gap-2">
+        <div className="p-1.5 bg-brand/10 rounded-sm">
+          <Icon className="w-4 h-4 text-brand" />
         </div>
-        <h2 className="text-2xl font-display uppercase tracking-wider">{title}</h2>
+        <h2 className="text-lg md:text-xl font-display uppercase tracking-wider">{title}</h2>
       </div>
       {link && (
         <Link to={link} className="flex items-center gap-1 text-text-muted hover:text-brand transition-colors group text-xs font-bold uppercase tracking-widest">

@@ -70,7 +70,8 @@ export default function Admin() {
     contentIds: [],
     type: 'normal',
     order: 0,
-    isActive: true
+    isActive: true,
+    aspectRatio: 'landscape'
   });
 
   // Slider Form state
@@ -385,7 +386,7 @@ export default function Admin() {
       setIsAddingSection(false);
       setEditingSectionId(null);
       await fetchSections();
-      setSectionForm({ title: '', page: 'home', contentIds: [], type: 'normal', order: 0, isActive: true });
+      setSectionForm({ title: '', page: 'home', contentIds: [], type: 'normal', order: 0, isActive: true, aspectRatio: 'landscape' });
     } catch (error) {
       console.error("Section save error:", error);
       handleFirestoreError(error, editingSectionId ? OperationType.UPDATE : OperationType.CREATE, 'sections');
@@ -895,7 +896,12 @@ export default function Admin() {
                               <Layers className="w-5 h-5 text-brand" />
                             </div>
                             <div>
-                              <h3 className="font-bold text-lg uppercase italic">{section.title}</h3>
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="px-1.5 py-0.5 bg-brand/10 text-brand text-[8px] font-black uppercase tracking-tighter rounded border border-brand/20">
+                                  Order: {section.order}
+                                </span>
+                                <h3 className="font-bold text-lg uppercase italic">{section.title}</h3>
+                              </div>
                               <div className="flex items-center gap-3 text-[10px] font-black uppercase tracking-widest text-text-muted">
                                 <span className="text-brand">{section.type}</span>
                                 <span>•</span>
@@ -1595,10 +1601,52 @@ export default function Admin() {
                     <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Display Type</label>
                     <select value={sectionForm.type} onChange={e => setSectionForm({...sectionForm, type: e.target.value as any})} className="w-full bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none">
                       <option value="normal">Standard Grid</option>
+                      <option value="tournament">Tournament (Grid)</option>
                       <option value="single-row">Single Row (Scrollable)</option>
                       <option value="featured">Featured Large</option>
                       <option value="top10">Top 10 Style</option>
+                      <option value="hero">Hero Section Type</option>
                     </select>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Display Order (Numbering)</label>
+                  <input 
+                    type="number" 
+                    value={sectionForm.order} 
+                    onChange={e => setSectionForm({...sectionForm, order: parseInt(e.target.value) || 0})} 
+                    className="w-full bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none"
+                    placeholder="e.g. 1 (Top), 2, 3..."
+                  />
+                  <p className="text-[9px] text-text-muted italic">Lower numbers appear first. Use 1, 2, 3 etc. to rank sections.</p>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Frame Aspect Ratio</label>
+                  <div className="grid grid-cols-2 gap-4">
+                    <button
+                      type="button"
+                      onClick={() => setSectionForm({ ...sectionForm, aspectRatio: 'landscape' })}
+                      className={cn(
+                        "p-4 rounded-xl border flex flex-col items-center gap-2 transition-all",
+                        sectionForm.aspectRatio === 'landscape' ? "bg-brand/10 border-brand text-brand" : "bg-surface border-white/5 text-text-muted"
+                      )}
+                    >
+                      <div className="w-16 h-9 rounded bg-current opacity-20 border border-current" />
+                      <span className="text-[10px] font-black uppercase">Landscape (16:9)</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSectionForm({ ...sectionForm, aspectRatio: 'portrait' })}
+                      className={cn(
+                        "p-4 rounded-xl border flex flex-col items-center gap-2 transition-all",
+                        sectionForm.aspectRatio === 'portrait' ? "bg-brand/10 border-brand text-brand" : "bg-surface border-white/5 text-text-muted"
+                      )}
+                    >
+                      <div className="w-10 h-14 rounded bg-current opacity-20 border border-current" />
+                      <span className="text-[10px] font-black uppercase">Vertical (2:3)</span>
+                    </button>
                   </div>
                 </div>
 
@@ -1656,6 +1704,36 @@ export default function Admin() {
               </div>
               <form onSubmit={handleSliderSubmit} className="space-y-6">
                 <div className="space-y-2">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Quick Import from Library</label>
+                  <div className="grid grid-cols-1 gap-2 max-h-[150px] overflow-y-auto p-2 bg-bg border border-white/10 rounded-md">
+                    {content
+                      .filter(item => sliderForm.page === 'home' || item.category === sliderForm.page)
+                      .map(item => (
+                        <button
+                          key={`slider-picker-${item.id}`}
+                          type="button"
+                          onClick={() => {
+                            setSliderForm({
+                              ...sliderForm,
+                              title: item.title,
+                              description: item.description,
+                              imageUrl: item.thumbnailUrl || '',
+                              videoUrl: item.videoUrl,
+                              actionUrl: `/watch/${item.id}`,
+                            });
+                          }}
+                          className="flex items-center gap-3 p-2 rounded-lg bg-surface hover:bg-brand/10 border border-transparent hover:border-brand/50 transition-all text-left w-full"
+                        >
+                          <div className="w-10 h-6 rounded bg-bg overflow-hidden shrink-0 border border-border">
+                            {item.thumbnailUrl && <img src={item.thumbnailUrl} className="w-full h-full object-cover" />}
+                          </div>
+                          <span className="text-[10px] font-bold truncate">{item.title}</span>
+                        </button>
+                      ))}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
                   <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Slide Title</label>
                   <input type="text" required value={sliderForm.title} onChange={e => setSliderForm({...sliderForm, title: e.target.value})} className="w-full bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none" />
                 </div>
@@ -1676,11 +1754,11 @@ export default function Admin() {
                     </div>
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Action URL</label>
                     <input type="text" value={sliderForm.actionUrl} onChange={e => setSliderForm({...sliderForm, actionUrl: e.target.value})} className="w-full bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none" placeholder="/watch/id" />
-                  </div>
+                   </div>
                   <div className="space-y-2">
                     <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Animation Type</label>
                     <select value={sliderForm.animationType} onChange={e => setSliderForm({...sliderForm, animationType: e.target.value as any})} className="w-full bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none">
@@ -1688,6 +1766,10 @@ export default function Admin() {
                       <option value="slide">Slide</option>
                       <option value="zoom">Zoom</option>
                     </select>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Slide Order</label>
+                    <input type="number" value={sliderForm.order} onChange={e => setSliderForm({...sliderForm, order: parseInt(e.target.value) || 0})} className="w-full bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none" />
                   </div>
                 </div>
                 <div className="space-y-2">

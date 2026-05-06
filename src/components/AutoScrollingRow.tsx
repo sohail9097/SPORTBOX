@@ -6,13 +6,18 @@ import { cn } from '../lib/utils';
 
 interface AutoScrollingRowProps {
   contents: SportsContent[];
+  aspectRatio?: 'landscape' | 'portrait';
 }
 
-export default function AutoScrollingRow({ contents }: AutoScrollingRowProps) {
+export default function AutoScrollingRow({ contents, aspectRatio = 'landscape' }: AutoScrollingRowProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [showLeftArrow, setShowLeftArrow] = useState(false);
   const [showRightArrow, setShowRightArrow] = useState(true);
   const [isPaused, setIsPaused] = useState(false);
+
+  // Item width based on aspect ratio
+  const itemWidth = aspectRatio === 'portrait' ? 180 : 300;
+  const gap = 12; // gap-3 (12px)
 
   useEffect(() => {
     if (isPaused || contents.length === 0) return;
@@ -22,8 +27,8 @@ export default function AutoScrollingRow({ contents }: AutoScrollingRowProps) {
         const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
         const maxScroll = scrollWidth - clientWidth;
         
-        // Calculate scroll amount (width of one item roughly)
-        const scrollAmount = 320 + 32; // w-80 (20rem = 320px) + gap-8 (2rem = 32px)
+        // Calculate scroll amount
+        const scrollAmount = itemWidth + gap;
 
         if (scrollLeft >= maxScroll - 10) {
           // Reset to start if at the end
@@ -35,7 +40,7 @@ export default function AutoScrollingRow({ contents }: AutoScrollingRowProps) {
     }, 4000); // Same as hero slider
 
     return () => clearInterval(interval);
-  }, [contents.length, isPaused]);
+  }, [contents.length, isPaused, itemWidth]);
 
   const handleScroll = () => {
     if (scrollRef.current) {
@@ -47,7 +52,7 @@ export default function AutoScrollingRow({ contents }: AutoScrollingRowProps) {
 
   const scroll = (direction: 'left' | 'right') => {
     if (scrollRef.current) {
-      const scrollAmount = 320 + 32;
+      const scrollAmount = itemWidth + gap;
       scrollRef.current.scrollBy({ 
         left: direction === 'left' ? -scrollAmount : scrollAmount, 
         behavior: 'smooth' 
@@ -64,11 +69,17 @@ export default function AutoScrollingRow({ contents }: AutoScrollingRowProps) {
       <div 
         ref={scrollRef}
         onScroll={handleScroll}
-        className="flex gap-8 overflow-x-auto pb-8 hide-scrollbar scroll-smooth snap-x"
+        className="flex gap-3 overflow-x-auto pb-4 hide-scrollbar scroll-smooth snap-x"
       >
         {contents.map((item, i) => (
-          <div key={`${item.id}-${i}`} className="flex-shrink-0 w-72 md:w-80 snap-start">
-            <ContentCard content={item} index={i} />
+          <div 
+            key={`${item.id}-${i}`} 
+            className={cn(
+              "flex-shrink-0 snap-start",
+              aspectRatio === 'portrait' ? "w-[160px] md:w-[180px]" : "w-72 md:w-80"
+            )}
+          >
+            <ContentCard content={item} index={i} aspectRatio={aspectRatio} />
           </div>
         ))}
       </div>

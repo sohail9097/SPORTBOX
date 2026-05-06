@@ -41,9 +41,9 @@ export default function VideoPromoBanner({ title, description, videoUrl, embedCo
   };
 
   return (
-    <section ref={containerRef} className="max-w-7xl mx-auto px-4 mt-32">
+    <section ref={containerRef} className="max-w-[1600px] mx-auto px-4 mt-8 md:mt-12">
         <div 
-          className="relative overflow-hidden rounded-[40px] p-8 md:p-16 flex flex-col md:flex-row items-center justify-between gap-12 group shadow-2xl transition-all duration-700 min-h-[400px]"
+          className="relative overflow-hidden rounded-xl p-6 md:p-12 flex flex-col md:flex-row items-center justify-between gap-8 group shadow-2xl transition-all duration-700 min-h-[300px]"
           style={{ backgroundColor: backgroundColor || '#ff0000' }}
         >
           {/* Video Background */}
@@ -67,13 +67,13 @@ export default function VideoPromoBanner({ title, description, videoUrl, embedCo
           
           <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/40 to-transparent z-[1]" />
 
-          <div className="relative z-10 flex flex-col gap-6">
-            <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center">
-              <Play className="w-8 h-8 text-white" />
+          <div className="relative z-10 flex flex-col gap-6 items-center md:items-start text-center md:text-left">
+            <div className="w-12 h-12 md:w-16 md:h-16 bg-white/20 rounded-sm flex items-center justify-center">
+              <Play className="w-6 h-6 md:w-8 md:h-8 text-white" />
             </div>
-            <h2 className="text-4xl md:text-7xl font-black uppercase italic tracking-tighter text-white leading-none">{title}</h2>
-            <p className="text-white/80 max-w-sm font-semibold text-lg">{description}</p>
-            <Link to={buttonUrl} className="mt-4 px-12 py-5 bg-white text-brand font-black uppercase tracking-[0.2em] w-fit hover:scale-105 transition-transform rounded-2xl shadow-2xl text-sm">
+            <h2 className="text-3xl md:text-7xl font-black uppercase italic tracking-tighter text-white leading-none">{title}</h2>
+            <p className="text-white/80 max-w-sm font-semibold text-sm md:text-lg">{description}</p>
+            <Link to={buttonUrl} className="mt-4 px-10 md:px-12 py-4 md:py-5 bg-white text-brand font-black uppercase tracking-[0.2em] w-fit hover:scale-105 transition-transform rounded-sm shadow-2xl text-xs md:text-sm">
               {buttonText}
             </Link>
           </div>

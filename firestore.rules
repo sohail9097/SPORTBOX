@@ -6,6 +6,7 @@ service cloud.firestore {
       allow read: if true;
       allow write: if request.auth != null && 
                            (request.auth.token.email.lower() == 'sohailgaji9097@gmail.com' || 
+                            request.auth.token.email.lower() == 'tavish@dreamcatchers.tv' ||
                             request.auth.uid == 'n3QDwiWf4xTB4IVjIQpjNFvr1qB3');
     }
 
@@ -13,7 +14,8 @@ service cloud.firestore {
     function isSignedIn() { return request.auth != null; }
     function isAdmin() { 
       return isSignedIn() && 
-             request.auth.token.email.lower() == 'sohailgaji9097@gmail.com' && 
+             (request.auth.token.email.lower() == 'sohailgaji9097@gmail.com' ||
+              request.auth.token.email.lower() == 'tavish@dreamcatchers.tv') && 
              request.auth.token.email_verified == true;
     }
     function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }

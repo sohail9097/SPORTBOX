@@ -12,7 +12,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const ADMIN_EMAIL = 'sohailgaji9097@gmail.com';
+const ADMIN_EMAILS = ['sohailgaji9097@gmail.com', 'tavish@dreamcatchers.tv'];
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -82,7 +82,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const isAdmin = user?.email === ADMIN_EMAIL;
+  const isAdmin = user?.email ? ADMIN_EMAILS.includes(user.email) : false;
 
   return (
     <AuthContext.Provider value={{ user, loading, isAdmin, profile }}>

@@ -51,10 +51,11 @@ export interface ContentSection {
   title: string;
   page: 'home' | Category;
   contentIds: string[];
-  type: 'normal' | 'top10' | 'single-row' | 'featured';
+  type: 'normal' | 'top10' | 'single-row' | 'featured' | 'tournament' | 'hero';
   order: number;
   isActive: boolean;
   createdAt: string;
+  aspectRatio?: 'landscape' | 'portrait';
 }
 
 export interface SliderElement {

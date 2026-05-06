@@ -60,11 +60,11 @@ export default function CategoryPage() {
   return (
     <div className="min-h-screen pb-20">
       {/* Hero Slider Section (Category Specific) */}
-      <section className="w-full h-auto max-w-7xl mx-auto px-4 pt-4 md:pt-8">
+      <section className="w-full h-auto max-w-[1600px] mx-auto px-4 pt-4 md:pt-8">
         <HeroSlider page={category as Category} />
       </section>
 
-      <div className="max-w-7xl mx-auto px-4 pt-12">
+      <div className="max-w-[1600px] mx-auto px-4 pt-12">
         {/* Header */}
         <header className="mb-12 space-y-4">
           <motion.div
@@ -95,9 +95,9 @@ export default function CategoryPage() {
 
         {/* Live Section */}
         {liveNow.length > 0 && (
-          <section key="live-section" className="mb-24">
+          <section key="live-section" className="mb-12">
             <SectionHeader title={`Live ${categoryName}`} icon={Play} link="/live" />
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+            <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-1">
               {liveNow.map((item, i) => (
                 <ContentCard key={`live-${item.id}`} content={item} index={i} />
               ))}
@@ -107,23 +107,23 @@ export default function CategoryPage() {
 
         {/* Dynamic Sections (If available for this category) */}
         {category && (
-          <div className="mb-24">
+          <div className="mb-12">
             <DynamicSections page={category as any} />
           </div>
         )}
 
-        <div className="mb-12 border-b border-border pb-4">
-          <h2 className="text-sm font-black uppercase tracking-[0.3em] text-text-muted italic">All {categoryName} Assets</h2>
+        <div className="mb-6 border-b border-border pb-2">
+          <h2 className="text-xs font-black uppercase tracking-[0.3em] text-text-muted italic">All {categoryName} Assets</h2>
         </div>
 
         {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+          <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-1">
             {[...Array(8)].map((_, i) => (
-              <div key={`skeleton-archive-${i}`} className="aspect-video bg-white/5 rounded-3xl animate-pulse" />
+              <div key={`skeleton-archive-${i}`} className="aspect-video bg-white/5 rounded-[2px] animate-pulse" />
             ))}
           </div>
         ) : content.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+          <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-1">
             {content.map((item, i) => (
               <ContentCard key={`archive-${item.id}`} content={item} index={i} />
             ))}
@@ -146,12 +146,12 @@ export default function CategoryPage() {
 
 function SectionHeader({ title, icon: Icon, link }: { title: string, icon: any, link?: string }) {
   return (
-    <div className="flex items-center justify-between mb-8">
-      <div className="flex items-center gap-3">
-        <div className="p-2 bg-brand/10 rounded-lg">
-          <Icon className="w-5 h-5 text-brand" />
+    <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center gap-2">
+        <div className="p-1.5 bg-brand/10 rounded-lg">
+          <Icon className="w-4 h-4 text-brand" />
         </div>
-        <h2 className="text-2xl font-display uppercase tracking-wider">{title}</h2>
+        <h2 className="text-lg md:text-xl font-display uppercase tracking-wider">{title}</h2>
       </div>
       {link && (
         <Link to={link} className="flex items-center gap-1 text-text-muted hover:text-brand transition-colors group text-xs font-bold uppercase tracking-widest">

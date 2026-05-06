@@ -39,7 +39,7 @@ export interface UserProfile {
   displayName: string;
   mobileNumber?: string;
   isMobileVerified?: boolean;
-  subscriptionTier: 'free' | 'pro' | 'premium';
+  subscriptionTier: string;
   subscriptionStatus: 'active' | 'expired' | 'none';
   lastPaymentDate?: string;
   favorites: string[];

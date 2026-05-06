@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
 import { useAuth } from '../hooks/useAuth';
 import { db, handleFirestoreError, OperationType, signInWithGoogle, auth } from '../lib/firebase';
-import { doc, updateDoc, collection, query, orderBy, getDocs } from 'firebase/firestore';
+import { doc, updateDoc, setDoc, collection, query, orderBy, getDocs } from 'firebase/firestore';
 import { SubscriptionPlan } from '../types';
 
 const IconMap: Record<string, any> = {
@@ -53,17 +53,20 @@ export default function Plans() {
       if (!user || !selectedPlan) return;
       
       const userRef = doc(db, 'users', user.uid);
-      await updateDoc(userRef, {
+      await setDoc(userRef, {
+        uid: user.uid,
+        email: user.email,
         displayName: displayName,
         subscriptionTier: selectedPlan.id,
         subscriptionStatus: 'active',
         mobileNumber: normalizedPhone,
         isMobileVerified: true, // Auto-verify for now as per request
-        lastPaymentDate: new Date().toISOString()
-      });
+        lastPaymentDate: new Date().toISOString(),
+        createdAt: profile?.createdAt || new Date().toISOString()
+      }, { merge: true });
       setStep('success');
     } catch (error: any) {
-      console.error(error);
+      handleFirestoreError(error, OperationType.UPDATE, `users/${user.uid}`);
       alert("Subscription failed. Please try again.");
     } finally {
       setIsProcessing(false);

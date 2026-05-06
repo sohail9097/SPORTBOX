@@ -9,8 +9,9 @@
         "email": { "type": "string" },
         "displayName": { "type": "string" },
         "mobileNumber": { "type": "string" },
-        "subscriptionTier": { "type": "string", "enum": ["free", "pro", "premium"] },
+        "subscriptionTier": { "type": "string" },
         "subscriptionStatus": { "type": "string", "enum": ["active", "expired", "none"] },
+        "isMobileVerified": { "type": "boolean" },
         "lastPaymentDate": { "type": "string", "format": "date-time" },
         "favorites": { "type": "array", "items": { "type": "string" } },
         "createdAt": { "type": "string", "format": "date-time" }

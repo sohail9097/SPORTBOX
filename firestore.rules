@@ -26,10 +26,12 @@ service cloud.firestore {
       return data.keys().hasAll(['uid', 'email', 'subscriptionTier', 'subscriptionStatus', 'createdAt']) &&
              data.uid == request.auth.uid &&
              data.email == request.auth.token.email &&
-             data.subscriptionTier in ['free', 'pro', 'premium'] &&
+             data.subscriptionTier is string &&
              data.subscriptionStatus in ['active', 'expired', 'none'] &&
              data.createdAt is string &&
-             (data.get('mobileNumber', '') is string && data.get('mobileNumber', '').size() <= 20);
+             (data.get('mobileNumber', '') is string && data.get('mobileNumber', '').size() <= 20) &&
+             (data.get('isMobileVerified', false) is bool) &&
+             (data.get('lastPaymentDate', '') is string);
     }
 
     function isValidContent(data) {
@@ -50,8 +52,8 @@ service cloud.firestore {
       allow update: if (isOwner(userId) && isValidUser(incoming()) && (
         // Action: Update Favorites
         incoming().diff(existing()).affectedKeys().hasOnly(['favorites']) ||
-        // Action: Subscribe / Payment Upgrade
-        incoming().diff(existing()).affectedKeys().hasOnly(['subscriptionTier', 'subscriptionStatus', 'mobileNumber', 'lastPaymentDate'])
+        // Action: Subscribe / Payment Upgrade (including profile updates)
+        incoming().diff(existing()).affectedKeys().hasOnly(['subscriptionTier', 'subscriptionStatus', 'mobileNumber', 'lastPaymentDate', 'displayName', 'isMobileVerified'])
       )) || isAdmin();
     }
 

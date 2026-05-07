@@ -10,6 +10,8 @@ import { useAuth } from '../hooks/useAuth';
 import MediaManager from '../components/MediaManager';
 import StadiumPlayer from '../components/StadiumPlayer';
 
+import LoadingScreen from '../components/LoadingScreen';
+
 export default function Admin() {
   const { user, isAdmin, loading: authLoading } = useAuth();
   const navigate = useNavigate();
@@ -534,7 +536,7 @@ export default function Admin() {
 
   const liveItems = content.filter(c => c.status === 'live');
 
-  if (authLoading) return <div className="h-screen flex items-center justify-center font-black uppercase tracking-widest italic animate-pulse">Initializing System...</div>;
+  if (authLoading) return <LoadingScreen />;
   if (!isAdmin) return null;
 
   return (
@@ -1500,9 +1502,45 @@ export default function Admin() {
           )}
           {activeTab === 'likes' && (
             <motion.div key="likes" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} className="space-y-8">
-              <div className="space-y-2">
-                <h1 className="text-5xl font-black uppercase italic tracking-tighter">Likes Insight</h1>
-                <p className="text-text-muted font-medium">Analyze fan engagement and identify your most popular broadcasts.</p>
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                <div className="space-y-2">
+                  <h1 className="text-5xl font-black uppercase italic tracking-tighter">Likes Insight</h1>
+                  <p className="text-text-muted font-medium">Analyze fan engagement and identify your most popular broadcasts.</p>
+                </div>
+                <button 
+                  onClick={async () => {
+                    if (window.confirm('Are you sure you want to reset ALL likes and liker data for all content? This cannot be undone.')) {
+                      setLikesLoading(true);
+                      try {
+                        const contentSnap = await getDocs(collection(db, 'content'));
+                        for (const contentDoc of contentSnap.docs) {
+                          // Reset counter
+                          await updateDoc(doc(db, 'content', contentDoc.id), { likes: 0 });
+                          
+                          // Optional: Clear subcollection (Note: This only deletes the first 500 to stay safe)
+                          const likesSnap = await getDocs(collection(db, 'content', contentDoc.id, 'likes'));
+                          for (const likeDoc of likesSnap.docs) {
+                            await deleteDoc(doc(db, 'content', contentDoc.id, 'likes', likeDoc.id));
+                          }
+                        }
+                        // Refresh content list to show 0 likes
+                        const updatedContentSnap = await getDocs(collection(db, 'content'));
+                        setContent(updatedContentSnap.docs.map(d => ({ id: d.id, ...d.data() } as SportsContent)));
+                        alert('All likes have been reset to zero.');
+                      } catch (err) {
+                        console.error(err);
+                        alert('Failed to reset likes.');
+                      } finally {
+                        setLikesLoading(false);
+                      }
+                    }
+                  }}
+                  className="px-6 py-3 bg-red-600/10 border border-red-600/20 text-red-500 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-red-600 hover:text-white transition-all flex items-center gap-2"
+                  disabled={likesLoading}
+                >
+                  <Trash2 className="w-4 h-4" />
+                  {likesLoading ? 'Resetting...' : 'Reset All System Likes'}
+                </button>
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

@@ -6,6 +6,7 @@ import { useAuth } from '../hooks/useAuth';
 import { db, handleFirestoreError, OperationType, signInWithGoogle, auth } from '../lib/firebase';
 import { doc, updateDoc, setDoc, collection, query, orderBy, getDocs } from 'firebase/firestore';
 import { SubscriptionPlan } from '../types';
+import LoadingScreen from '../components/LoadingScreen';
 
 const IconMap: Record<string, any> = {
   Zap,
@@ -94,6 +95,8 @@ export default function Plans() {
       setLoading(false);
     }
   };
+
+  if (loading) return <LoadingScreen />;
 
   return (
     <div className="py-12 md:py-24 px-4 max-w-[1600px] mx-auto">

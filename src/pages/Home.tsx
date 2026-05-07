@@ -5,6 +5,7 @@ import { SportsContent, VideoPromoSettings } from '../types';
 import ContentCard from '../components/ContentCard';
 import DynamicSections from '../components/DynamicSections';
 import HeroSlider from '../components/HeroSlider';
+import LoadingScreen from '../components/LoadingScreen';
 import VideoPromoBanner from '../components/VideoPromoBanner';
 import { Play, TrendingUp, Trophy, ChevronRight, Bell } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -69,6 +70,8 @@ export default function Home() {
     fetchData();
     return () => unsubPromo();
   }, []);
+
+  if (loading) return <LoadingScreen />;
 
   return (
     <div className="pb-20 text-text-base">

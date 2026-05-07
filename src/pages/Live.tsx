@@ -3,6 +3,7 @@ import { db } from '../lib/firebase';
 import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
 import { SportsContent } from '../types';
 import ContentCard from '../components/ContentCard';
+import LoadingScreen from '../components/LoadingScreen';
 import { motion } from 'motion/react';
 import { Radio, Play } from 'lucide-react';
 import { cn } from '../lib/utils';
@@ -31,6 +32,8 @@ export default function Live() {
       setLoading(false);
     }
   };
+
+  if (loading) return <LoadingScreen />;
 
   return (
     <div className="min-h-screen pb-20 pt-12">

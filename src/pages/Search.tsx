@@ -5,6 +5,7 @@ import { SportsContent } from '../types';
 import { Search as SearchIcon, Play, Filter, X, Loader2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import ContentCard from '../components/ContentCard';
+import LoadingScreen from '../components/LoadingScreen';
 import { cn } from '../lib/utils';
 
 export default function Search() {
@@ -59,6 +60,8 @@ export default function Search() {
   }, [searchTerm, selectedCategory, allContent]);
 
   const categories = ['all', 'football', 'cricket', 'basketball', 'tennis', 'others'];
+
+  if (loading && allContent.length === 0) return <LoadingScreen />;
 
   return (
     <div className="min-h-screen bg-bg">

@@ -6,6 +6,7 @@ import { SportsContent, Category } from '../types';
 import ContentCard from '../components/ContentCard';
 import DynamicSections from '../components/DynamicSections';
 import HeroSlider from '../components/HeroSlider';
+import LoadingScreen from '../components/LoadingScreen';
 import { motion } from 'motion/react';
 import { Trophy, Activity, Play, ChevronRight } from 'lucide-react';
 import { cn } from '../lib/utils';
@@ -56,6 +57,8 @@ export default function CategoryPage() {
   };
 
   const categoryName = category ? category.charAt(0).toUpperCase() + category.slice(1) : 'Sports';
+
+  if (loading) return <LoadingScreen />;
 
   return (
     <div className="min-h-screen pb-20">

@@ -10,6 +10,8 @@ import { cn, formatDate, transformGDriveUrl } from '../lib/utils';
 import StadiumPlayer from '../components/StadiumPlayer';
 import ReactMarkdown from 'react-markdown';
 
+import LoadingScreen from '../components/LoadingScreen';
+
 export default function Watch() {
   const { id } = useParams<{ id: string }>();
   const { profile, isAdmin, loading: authLoading, user } = useAuth();
@@ -179,7 +181,7 @@ export default function Watch() {
     }
   };
 
-  if (loading || authLoading) return <div className="h-screen flex items-center justify-center">Loading...</div>;
+  if (loading || authLoading) return <LoadingScreen />;
   if (!content) return <div className="h-screen flex flex-col items-center justify-center">Content not found. <Link to="/" className="text-brand mt-4">Back Home</Link></div>;
 
   const isLocked = (!profile || profile.subscriptionTier === 'free') && !isAdmin;

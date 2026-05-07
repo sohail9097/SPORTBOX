@@ -9,10 +9,11 @@ import { auth } from '../lib/firebase';
 import { Link, useNavigate } from 'react-router-dom';
 import { SportsContent } from '../types';
 import ContentCard from '../components/ContentCard';
+import LoadingScreen from '../components/LoadingScreen';
 
 export default function Account() {
   const navigate = useNavigate();
-  const { user, profile, isAdmin } = useAuth();
+  const { user, profile, isAdmin, loading: authLoading } = useAuth();
   const [loading, setLoading] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
   const [mobileNumber, setMobileNumber] = useState(profile?.mobileNumber || '');
@@ -107,6 +108,8 @@ export default function Account() {
       setLoading(false);
     }
   };
+
+  if (authLoading) return <LoadingScreen />;
 
   if (!user) {
     return (

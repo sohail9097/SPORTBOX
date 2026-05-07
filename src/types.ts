@@ -14,6 +14,7 @@ export interface SportsContent {
   viewCount: number;
   createdAt: string;
   status: Status;
+  tags?: string[];
 }
 
 export interface SubscriptionPlan {
@@ -43,6 +44,8 @@ export interface UserProfile {
   subscriptionStatus: 'active' | 'expired' | 'none';
   lastPaymentDate?: string;
   favorites: string[];
+  watchLater?: string[];
+  recentlyWatched?: string[];
   createdAt: string;
 }
 

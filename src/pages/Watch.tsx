@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { doc, getDoc, updateDoc, increment } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, increment, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { SportsContent } from '../types';
 import { useAuth } from '../hooks/useAuth';
-import { Play, Share2, Heart, MessageSquare, Crown, Info, ChevronRight, Activity } from 'lucide-react';
+import { Play, Share2, Heart, MessageSquare, Crown, Info, ChevronRight, Activity, PlusCircle, CheckCircle2 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { cn, formatDate, transformGDriveUrl } from '../lib/utils';
 import StadiumPlayer from '../components/StadiumPlayer';
@@ -12,11 +12,33 @@ import ReactMarkdown from 'react-markdown';
 
 export default function Watch() {
   const { id } = useParams<{ id: string }>();
-  const { profile, isAdmin, loading: authLoading } = useAuth();
+  const { profile, isAdmin, loading: authLoading, user } = useAuth();
   const [content, setContent] = useState<SportsContent | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isWatchLater, setIsWatchLater] = useState(false);
 
   useEffect(() => {
+    if (profile && id) {
+      setIsWatchLater(profile.watchLater?.includes(id) || false);
+    }
+  }, [profile, id]);
+
+  useEffect(() => {
+    if (id && user) {
+      // Update recently watched list
+      const updateRecent = async () => {
+        try {
+          const userRef = doc(db, 'users', user.uid);
+          await updateDoc(userRef, {
+            recentlyWatched: arrayUnion(id)
+          });
+        } catch (error) {
+          console.error("Error updating recently watched:", error);
+        }
+      };
+      updateRecent();
+    }
+    
     if (id) {
       window.scrollTo(0, 0);
       fetchContent();
@@ -26,6 +48,22 @@ export default function Watch() {
       }).catch(err => console.error('Failed to update views', err));
     }
   }, [id]);
+
+  const toggleWatchLater = async () => {
+    if (!user || !id) return;
+    
+    const newStatus = !isWatchLater;
+    setIsWatchLater(newStatus);
+
+    try {
+      await updateDoc(doc(db, 'users', user.uid), {
+        watchLater: newStatus ? arrayUnion(id) : arrayRemove(id)
+      });
+    } catch (error) {
+      setIsWatchLater(!newStatus);
+      handleFirestoreError(error, OperationType.UPDATE, `users/${user.uid}`);
+    }
+  };
 
   const fetchContent = async () => {
     try {
@@ -139,7 +177,20 @@ export default function Watch() {
                   {content.title}
                 </h1>
               </div>
-              <div className="flex gap-3">
+              <div className="flex gap-2">
+                <button 
+                  onClick={toggleWatchLater}
+                  className="flex flex-col items-center justify-center gap-1 px-4 py-2 bg-surface border border-border hover:border-brand/40 rounded-lg transition-all group min-w-[70px]"
+                >
+                  {isWatchLater ? (
+                    <CheckCircle2 className="w-4 h-4 text-brand" />
+                  ) : (
+                    <PlusCircle className="w-4 h-4 text-text-muted group-hover:text-brand transition-colors" />
+                  )}
+                  <span className={cn("text-[8px] font-black uppercase tracking-tight", isWatchLater ? "text-brand" : "text-text-muted")}>
+                    {isWatchLater ? 'Saved' : 'Watch Later'}
+                  </span>
+                </button>
                 <ActionButton icon={Heart} label="14k" />
                 <ActionButton icon={Share2} label="Share" />
               </div>

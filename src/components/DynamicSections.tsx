@@ -82,14 +82,14 @@ export default function DynamicSections({ page }: DynamicSectionsProps) {
   }
 
   return (
-    <div className="space-y-6 md:space-y-12">
+    <div className="space-y-4 md:space-y-6">
       {sections.map((section) => {
         const contents = sectionData[section.id] || [];
         if (contents.length === 0) return null;
 
         return (
           <section key={section.id} className="relative">
-            <div className="flex items-center justify-between mb-2 md:mb-4 mt-4 md:mt-8">
+            <div className="flex items-center justify-between mb-2 md:mb-4 mt-2 md:mt-4">
               <div className="flex items-center gap-2">
                 <div className="p-1.5 bg-brand/10 rounded-sm">
                   {(section.type === 'top10' || section.type === 'tournament') ? <Trophy className="w-5 h-5 text-brand" /> : <Layers className="w-5 h-5 text-brand" />}
@@ -101,7 +101,7 @@ export default function DynamicSections({ page }: DynamicSectionsProps) {
             {section.type === 'top10' ? (
               <div className="flex gap-1 overflow-x-auto pb-4 hide-scrollbar scroll-smooth snap-x">
                 {contents.slice(0, 10).map((item, i) => (
-                  <div key={`${i}-${item.id}`} className="relative flex-none w-[110px] md:w-[180px] group snap-start">
+                  <div key={`${i}-${item.id}`} className="relative flex-none w-[130px] md:w-[180px] group snap-start">
                     <div className="relative z-10 pl-3 md:pl-10 h-full">
                       <ContentCard content={item} aspectRatio="portrait" hideDetails index={i} />
                     </div>
@@ -120,7 +120,7 @@ export default function DynamicSections({ page }: DynamicSectionsProps) {
                 {contents.map((item, i) => (
                    <div key={`${i}-${item.id}`} className={cn(
                      "flex-shrink-0 md:flex-shrink snap-start",
-                     i === 0 ? "w-[220px] md:w-auto md:col-span-2" : "w-[125px] md:w-auto"
+                     i === 0 ? "w-[220px] md:w-auto md:col-span-2" : "w-[115px] md:w-auto"
                    )}>
                       <ContentCard content={item} index={i} featured={i === 0} />
                    </div>
@@ -138,7 +138,7 @@ export default function DynamicSections({ page }: DynamicSectionsProps) {
                     key={`${i}-${item.id}`} 
                     className={cn(
                       "flex-shrink-0 snap-start",
-                      section.aspectRatio === 'portrait' ? "w-[110px] md:w-auto" : "w-[125px] md:w-auto"
+                      section.aspectRatio === 'portrait' ? "w-[130px] md:w-auto" : "w-[115px] md:w-auto"
                     )}
                   >
                     <ContentCard 

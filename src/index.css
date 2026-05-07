@@ -62,7 +62,7 @@
   }
   
   .glass-card {
-    @apply bg-surface/50 backdrop-blur-md border border-border rounded-xl overflow-hidden shadow-xl;
+    @apply bg-surface/50 backdrop-blur-md border border-border rounded-[10px] overflow-hidden shadow-xl;
   }
 
   .premium-badge {

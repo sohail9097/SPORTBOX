@@ -59,8 +59,10 @@ export default function Admin() {
     thumbnailUrl: '',
     isPremium: false,
     status: 'scheduled',
-    viewCount: 0
+    viewCount: 0,
+    tags: []
   });
+  const [tagsInput, setTagsInput] = useState('');
 
   // Section Form state
   const [editingSectionId, setEditingSectionId] = useState<string | null>(null);
@@ -343,7 +345,8 @@ export default function Admin() {
     try {
       const transformedVideoUrl = transformGDriveUrl(form.videoUrl || '', 'video');
       const transformedThumbUrl = transformGDriveUrl(form.thumbnailUrl || '', 'image');
-      const finalForm = { ...form, videoUrl: transformedVideoUrl, thumbnailUrl: transformedThumbUrl };
+      const tagsArray = tagsInput.split(',').map(tag => tag.trim()).filter(tag => tag !== '');
+      const finalForm = { ...form, videoUrl: transformedVideoUrl, thumbnailUrl: transformedThumbUrl, tags: tagsArray };
 
       if (editingId) {
         const docRef = doc(db, 'content', editingId);
@@ -359,7 +362,8 @@ export default function Admin() {
       setIsAdding(false);
       setEditingId(null);
       fetchContent();
-      setForm({ title: '', description: '', category: 'football', type: 'replay', videoUrl: '', isPremium: false, status: 'scheduled' });
+      setForm({ title: '', description: '', category: 'football', type: 'replay', videoUrl: '', isPremium: false, status: 'scheduled', tags: [] });
+      setTagsInput('');
     } catch (error) {
       handleFirestoreError(error, editingId ? OperationType.UPDATE : OperationType.CREATE, 'content');
     }
@@ -420,6 +424,7 @@ export default function Admin() {
 
   const handleEdit = (item: SportsContent) => {
     setForm(item);
+    setTagsInput(item.tags ? item.tags.join(', ') : '');
     setEditingId(item.id);
     setIsAdding(true);
   };
@@ -1601,6 +1606,10 @@ export default function Admin() {
                     </button>
                     <button type="button" onClick={() => setActiveTab('media')} className="px-4 bg-surface hover:bg-brand/10 border border-white/10 rounded-md text-[10px] font-bold uppercase"><Upload className="w-3 h-3" /></button>
                   </div>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Search tags (comma separated)</label>
+                  <input type="text" value={tagsInput} onChange={e => setTagsInput(e.target.value)} className="w-full bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none" placeholder="e.g. final, world cup, ronaldo, highlights" />
                 </div>
                 <div className="space-y-2">
                   <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Thumbnail URL</label>

@@ -8,6 +8,7 @@ import Watch from './pages/Watch';
 import Plans from './pages/Plans';
 import Account from './pages/Account';
 import Admin from './pages/Admin';
+import Search from './pages/Search';
 import { ThemeProvider } from './lib/ThemeContext';
 import { AuthProvider } from './hooks/useAuth';
 
@@ -26,6 +27,7 @@ function App() {
               <Route path="/plans" element={<Plans />} />
               <Route path="/account" element={<Account />} />
               <Route path="/admin" element={<Admin />} />
+              <Route path="/search" element={<Search />} />
             </Routes>
           </Layout>
         </Router>

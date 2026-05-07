@@ -14,6 +14,8 @@
         "isMobileVerified": { "type": "boolean" },
         "lastPaymentDate": { "type": "string", "format": "date-time" },
         "favorites": { "type": "array", "items": { "type": "string" } },
+        "watchLater": { "type": "array", "items": { "type": "string" } },
+        "recentlyWatched": { "type": "array", "items": { "type": "string" } },
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["uid", "email"]
@@ -30,6 +32,7 @@
         "videoUrl": { "type": "string" },
         "thumbnailUrl": { "type": "string" },
         "isPremium": { "type": "boolean" },
+        "tags": { "type": "array", "items": { "type": "string" } },
         "viewCount": { "type": "number" },
         "createdAt": { "type": "string", "format": "date-time" },
         "status": { "type": "string", "enum": ["scheduled", "live", "ended"] }

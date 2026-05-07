@@ -6,7 +6,7 @@ import { signInWithGoogle, auth, db } from '../lib/firebase';
 import { 
   LayoutDashboard, Play, LogOut, User, Crown, 
   Search, Menu, X, Sun, Moon, Home, Tv, 
-  Calendar, UserCircle, Bell
+  Calendar, UserCircle, Bell, Clock
 } from 'lucide-react';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { motion, AnimatePresence } from 'motion/react';
@@ -42,9 +42,9 @@ export default function Layout({ children }: { children: ReactNode }) {
 
   const mobileNavLinks = [
     { name: 'Home', path: '/', icon: Home },
-    { name: 'Search', path: '/live', icon: Search }, // Temporary using /live for search context
+    { name: 'Search', path: '/search', icon: Search },
+    { name: 'List', path: '/account', icon: Clock },
     { name: 'Live', path: '/live', icon: Tv },
-    { name: 'Plans', path: '/plans', icon: Crown },
     { name: 'Profile', path: user ? '/account' : '/plans', icon: UserCircle },
   ];
 
@@ -81,11 +81,12 @@ export default function Layout({ children }: { children: ReactNode }) {
             </div>
 
             <div className="flex items-center gap-0.5 md:gap-6">
-              <button 
+              <Link 
+                to="/search"
                 className="p-1 px-2 text-text-muted hover:text-text-base md:hidden"
               >
                 <Search className="w-4 h-4" />
-              </button>
+              </Link>
               
               <button 
                 className="p-1 px-2 text-text-muted hover:text-text-base md:hidden"
@@ -111,6 +112,21 @@ export default function Layout({ children }: { children: ReactNode }) {
               )}
 
               <div className="hidden md:flex items-center gap-6">
+                <Link 
+                  to="/search"
+                  className="p-2 rounded-full hover:bg-white/5 transition-colors text-text-muted hover:text-text-base border border-border"
+                >
+                  <Search className="w-4 h-4" />
+                </Link>
+
+                <Link 
+                  to="/account"
+                  className="p-2 rounded-full hover:bg-white/5 transition-colors text-text-muted hover:text-text-base border border-border"
+                  title="My List"
+                >
+                  <Clock className="w-4 h-4" />
+                </Link>
+
                 <button 
                   onClick={toggleTheme}
                   className="p-2 rounded-full hover:bg-white/5 transition-colors text-text-muted hover:text-text-base border border-border"

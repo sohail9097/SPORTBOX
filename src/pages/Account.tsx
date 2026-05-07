@@ -1,66 +1,108 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, updateDoc, collection, getDocs, query, where, documentId } from 'firebase/firestore';
 import { motion, AnimatePresence } from 'motion/react';
-import { User, Phone, CheckCircle2, ShieldCheck, Mail, LogOut, ChevronRight, Loader2, Key, Settings } from 'lucide-react';
+import { User, Phone, CheckCircle2, ShieldCheck, Mail, LogOut, ChevronRight, Loader2, Key, Settings, Clock, Crown } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { auth } from '../lib/firebase';
-
 import { Link, useNavigate } from 'react-router-dom';
+import { SportsContent } from '../types';
+import ContentCard from '../components/ContentCard';
 
 export default function Account() {
   const navigate = useNavigate();
-  const { user, profile } = useAuth();
+  const { user, profile, isAdmin } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
   const [mobileNumber, setMobileNumber] = useState(profile?.mobileNumber || '');
   const [displayName, setDisplayName] = useState(profile?.displayName || '');
   const [verificationSuccess, setVerificationSuccess] = useState(false);
+  
+  const [watchLaterContent, setWatchLaterContent] = useState<SportsContent[]>([]);
+  const [loadingWatchLater, setLoadingWatchLater] = useState(false);
+  
+  const [recentContent, setRecentContent] = useState<SportsContent[]>([]);
+  const [loadingRecent, setLoadingRecent] = useState(false);
 
   useEffect(() => {
     if (profile?.mobileNumber) setMobileNumber(profile.mobileNumber);
     if (profile?.displayName) setDisplayName(profile.displayName);
   }, [profile]);
 
+  useEffect(() => {
+    const fetchWatchLater = async () => {
+      if (!profile?.watchLater || profile.watchLater.length === 0) {
+        setWatchLaterContent([]);
+        return;
+      }
+
+      setLoadingWatchLater(true);
+      try {
+        const contentRef = collection(db, 'content');
+        const q = query(contentRef, where(documentId(), 'in', profile.watchLater.slice(0, 10)));
+        const snapshot = await getDocs(q);
+        const fetchedContent = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as SportsContent));
+        setWatchLaterContent(fetchedContent);
+      } catch (error) {
+        console.error("Error fetching watch later:", error);
+      } finally {
+        setLoadingWatchLater(false);
+      }
+    };
+
+    fetchWatchLater();
+  }, [profile?.watchLater]);
+
+  useEffect(() => {
+    const fetchRecent = async () => {
+      if (!profile?.recentlyWatched || profile.recentlyWatched.length === 0) {
+        setRecentContent([]);
+        return;
+      }
+
+      setLoadingRecent(true);
+      try {
+        const contentRef = collection(db, 'content');
+        // Get last 10 recently watched
+        const recentIds = [...profile.recentlyWatched].reverse().slice(0, 10);
+        const q = query(contentRef, where(documentId(), 'in', recentIds));
+        const snapshot = await getDocs(q);
+        const fetchedContent = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as SportsContent));
+        
+        // Restore order based on recentIds
+        const orderedContent = recentIds.map(id => fetchedContent.find(c => c.id === id)).filter(Boolean) as SportsContent[];
+        setRecentContent(orderedContent);
+      } catch (error) {
+        console.error("Error fetching recent content:", error);
+      } finally {
+        setLoadingRecent(false);
+      }
+    };
+
+    fetchRecent();
+  }, [profile?.recentlyWatched]);
+
   const handleUpdateProfile = async () => {
-    // Custom formatting logic for Indian numbers
-    let phone = mobileNumber.replace(/\D/g, ""); // strip non-digits
-
-    // Handle common prefixes to get to 10 digits
-    if (phone.length === 12 && phone.startsWith("91")) {
-      phone = phone.substring(2);
-    } else if (phone.length === 11 && phone.startsWith("0")) {
-      phone = phone.substring(1);
-    }
-
-    if (phone.length !== 10) {
-      alert("Please enter a valid 10-digit mobile number.");
-      return;
-    }
-
+    // Basic validation
     if (!displayName || displayName.trim().length < 3) {
       alert("Please enter your name (min 3 characters).");
       return;
     }
 
-    const normalizedPhone = "+91" + phone;
-    
     setLoading(true);
     try {
       if (!user) return;
-      
       const userRef = doc(db, 'users', user.uid);
       await updateDoc(userRef, {
         displayName: displayName,
-        mobileNumber: normalizedPhone,
-        isMobileVerified: true
+        mobileNumber: mobileNumber
       });
-      
       setVerificationSuccess(true);
       setTimeout(() => setVerificationSuccess(false), 3000);
     } catch (error: any) {
       console.error("Update Error:", error);
-      alert("Error updating profile. Please try again.");
+      alert("Error updating profile.");
     } finally {
       setLoading(false);
     }
@@ -68,162 +110,174 @@ export default function Account() {
 
   if (!user) {
     return (
-      <div className="min-h-[70vh] flex flex-col items-center justify-center p-4 text-center">
-        <div className="w-20 h-20 bg-white/5 rounded-[2rem] flex items-center justify-center mb-8">
-           <User className="w-10 h-10 text-white/20" />
-        </div>
-        <h1 className="text-4xl font-black uppercase italic tracking-tighter mb-4">Authentication Required</h1>
-        <p className="text-text-muted max-w-xs mb-8 font-medium">Please sign in to access your account settings and manage your profile.</p>
-        <button onClick={() => navigate('/')} className="btn-primary px-12">Return Home</button>
+      <div className="min-h-[70vh] flex flex-col items-center justify-center p-4">
+        <h1 className="text-2xl font-black uppercase italic mb-8">Auth Required</h1>
+        <button onClick={() => navigate('/')} className="btn-primary">Return Home</button>
       </div>
     );
   }
 
   return (
-    <div className="py-12 md:py-24 px-4 max-w-4xl mx-auto">
-      <div className="mb-8 md:mb-12">
-        <h1 className="text-4xl md:text-8xl font-black uppercase italic tracking-tighter leading-none mb-2 md:mb-4">
-          Your <span className="text-brand">Account</span>
-        </h1>
-        <p className="text-text-muted text-sm md:text-lg font-medium">Manage your subscription, security, and personal preferences.</p>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-        <div className="md:col-span-1 space-y-4">
-        <div className="p-6 md:p-8 bg-surface border border-white/10 rounded-xl md:rounded-2xl text-center space-y-3 shadow-2xl">
-            <div className="w-20 h-20 md:w-24 md:h-24 mx-auto bg-brand/10 rounded-xl md:rounded-2xl flex items-center justify-center border-2 border-brand/20">
-              {user.photoURL && user.photoURL.trim() !== '' ? (
-                <img src={user.photoURL} alt="" className="w-16 h-16 md:w-20 md:h-20 rounded-md md:rounded-xl object-cover" />
-              ) : (
-                <User className="w-8 h-8 md:w-10 md:h-10 text-brand" />
-              )}
+    <div className="min-h-screen bg-bg pb-20">
+      {/* Top Profile Section */}
+      <div className="max-w-[1600px] mx-auto px-4 pt-12 md:pt-20">
+        <div className="flex flex-col items-center justify-center space-y-4 mb-12">
+          <button 
+            onClick={() => setShowDetails(!showDetails)}
+            className="group relative"
+          >
+            <div className="w-[100px] h-[100px] md:w-[140px] md:h-[140px] rounded-full border-4 border-brand p-1 transition-transform group-hover:scale-105">
+              <div className="w-full h-full rounded-full bg-brand/20 overflow-hidden flex items-center justify-center">
+                {user.photoURL ? (
+                  <img src={user.photoURL} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  <User className="w-12 h-12 md:w-16 md:h-16 text-brand" />
+                )}
+              </div>
             </div>
-            <div>
-              <h2 className="text-lg md:text-xl font-black uppercase italic">{profile?.displayName || 'Sports Fan'}</h2>
-              <p className="text-[9px] md:text-[10px] font-bold text-text-muted uppercase tracking-widest">{user.email}</p>
+            <div className="absolute -bottom-2 right-2 bg-brand text-white p-2 rounded-full shadow-lg">
+              <Settings className="w-4 h-4 md:w-5 md:h-5" />
             </div>
-            <div className={cn(
-              "inline-block px-3 py-1 rounded-full text-[8px] md:text-[10px] font-black uppercase tracking-[0.2em]",
-              profile?.subscriptionTier === 'free' ? "bg-white/5 text-white/40" : "bg-brand text-white shadow-lg shadow-brand/20"
-            )}>
-              {profile?.subscriptionTier || 'Free'} Member
-            </div>
-
-            <Link 
-              to="/admin"
-              className="md:hidden w-full flex items-center justify-center gap-2 py-3 text-[9px] font-black uppercase tracking-[0.2em] bg-white/5 text-brand border border-brand/20 rounded-lg transition-colors mt-2"
-            >
-              <Settings className="w-3.5 h-3.5" />
-              Admin Panel
-            </Link>
-
-            <button 
-              onClick={() => {
-                auth.signOut();
-                navigate('/');
-              }}
-              className="w-full flex items-center justify-center gap-2 py-3 text-[9px] font-black uppercase tracking-[0.2em] text-red-500 hover:bg-red-500/10 rounded-lg transition-colors mt-2"
-            >
-              <LogOut className="w-3.5 h-3.5" />
-              Sign Out
-            </button>
+          </button>
+          <div className="text-center">
+            <h1 className="text-3xl md:text-5xl font-black uppercase italic tracking-tighter">
+              {profile?.displayName || 'Set Name'}
+            </h1>
+            <p className="text-[10px] md:text-xs font-black uppercase tracking-[0.3em] text-text-muted mt-1">
+              Member ID: {user.uid.substring(0, 8)}
+            </p>
           </div>
         </div>
 
-        <div className="md:col-span-2 space-y-6">
-          {/* Security Section */}
-          <div className="bg-surface border border-white/10 rounded-xl md:rounded-2xl overflow-hidden shadow-2xl">
-            <div className="p-6 md:p-8 border-b border-white/5 bg-white/[0.02] flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <ShieldCheck className="w-4 h-4 md:w-5 md:h-5 text-brand" />
-                <h3 className="font-black uppercase italic text-base md:text-lg">Security & Verification</h3>
-              </div>
-            </div>
-            <div className="p-6 md:p-8 space-y-6 md:space-y-8">
-              <div className="space-y-4 md:space-y-6">
-                <div className="space-y-2">
-                  <label className="text-[8px] md:text-[10px] font-black uppercase tracking-widest text-text-muted flex items-center gap-2">
-                    <User className="w-3 h-3" />
-                    Full Name
-                  </label>
-                  <input 
-                    type="text"
-                    placeholder="Enter your name"
-                    value={displayName}
-                    onChange={e => setDisplayName(e.target.value)}
-                    className="w-full bg-bg border border-white/10 p-4 md:p-5 rounded-lg md:rounded-xl focus:border-brand outline-none text-xs md:text-sm font-bold"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center">
-                    <label className="text-[8px] md:text-[10px] font-black uppercase tracking-widest text-text-muted flex items-center gap-2">
-                      <Phone className="w-3 h-3" />
-                      Mobile Number
-                    </label>
-                    {profile?.isMobileVerified && (
-                      <span className="flex items-center gap-1 text-[8px] md:text-[10px] font-black uppercase text-green-500 flex-shrink-0">
-                        <CheckCircle2 className="w-2.5 h-2.5 md:w-3 md:h-3" />
-                        Verified
-                      </span>
-                    )}
+        {/* Expandable Details */}
+        <AnimatePresence>
+          {showDetails && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="overflow-hidden mb-12"
+            >
+              <div className="max-w-2xl mx-auto glass-card p-6 md:p-10 space-y-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="space-y-4">
+                    <DetailItem icon={Mail} label="Email Address" value={user.email || ''} />
+                    <div className="space-y-2">
+                       <label className="text-[10px] font-black uppercase tracking-widest text-text-muted">Display Name</label>
+                       <input 
+                         type="text" 
+                         value={displayName}
+                         onChange={e => setDisplayName(e.target.value)}
+                         className="w-full bg-bg border border-white/10 p-3 rounded-lg outline-none focus:border-brand text-xs font-bold"
+                       />
+                    </div>
                   </div>
-                  <div className="flex flex-col md:flex-row gap-3 md:gap-4">
-                    <div className="flex-grow space-y-1.5 md:space-y-2">
-                      <input 
-                        type="tel"
-                        placeholder="Enter 10-digit number"
-                        value={mobileNumber}
-                        onChange={e => setMobileNumber(e.target.value)}
-                        className="bg-bg border border-white/10 p-4 md:p-5 rounded-lg md:rounded-xl focus:border-brand outline-none text-xs md:text-sm font-bold w-full"
-                      />
-                      <p className="text-[8px] md:text-[10px] text-white/40 font-bold uppercase tracking-wider">India (+91) format supported</p>
+                  <div className="space-y-4">
+                    <DetailItem icon={Crown} label="Subscription" value={profile?.subscriptionTier || 'Free'} highlight />
+                    <div className="space-y-2">
+                       <label className="text-[10px] font-black uppercase tracking-widest text-text-muted">Mobile Number</label>
+                       <input 
+                         type="tel" 
+                         value={mobileNumber}
+                         onChange={e => setMobileNumber(e.target.value)}
+                         className="w-full bg-bg border border-white/10 p-3 rounded-lg outline-none focus:border-brand text-xs font-bold"
+                       />
                     </div>
                   </div>
                 </div>
 
-                <button 
-                  onClick={handleUpdateProfile}
-                  disabled={loading || !displayName || !mobileNumber}
-                  className="w-full py-4 md:py-5 bg-white text-black font-black uppercase tracking-widest text-[9px] md:text-[10px] rounded-lg md:rounded-xl disabled:opacity-50 hover:bg-slate-200 transition-colors shadow-xl"
-                >
-                  {loading ? <Loader2 className="w-4 h-4 md:w-5 md:h-5 animate-spin mx-auto text-black" /> : 'Update Profile'}
-                </button>
-
-                {verificationSuccess && (
-                  <motion.p 
-                    initial={{ opacity: 0, y: 5 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="text-green-500 font-bold text-xs text-center"
+                <div className="flex flex-col md:flex-row gap-4 pt-6 border-t border-white/5">
+                  <button 
+                    onClick={handleUpdateProfile}
+                    className="flex-grow py-4 bg-brand text-white font-black uppercase tracking-widest text-[10px] rounded-lg shadow-lg hover:bg-brand-alt transition-colors"
                   >
-                    Profile updated successfully!
-                  </motion.p>
-                )}
-              </div>
-
-              {/* Email Profile Info */}
-              <div className="space-y-4 pt-8 border-t border-white/5">
-                <label className="text-[10px] font-black uppercase tracking-widest text-text-muted flex items-center gap-2">
-                  <Mail className="w-3 h-3" />
-                  Primary Email
-                </label>
-                <div className="flex items-center justify-between p-5 bg-white/5 rounded-2xl border border-white/5">
-                  <span className="text-sm font-bold text-white/60">{user.email}</span>
-                  <span className="text-[10px] font-black text-brand uppercase tracking-widest">Linked</span>
+                    {loading ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Save Changes'}
+                  </button>
+                  <button 
+                    onClick={() => {auth.signOut(); navigate('/');}}
+                    className="flex-grow py-4 bg-white/5 text-red-500 font-black uppercase tracking-widest text-[10px] rounded-lg hover:bg-red-500/10 transition-colors"
+                  >
+                    Logout Account
+                  </button>
+                  {isAdmin && (
+                    <Link to="/admin" className="flex-grow py-4 bg-white/5 text-brand font-black uppercase tracking-widest text-[10px] rounded-lg text-center hover:bg-brand/10 transition-colors">
+                      Admin Panel
+                    </Link>
+                  )}
                 </div>
+                {verificationSuccess && <p className="text-center text-green-500 text-[10px] font-bold uppercase">Profile Updated!</p>}
               </div>
-            </div>
-          </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-          <Link to="/plans" className="bg-surface border border-white/10 rounded-xl md:rounded-2xl p-6 md:p-8 flex items-center justify-between group cursor-pointer hover:border-brand/30 transition-all shadow-xl">
-             <div>
-               <h4 className="font-black uppercase italic text-base md:text-lg">Billing & Plans</h4>
-               <p className="text-text-muted text-[10px] md:text-xs font-medium">Manage your {profile?.subscriptionTier || 'Free'} subscription and view history.</p>
-             </div>
-             <ChevronRight className="w-5 h-5 md:w-6 md:h-6 text-text-muted group-hover:text-brand transition-all group-hover:translate-x-1" />
-          </Link>
-        </div>
+        {/* Watchlist Section */}
+        <section className="mt-12">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-xl md:text-3xl font-black uppercase italic tracking-tighter">Watchlist</h3>
+            <span className="px-3 py-1 bg-white/5 rounded-full text-[10px] font-black uppercase text-brand tracking-widest">
+              {watchLaterContent.length} Titles
+            </span>
+          </div>
+          
+          <div className="flex md:grid md:grid-cols-4 lg:grid-cols-6 gap-2 md:gap-4 overflow-x-auto md:overflow-visible pb-4 md:pb-0 hide-scrollbar snap-x">
+            {loadingWatchLater ? (
+              <div className="col-span-full py-12 flex justify-center"><Loader2 className="animate-spin text-brand" /></div>
+            ) : watchLaterContent.length > 0 ? (
+              watchLaterContent.map((item, i) => (
+                <div key={item.id} className="flex-shrink-0 w-[140px] md:w-auto snap-start">
+                  <ContentCard content={item} index={i} />
+                </div>
+              ))
+            ) : (
+              <div className="col-span-full py-12 text-center glass-card">
+                <p className="text-text-muted text-xs font-bold uppercase tracking-widest italic leading-relaxed">
+                  Your watch list is feeling a bit lonely.<br />
+                  <Link to="/" className="text-brand hover:underline">Explore contents to add some action!</Link>
+                </p>
+              </div>
+            )}
+          </div>
+        </section>
+
+        {/* Continue Watching Section */}
+        <section className="mt-12">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-xl md:text-3xl font-black uppercase italic tracking-tighter">Continue Watching for {profile?.displayName || 'User'}</h3>
+            <ChevronRight className="w-5 h-5 text-text-muted" />
+          </div>
+          
+          <div className="flex md:grid md:grid-cols-3 lg:grid-cols-4 gap-2 md:gap-4 overflow-x-auto md:overflow-visible pb-4 md:pb-0 hide-scrollbar snap-x">
+            {loadingRecent ? (
+              <div className="col-span-full py-12 flex justify-center"><Loader2 className="animate-spin text-brand" /></div>
+            ) : recentContent.length > 0 ? (
+              recentContent.map((item, i) => (
+                <div key={item.id} className="flex-shrink-0 w-[240px] md:w-auto snap-start">
+                  <ContentCard content={item} index={i} featured />
+                </div>
+              ))
+            ) : (
+              <div className="col-span-full py-12 text-center glass-card">
+                <p className="text-text-muted text-xs font-bold uppercase tracking-widest italic leading-relaxed">
+                  Start watching some contents to see them here!
+                </p>
+              </div>
+            )}
+          </div>
+        </section>
       </div>
+    </div>
+  );
+}
+
+function DetailItem({ icon: Icon, label, value, highlight }: { icon: any, label: string, value: string, highlight?: boolean }) {
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-text-muted">
+        <Icon className="w-3 h-3" />
+        {label}
+      </div>
+      <p className={cn("text-sm font-bold truncate", highlight ? "text-brand" : "text-white/80")}>{value}</p>
     </div>
   );
 }

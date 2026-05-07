@@ -78,7 +78,7 @@ export default function Home() {
       </section>
 
       {/* Categories Bar */}
-      <section className="mt-8 relative z-10 max-w-[1600px] mx-auto px-4">
+      <section className="mt-4 relative z-10 max-w-[1600px] mx-auto px-4">
         <div className="flex md:flex-wrap items-center gap-4 md:justify-between overflow-x-auto pb-4 md:pb-0 hide-scrollbar">
           {[
             { name: 'Football', color: 'bg-green-500/10 text-green-500', short: 'FB' },
@@ -105,17 +105,17 @@ export default function Home() {
       </section>
 
       {/* Dynamic Admin-Managed Sections */}
-      <div className="max-w-[1600px] mx-auto px-4 mt-8">
+      <div className="max-w-[1600px] mx-auto px-4 mt-4">
         <DynamicSections page="home" />
       </div>
 
       {/* Live Section */}
       {liveNow.length > 0 && (
-        <section key="home-live-section" className="max-w-[1600px] mx-auto px-4 mt-4 md:mt-8">
+        <section key="home-live-section" className="max-w-[1600px] mx-auto px-4 mt-2 md:mt-4">
           <SectionHeader title="Live Today" icon={Play} link="/live" />
           <div className="flex md:grid md:grid-cols-4 lg:grid-cols-6 gap-1 md:gap-1 overflow-x-auto md:overflow-visible pb-4 md:pb-0 hide-scrollbar snap-x">
             {liveNow.map((item, i) => (
-              <div key={`home-live-${item.id}`} className="flex-shrink-0 w-[125px] md:w-auto snap-start">
+              <div key={`home-live-${item.id}`} className="flex-shrink-0 w-[115px] md:w-auto snap-start">
                 <ContentCard content={item} index={i} />
               </div>
             ))}
@@ -137,11 +137,11 @@ export default function Home() {
       )}
 
       {/* Trending Section */}
-      <section key="home-trending-section" className="max-w-[1600px] mx-auto px-4 mt-4 md:mt-8">
+      <section key="home-trending-section" className="max-w-[1600px] mx-auto px-4 mt-2 md:mt-4">
         <SectionHeader title="Trending Replays" icon={TrendingUp} />
         <div className="flex md:grid md:grid-cols-4 lg:grid-cols-6 gap-1 md:gap-1 overflow-x-auto md:overflow-visible pb-4 md:pb-0 hide-scrollbar snap-x">
           {trending.map((item, i) => (
-            <div key={`home-trending-${item.id}`} className="flex-shrink-0 w-[125px] md:w-auto snap-start">
+            <div key={`home-trending-${item.id}`} className="flex-shrink-0 w-[115px] md:w-auto snap-start">
               <ContentCard key={`home-trending-${item.id}`} content={item} index={i} />
             </div>
           ))}
@@ -153,7 +153,7 @@ export default function Home() {
 
 function SectionHeader({ title, icon: Icon, link }: { title: string, icon: any, link?: string }) {
   return (
-    <div className="flex items-center justify-between mb-4 mt-8">
+    <div className="flex items-center justify-between mb-2 mt-4">
       <div className="flex items-center gap-2">
         <div className="p-1.5 bg-brand/10 rounded-sm">
           <Icon className="w-5 h-5 text-brand" />

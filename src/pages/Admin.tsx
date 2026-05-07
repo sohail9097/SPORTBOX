@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { collection, addDoc, getDocs, getDoc, deleteDoc, doc, updateDoc, query, orderBy, setDoc } from 'firebase/firestore';
 import { SportsContent, Category, ContentType, ContentSection, SliderElement, VideoPromoSettings, SiteConfig, PlayerSettings, SubscriptionPlan } from '../types';
-import { Plus, Trash2, Edit2, Play, LayoutDashboard, Film, Users, Settings, Save, X, Eye, Radio, Crown, Layers, MoveUp, MoveDown, CheckSquare, Square, Image as ImageIcon, Upload, Library, ShieldCheck, Zap, Percent, Trophy, ChevronRight, Activity } from 'lucide-react';
+import { Plus, Trash2, Edit2, Play, LayoutDashboard, Film, Users, Settings, Save, X, Eye, Radio, Crown, Layers, MoveUp, MoveDown, CheckSquare, Square, Image as ImageIcon, Upload, Library, ShieldCheck, Zap, Percent, Trophy, ChevronRight, Activity, Heart } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn, formatDate, transformGDriveUrl } from '../lib/utils';
 import { useAuth } from '../hooks/useAuth';
@@ -13,7 +13,7 @@ import StadiumPlayer from '../components/StadiumPlayer';
 export default function Admin() {
   const { user, isAdmin, loading: authLoading } = useAuth();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'content' | 'live' | 'sections' | 'categories' | 'slider' | 'users' | 'settings' | 'media' | 'plans' | 'trending'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'content' | 'live' | 'sections' | 'categories' | 'slider' | 'users' | 'settings' | 'media' | 'plans' | 'trending' | 'likes'>('dashboard');
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [content, setContent] = useState<SportsContent[]>([]);
   const [mediaItems, setMediaItems] = useState<any[]>([]);
@@ -21,6 +21,9 @@ export default function Admin() {
   const [slider, setSlider] = useState<SliderElement[]>([]);
   const [subscribers, setSubscribers] = useState<any[]>([]);
   const [subscriptionPlans, setSubscriptionPlans] = useState<SubscriptionPlan[]>([]);
+  
+  const [selectedContentLikes, setSelectedContentLikes] = useState<{ id: string, title: string, likers: any[] } | null>(null);
+  const [likesLoading, setLikesLoading] = useState(false);
   const [siteConfig, setSiteConfig] = useState<SiteConfig>({
     founderImageUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=1000&auto=format&fit=crop'
   });
@@ -516,6 +519,19 @@ export default function Admin() {
     }
   };
 
+  const fetchContentLikes = async (contentId: string, title: string) => {
+    setLikesLoading(true);
+    try {
+      const snap = await getDocs(collection(db, 'content', contentId, 'likes'));
+      const likersList = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      setSelectedContentLikes({ id: contentId, title, likers: likersList });
+    } catch (error) {
+      console.error("Error fetching likes:", error);
+    } finally {
+      setLikesLoading(false);
+    }
+  };
+
   const liveItems = content.filter(c => c.status === 'live');
 
   if (authLoading) return <div className="h-screen flex items-center justify-center font-black uppercase tracking-widest italic animate-pulse">Initializing System...</div>;
@@ -539,6 +555,7 @@ export default function Admin() {
           <SidebarLink icon={Activity} label="Trending Editor" active={activeTab === 'trending'} onClick={() => setActiveTab('trending')} />
           <SidebarLink icon={Crown} label="Subscription Plans" active={activeTab === 'plans'} onClick={() => setActiveTab('plans')} />
           <SidebarLink icon={Settings} label="Settings" active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} />
+          <SidebarLink icon={Heart} label="Likes Insight" active={activeTab === 'likes'} onClick={() => setActiveTab('likes')} />
           <SidebarLink icon={Library} label="Media Uploads" active={activeTab === 'media'} onClick={() => setActiveTab('media')} />
         </div>
       </div>
@@ -1481,6 +1498,100 @@ export default function Admin() {
                </div>
              </motion.div>
           )}
+          {activeTab === 'likes' && (
+            <motion.div key="likes" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} className="space-y-8">
+              <div className="space-y-2">
+                <h1 className="text-5xl font-black uppercase italic tracking-tighter">Likes Insight</h1>
+                <p className="text-text-muted font-medium">Analyze fan engagement and identify your most popular broadcasts.</p>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div className="lg:col-span-2 space-y-4">
+                  <div className="glass-card overflow-hidden">
+                    <table className="w-full text-left">
+                      <thead className="bg-surface/50 border-b border-border">
+                        <tr className="uppercase text-[10px] font-black tracking-widest text-text-muted">
+                          <th className="px-6 py-5">Broadcast</th>
+                          <th className="px-6 py-5">Likes</th>
+                          <th className="px-6 py-5 text-right">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border">
+                        {content.filter(item => (item.likes || 0) > 0).sort((a, b) => (b.likes || 0) - (a.likes || 0)).map((item) => (
+                          <tr key={`like-insight-${item.id}`} className={cn("hover:bg-surface-hover/30 transition-colors cursor-pointer", selectedContentLikes?.id === item.id && "bg-brand/5 border-l-2 border-l-brand")}>
+                            <td className="px-6 py-4">
+                              <div className="flex items-center gap-3">
+                                <div className="w-12 h-8 rounded bg-surface overflow-hidden">
+                                  <img src={transformGDriveUrl(item.thumbnailUrl, 'image')} className="w-full h-full object-cover" alt="" />
+                                </div>
+                                <span className="text-sm font-bold truncate max-w-[200px]">{item.title}</span>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="flex items-center gap-2 text-brand">
+                                <Heart className="w-3 h-3 fill-brand" />
+                                <span className="text-xs font-black">{item.likes || 0}</span>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 text-right">
+                              <button 
+                                onClick={() => fetchContentLikes(item.id, item.title)}
+                                className={cn(
+                                  "px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all",
+                                  selectedContentLikes?.id === item.id ? "bg-brand text-white" : "bg-surface border border-border hover:border-brand/40"
+                                )}
+                              >
+                                {likesLoading && selectedContentLikes?.id === item.id ? 'Loading...' : 'View Likers'}
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <div className="space-y-6">
+                  {selectedContentLikes ? (
+                    <div className="glass-card p-6 border border-brand/20 bg-brand/5 space-y-6 sticky top-8">
+                       <div className="flex items-center justify-between">
+                         <div className="space-y-1">
+                           <h3 className="text-sm font-black uppercase italic tracking-widest">Likers Details</h3>
+                           <p className="text-[10px] text-text-muted truncate max-w-[150px]">{selectedContentLikes.title}</p>
+                         </div>
+                         <button onClick={() => setSelectedContentLikes(null)} className="p-2 hover:bg-white/5 rounded-lg transition-colors">
+                           <X className="w-4 h-4" />
+                         </button>
+                       </div>
+
+                       <div className="space-y-3 max-h-[500px] overflow-y-auto pr-2 scrollbar-hide">
+                         {selectedContentLikes.likers.length > 0 ? (
+                            selectedContentLikes.likers.map((liker, idx) => (
+                              <div key={idx} className="p-3 bg-black/20 rounded-xl border border-white/5 space-y-1">
+                                <p className="text-xs font-bold text-white">{liker.displayName || 'Anonymous'}</p>
+                                <p className="text-[9px] text-text-muted font-medium">{liker.email || 'No Email provided'}</p>
+                                <p className="text-[8px] text-white/20 font-mono mt-1 uppercase tracking-tighter">ID: {liker.id}</p>
+                              </div>
+                            ))
+                         ) : (
+                           <p className="text-center py-12 text-text-muted text-[10px] font-bold uppercase tracking-widest">No details recorded for older likes</p>
+                         )}
+                       </div>
+                    </div>
+                  ) : (
+                    <div className="glass-card p-12 border border-white/5 bg-surface/30 flex flex-col items-center justify-center text-center space-y-4">
+                      <Heart className="w-12 h-12 text-white/5" />
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-text-muted">Select a broadcast</p>
+                        <p className="text-[9px] text-text-muted mt-1 px-4">Click "View Likers" to see details about the fans who reacted to the content.</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          )}
+
           {activeTab === 'media' && (
             <motion.div key="media" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} className="space-y-8">
                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">

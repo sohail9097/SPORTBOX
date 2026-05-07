@@ -12,6 +12,7 @@ export interface SportsContent {
   thumbnailUrl?: string;
   isPremium: boolean;
   viewCount: number;
+  likes?: number;
   createdAt: string;
   status: Status;
   tags?: string[];

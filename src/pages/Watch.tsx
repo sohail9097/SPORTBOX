@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { doc, getDoc, updateDoc, increment, arrayUnion, arrayRemove } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, increment, arrayUnion, arrayRemove, collection, query, where, limit, getDocs, setDoc, deleteDoc } from 'firebase/firestore';
 import { SportsContent } from '../types';
 import { useAuth } from '../hooks/useAuth';
 import { Play, Share2, Heart, MessageSquare, Crown, Info, ChevronRight, Activity, PlusCircle, CheckCircle2 } from 'lucide-react';
@@ -14,14 +14,27 @@ export default function Watch() {
   const { id } = useParams<{ id: string }>();
   const { profile, isAdmin, loading: authLoading, user } = useAuth();
   const [content, setContent] = useState<SportsContent | null>(null);
+  const [sections, setSections] = useState<{ [key: string]: SportsContent[] }>({});
   const [loading, setLoading] = useState(true);
+  const [isPlaying, setIsPlaying] = useState(false);
   const [isWatchLater, setIsWatchLater] = useState(false);
+
+  const [hasLiked, setHasLiked] = useState(false);
 
   useEffect(() => {
     if (profile && id) {
       setIsWatchLater(profile.watchLater?.includes(id) || false);
     }
   }, [profile, id]);
+
+  useEffect(() => {
+    if (id && user) {
+      // Check if user has liked
+      getDoc(doc(db, 'content', id, 'likes', user.uid)).then(snap => {
+        setHasLiked(snap.exists());
+      });
+    }
+  }, [id, user]);
 
   useEffect(() => {
     if (id && user) {
@@ -46,6 +59,7 @@ export default function Watch() {
     
     if (id) {
       window.scrollTo(0, 0);
+      setIsPlaying(false);
       fetchContent();
       // Increment view count
       updateDoc(doc(db, 'content', id), {
@@ -70,11 +84,93 @@ export default function Watch() {
     }
   };
 
+  const handleLike = async () => {
+    if (!id || !user) return;
+    try {
+      const contentRef = doc(db, 'content', id);
+      const likeRef = doc(db, 'content', id, 'likes', user.uid);
+      
+      if (hasLiked) {
+        // Unlike Logic
+        await deleteDoc(likeRef);
+        await updateDoc(contentRef, {
+          likes: increment(-1)
+        });
+        setHasLiked(false);
+        setContent(prev => prev ? { ...prev, likes: Math.max(0, (prev.likes || 1) - 1) } : null);
+      } else {
+        // Like Logic
+        await setDoc(likeRef, {
+          timestamp: new Date().toISOString(),
+          displayName: profile?.displayName || user.displayName || 'Anonymous',
+          email: user.email
+        });
+
+        await updateDoc(contentRef, {
+          likes: increment(1)
+        });
+
+        setHasLiked(true);
+        setContent(prev => prev ? { ...prev, likes: (prev.likes || 0) + 1 } : null);
+      }
+    } catch (error) {
+      console.error("Error toggling like:", error);
+    }
+  };
+
+  const handleShare = async () => {
+    if (!content) return;
+    const shareData = {
+      title: content.title,
+      text: `Check out this broadcast on SportBox: ${content.title}`,
+      url: window.location.href,
+    };
+
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+      } else {
+        await navigator.clipboard.writeText(window.location.href);
+        alert('Link copied to clipboard!');
+      }
+    } catch (error) {
+      console.error('Error sharing:', error);
+    }
+  };
+
   const fetchContent = async () => {
     try {
       const snap = await getDoc(doc(db, 'content', id!));
       if (snap.exists()) {
-        setContent({ id: snap.id, ...snap.data() } as SportsContent);
+        const contentData = { id: snap.id, ...snap.data() } as SportsContent;
+        setContent(contentData);
+        
+        // Fetch related content
+        const q = query(
+          collection(db, 'content'),
+          where('category', '==', contentData.category),
+          limit(40)
+        );
+        const relatedSnap = await getDocs(q);
+        const related = relatedSnap.docs
+          .map(doc => ({ id: doc.id, ...doc.data() } as SportsContent))
+          .filter(item => item.id !== id);
+        
+        // Group by tags
+        const grouped: { [key: string]: SportsContent[] } = {};
+        
+        related.forEach(item => {
+          if (item.tags && item.tags.length > 0) {
+            const tag = item.tags[0]; // Use first tag as section name
+            if (!grouped[tag]) grouped[tag] = [];
+            grouped[tag].push(item);
+          } else {
+            if (!grouped['More Feed']) grouped['More Feed'] = [];
+            grouped['More Feed'].push(item);
+          }
+        });
+        
+        setSections(grouped);
       }
     } catch (error) {
       handleFirestoreError(error, OperationType.GET, `content/${id}`);
@@ -95,173 +191,197 @@ export default function Watch() {
   };
 
   return (
-    <div className="min-h-screen bg-bg text-text-base">
-      <div className="flex flex-col lg:flex-row min-h-[calc(100vh-80px)]">
+    <div className="min-h-screen bg-bg text-text-base pb-20">
+      <div className="flex flex-col min-h-[calc(100vh-80px)] max-w-[1920px] mx-auto">
         {/* Cinematic Player Section */}
         <div className="flex-grow bg-black relative flex flex-col">
-          <div className="relative flex-grow min-h-[50vh] lg:min-h-0 aspect-video lg:aspect-auto flex items-center justify-center overflow-hidden">
-            {isLocked ? (
-              <div className="absolute inset-0 z-40 bg-black/90 backdrop-blur-3xl flex items-center justify-center p-8">
-                <motion.div 
-                  initial={{ scale: 0.9, opacity: 0 }}
-                  whileInView={{ scale: 1, opacity: 1 }}
-                  className="max-w-md text-center space-y-8"
-                >
-                  <div className="w-24 h-24 bg-brand/10 border border-brand/20 rounded-xl mx-auto flex items-center justify-center shadow-2xl shadow-brand/20">
-                    <Crown className="w-12 h-12 text-brand" />
-                  </div>
-                  <div className="space-y-3">
-                    <h2 className="text-4xl font-black uppercase italic tracking-tighter">Stadium Pass Required</h2>
-                    <p className="text-text-muted font-medium">All video content is restricted to Pro members. Upgrade your subscription to join the broadcast and support your favorite teams.</p>
-                  </div>
-                  <Link 
-                    to="/plans" 
-                    className="inline-block px-12 py-5 bg-brand text-white font-black text-xs uppercase tracking-[0.3em] rounded-lg hover:scale-105 transition-transform"
+          <div className="z-40 bg-black pt-2 md:pt-8 px-3 md:px-12">
+            <div className="relative aspect-video flex items-center justify-center overflow-hidden max-w-7xl mx-auto w-full rounded-2xl md:rounded-3xl shadow-2xl">
+              {isLocked ? (
+                <div className="absolute inset-0 z-40 bg-black/95 flex items-center justify-center p-8">
+                  <motion.div 
+                    initial={{ scale: 0.9, opacity: 0 }}
+                    whileInView={{ scale: 1, opacity: 1 }}
+                    className="max-w-md text-center space-y-6"
                   >
-                    Get Pro Access
-                  </Link>
-                </motion.div>
-              </div>
-            ) : content.videoUrl ? (
-              <div className="absolute inset-0 w-full h-full">
-                {content.videoUrl && content.videoUrl.trim() !== '' && isIframeUrl(content.videoUrl) ? (
-                  <iframe
-                    src={content.videoUrl}
-                    className="w-full h-full border-0"
-                    allowFullScreen
-                    allow="autoplay; encrypted-media; picture-in-picture"
-                  />
-                ) : !isLocked && content.videoUrl && content.videoUrl.trim() !== '' ? (
-                  <StadiumPlayer 
-                    url={transformGDriveUrl(content.videoUrl, 'video')} 
-                    isLive={content.status === 'live'} 
-                  />
-                ) : (
-                  <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-center bg-surface/90 backdrop-blur-3xl">
-                    <Play className="w-12 h-12 text-white/10 mb-4" />
-                    <p className="text-text-muted font-medium">Video feed currently unavailable.</p>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-center bg-surface/90 backdrop-blur-3xl">
-                <Play className="w-12 h-12 text-white/10 mb-4" />
-                <p className="text-text-muted font-medium">Video feed currently unavailable.</p>
-              </div>
-            )}
+                    <Crown className="w-12 h-12 text-brand mx-auto" />
+                    <div className="space-y-2">
+                      <h2 className="text-2xl font-black uppercase italic tracking-tighter">Stadium Pass Required</h2>
+                      <p className="text-text-muted text-xs font-medium">Join Stadium Pro to unlock this broadcast and support the teams.</p>
+                    </div>
+                    <Link 
+                      to="/plans" 
+                      className="inline-block px-8 py-3 bg-brand text-white font-black text-[10px] uppercase tracking-widest rounded-lg"
+                    >
+                      Upgrade Now
+                    </Link>
+                  </motion.div>
+                </div>
+              ) : (
+                <div className="absolute inset-0 w-full h-full">
+                  {!isPlaying ? (
+                    <div 
+                      className="absolute inset-0 z-10 cursor-pointer group"
+                      onClick={() => setIsPlaying(true)}
+                    >
+                      <img 
+                        src={transformGDriveUrl(content.thumbnailUrl, 'image')} 
+                        alt={content.title}
+                        className="w-full h-full object-cover"
+                      />
+                      <div className="absolute inset-0 bg-black/40 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                        <div className="w-16 h-16 md:w-24 md:h-24 bg-brand/90 rounded-full flex items-center justify-center shadow-2xl transform group-hover:scale-110 transition-transform duration-500">
+                          <Play className="w-8 h-8 md:w-12 md:h-12 text-white fill-white ml-1" />
+                        </div>
+                        <div className="absolute bottom-6 left-6 md:bottom-10 md:left-10 text-left">
+                          <p className="text-[10px] md:text-xs font-black uppercase tracking-[0.2em] text-brand mb-1">Ready to Broadcast</p>
+                          <h3 className="text-lg md:text-3xl font-black uppercase italic tracking-tighter text-white">{content.title}</h3>
+                        </div>
+                      </div>
+                    </div>
+                  ) : content.videoUrl && content.videoUrl.trim() !== '' && isIframeUrl(content.videoUrl) ? (
+                    <iframe
+                      src={`${content.videoUrl}${content.videoUrl.includes('?') ? '&' : '?'}autoplay=1`}
+                      className="w-full h-full border-0"
+                      allowFullScreen
+                      allow="autoplay; encrypted-media; picture-in-picture"
+                    />
+                  ) : content.videoUrl && content.videoUrl.trim() !== '' ? (
+                    <StadiumPlayer 
+                      url={transformGDriveUrl(content.videoUrl, 'video')} 
+                      isLive={content.status === 'live'} 
+                    />
+                  ) : (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-center bg-surface/90">
+                      <Play className="w-12 h-12 text-white/10 mb-4" />
+                      <p className="text-text-muted font-medium">Video feed offline.</p>
+                    </div>
+                  )}
+                </div>
+              )}
 
-            {/* In-Player Critical HUD */}
-            <div className="absolute top-8 left-8 z-30 flex items-center gap-4">
+              {/* Live Badge */}
               {content.status === 'live' && (
-                <div className="flex items-center gap-3 px-4 py-2 bg-red-600 rounded-md shadow-2xl shadow-red-600/40">
+                <div className="absolute top-4 left-4 z-50 flex items-center gap-2 px-3 py-1.5 bg-red-600 rounded">
                   <span className="relative flex h-2 w-2">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
                     <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
                   </span>
-                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white">Live Now</span>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-white">Live</span>
                 </div>
               )}
-              <div className="px-4 py-2 bg-black/40 backdrop-blur-xl border border-white/10 rounded-md text-[10px] font-black uppercase tracking-[0.2em] text-white/90">
-                {content.category} • {content.viewCount?.toLocaleString()} Spectators
-              </div>
             </div>
           </div>
 
-          {/* Info HUD below player */}
-          <div className="p-8 lg:p-12 space-y-6">
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-              <div className="space-y-4">
-                <div className="flex items-center gap-4 text-[10px] font-black uppercase tracking-[0.3em] text-text-muted">
-                  <span>Direct Feed</span>
-                  <span>/</span>
-                  <span>4K Resolution</span>
-                  <span>/</span>
-                  <span>{formatDate(content.createdAt)}</span>
+          <div className="flex-grow max-w-7xl mx-auto w-full">
+            {/* Info Section */}
+            <div className="p-4 lg:p-8 space-y-4 mt-2 lg:mt-0">
+              <div className="flex flex-col gap-3">
+                <div className="space-y-2">
+                  <h1 className="text-xl md:text-5xl font-black uppercase italic tracking-tighter leading-tight">
+                    {content.title}
+                  </h1>
+                  <div className="flex items-center gap-3 text-[10px] font-black uppercase tracking-widest text-text-muted">
+                    <span className="text-brand">{content.category}</span>
+                    {content.status === 'live' && (
+                      <>
+                        <span>•</span>
+                        <span>{content.viewCount?.toLocaleString()} Spectators</span>
+                      </>
+                    )}
+                    <span>•</span>
+                    <span>{content.likes || 0} Fans Reacted</span>
+                  </div>
                 </div>
-                <h1 className="text-4xl md:text-6xl font-black uppercase italic tracking-tighter leading-none">
-                  {content.title}
-                </h1>
-              </div>
-              <div className="flex gap-2">
-                <button 
-                  onClick={toggleWatchLater}
-                  className="flex flex-col items-center justify-center gap-1 px-4 py-2 bg-surface border border-border hover:border-brand/40 rounded-lg transition-all group min-w-[70px]"
-                >
-                  {isWatchLater ? (
-                    <CheckCircle2 className="w-4 h-4 text-brand" />
-                  ) : (
-                    <PlusCircle className="w-4 h-4 text-text-muted group-hover:text-brand transition-colors" />
-                  )}
-                  <span className={cn("text-[8px] font-black uppercase tracking-tight", isWatchLater ? "text-brand" : "text-text-muted")}>
-                    {isWatchLater ? 'Saved' : 'Watch Later'}
-                  </span>
-                </button>
-                <ActionButton icon={Heart} label="14k" />
-                <ActionButton icon={Share2} label="Share" />
-              </div>
-            </div>
-            
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 pt-8 border-t border-border">
-              <div className="lg:col-span-2 prose prose-invert prose-red">
-                <h3 className="text-xs font-black uppercase tracking-widest text-text-muted mb-4">Event Overview</h3>
-                <div className="markdown-body">
-                  <ReactMarkdown>{content.description}</ReactMarkdown>
+
+                {/* Description positioned directly below title metadata */}
+                <div className="space-y-2 pt-1">
+                  <div className="text-[11px] md:text-sm text-text-muted/90 leading-relaxed font-medium markdown-body prose prose-invert prose-red max-w-4xl">
+                    <ReactMarkdown>{content.description}</ReactMarkdown>
+                  </div>
+                </div>
+                
+                <div className="flex gap-4 py-4 border-y border-white/5">
+                  <button 
+                    onClick={toggleWatchLater}
+                    className="flex flex-col items-center justify-center gap-1.5 w-14 h-14 md:w-auto md:h-auto md:px-6 md:py-2.5 transition-all group min-w-[56px] md:min-w-[100px]"
+                  >
+                    {isWatchLater ? (
+                      <CheckCircle2 className="w-5 h-5 text-brand" />
+                    ) : (
+                      <PlusCircle className="w-5 h-5 text-text-muted group-hover:text-brand transition-colors" />
+                    )}
+                    <span className={cn("text-[8px] md:text-[9px] font-black uppercase tracking-tight", isWatchLater ? "text-brand" : "text-text-muted")}>
+                      {isWatchLater ? 'Saved' : 'Save'}
+                    </span>
+                  </button>
+                  <ActionButton 
+                    icon={Heart} 
+                    label={hasLiked ? "Liked" : "Like"} 
+                    onClick={handleLike} 
+                    circle 
+                    isActive={hasLiked}
+                  />
+                  <ActionButton icon={Share2} label="Share" onClick={handleShare} circle />
                 </div>
               </div>
-              <div className="space-y-6">
-                 <h3 className="text-xs font-black uppercase tracking-widest text-text-muted">Momentum</h3>
-                 <div className="space-y-4">
-                   <MomentumTracker label="Offensive Pressure" value="82%" width="w-[82%]" />
+
+              {/* Momentum Section (Desktop) */}
+              <div className="hidden lg:block pt-2">
+                 <h3 className="text-xs font-black uppercase tracking-widest text-text-muted italic mb-4">Match Momentum</h3>
+                 <div className="grid grid-cols-2 gap-8">
+                   <MomentumTracker label="Offensive Power" value="82%" width="w-[82%]" />
                    <MomentumTracker label="Fan Sentiment" value="94%" width="w-[94%]" />
                  </div>
               </div>
-            </div>
-          </div>
-        </div>
 
-        {/* Global Stadium Chat Sidebar */}
-        <div className="w-full lg:w-[400px] bg-bg border-l border-border flex flex-col h-[500px] lg:h-auto">
-          <div className="p-6 border-b border-border flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <MessageSquare className="w-5 h-5 text-brand" />
-              <h3 className="font-black uppercase tracking-[0.2em] text-xs italic">Stadium Live Chat</h3>
-            </div>
-            <div className="flex items-center gap-2 text-[10px] font-black uppercase text-text-muted">
-               <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
-               Connected
-            </div>
-          </div>
-
-          {/* Chat Messages */}
-          <div className="flex-grow p-6 overflow-y-auto space-y-6 custom-scrollbar">
-            <ChatMessage user="Aria_99" message="LETS GOOO! Incredible strike!" color="text-red-500" />
-            <ChatMessage user="GlobalFan" message="Anyone watching from Spain? 🇪🇸" color="text-blue-400" />
-            <ChatMessage user="SportPro_X" message="The goalkeeper is having a nightmare today..." color="text-yellow-500" />
-            <ChatMessage user="VipMember" message="Premium feed quality is insane in 4K" color="text-brand" isPro />
-            <ChatMessage user="Admin" message="Welcome to the SportBox Live Center. Please keep it respectful." color="text-white bg-brand/20 p-2 rounded-sm" />
-            
-            <div className="py-20 flex flex-col items-center justify-center text-center opacity-10">
-              <Play className="w-12 h-12 mb-4" />
-              <p className="text-[10px] font-black uppercase tracking-[0.2em]">End of feed</p>
-            </div>
-          </div>
-
-          {/* Chat Input */}
-          <div className="p-6 border-t border-border bg-surface/30">
-            <div className="relative">
-              <input 
-                type="text" 
-                placeholder="Join the discussion..." 
-                disabled
-                className="w-full bg-bg border border-border p-4 pr-16 rounded-lg text-xs font-medium outline-none focus:border-brand transition-all cursor-not-allowed"
-              />
-              <div className="absolute right-3 top-1/2 -translate-y-1/2 p-2 bg-surface border border-border rounded text-[8px] font-black uppercase tracking-tighter text-text-muted">
-                ENTER
+              {/* Related/More Content Sections - Horizontal Sliders */}
+              <div className="space-y-8 pt-4">
+                {Object.entries(sections).map(([title, items]) => (
+                  <div key={title} className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm md:text-xl font-black uppercase italic tracking-tighter capitalize text-white flex items-center gap-3">
+                        <span className="w-1 h-5 bg-brand" />
+                        {title}
+                      </h3>
+                      <Link to="/discover" className="text-[10px] font-bold uppercase tracking-widest text-brand">Explore Series</Link>
+                    </div>
+                    
+                    <div className="flex gap-4 md:gap-6 overflow-x-auto pb-4 -mx-4 px-4 md:mx-0 md:px-0 scrollbar-hide snap-x">
+                      {/* Grid with 2 rows for the slider */}
+                      <div className="grid grid-rows-2 grid-flow-col gap-4 md:gap-6 min-w-full">
+                        {items.map((item) => (
+                          <Link 
+                            key={item.id} 
+                            to={`/watch/${item.id}`}
+                            className="group block space-y-1.5 flex-shrink-0 w-[42vw] md:w-[240px] snap-start"
+                          >
+                            <div className="relative aspect-video rounded-xl overflow-hidden bg-surface shadow-2xl">
+                              <img 
+                                src={transformGDriveUrl(item.thumbnailUrl, 'image')} 
+                                alt={item.title}
+                                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                              />
+                              <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                <Play className="w-6 h-6 text-white fill-white" />
+                              </div>
+                            </div>
+                            <div className="min-w-0 pt-0.5">
+                              <h4 className="text-[10px] md:text-xs font-black uppercase italic tracking-tighter leading-tight line-clamp-2 group-hover:text-brand transition-colors">
+                                {item.title}
+                              </h4>
+                              <div className="flex items-center gap-2 text-[8px] font-bold uppercase tracking-widest text-white/30 mt-0.5">
+                                <span>{item.category}</span>
+                              </div>
+                            </div>
+                          </Link>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
-            <p className="mt-3 text-[9px] font-bold uppercase tracking-widest text-text-muted text-center italic">
-               Chat connection restricted to Pro Members
-            </p>
           </div>
         </div>
       </div>
@@ -269,23 +389,20 @@ export default function Watch() {
   );
 }
 
-function ChatMessage({ user, message, color, isPro }: { user: string, message: string, color: string, isPro?: boolean }) {
+function ActionButton({ icon: Icon, label, onClick, circle, isActive }: { icon: any, label: string, onClick?: () => void, circle?: boolean, isActive?: boolean }) {
   return (
-    <div className="space-y-1 group hover:translate-x-1 transition-transform">
-      <div className="flex items-center gap-2">
-        <span className={cn("text-[10px] font-black uppercase tracking-widest", color)}>{user}</span>
-        {isPro && <Crown className="w-3 h-3 text-brand" />}
-      </div>
-      <p className="text-xs font-medium opacity-70 leading-relaxed">{message}</p>
-    </div>
-  );
-}
-
-function ActionButton({ icon: Icon, label }: { icon: any, label: string }) {
-  return (
-    <button className="flex items-center gap-2 px-6 py-3 bg-surface border border-border hover:border-brand/40 rounded-lg transition-all text-xs font-black uppercase tracking-[0.2em] group">
-      <Icon className="w-4 h-4 text-text-muted group-hover:text-brand transition-colors" />
-      <span>{label}</span>
+    <button 
+      onClick={onClick}
+      className={cn(
+        "flex flex-col items-center justify-center gap-1.5 transition-all group lg:min-w-[100px]",
+        circle ? "w-14 h-14 md:w-auto md:h-auto md:px-6 md:py-3 min-w-[56px]" : "px-6 py-3 min-w-[100px]",
+        isActive && "text-brand"
+      )}
+    >
+      <Icon className={cn("w-5 h-5 transition-colors", isActive ? "text-brand fill-brand" : "text-text-muted group-hover:text-brand")} />
+      <span className={cn("text-[8px] md:text-[9px] font-black uppercase tracking-tight", isActive ? "text-brand" : "text-text-muted")}>
+        {label}
+      </span>
     </button>
   );
 }

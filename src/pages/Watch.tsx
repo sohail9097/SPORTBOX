@@ -29,8 +29,13 @@ export default function Watch() {
       const updateRecent = async () => {
         try {
           const userRef = doc(db, 'users', user.uid);
+          // To move to front in our reverse logic, we remove then add to the end
+          const currentRecent = profile?.recentlyWatched || [];
+          const filteredRecent = currentRecent.filter(rid => rid !== id);
+          const newRecent = [...filteredRecent, id].slice(-20); // Keep last 20
+          
           await updateDoc(userRef, {
-            recentlyWatched: arrayUnion(id)
+            recentlyWatched: newRecent
           });
         } catch (error) {
           console.error("Error updating recently watched:", error);

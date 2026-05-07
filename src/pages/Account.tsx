@@ -3,7 +3,7 @@ import { useAuth } from '../hooks/useAuth';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { doc, updateDoc, collection, getDocs, query, where, documentId } from 'firebase/firestore';
 import { motion, AnimatePresence } from 'motion/react';
-import { User, Phone, CheckCircle2, ShieldCheck, Mail, LogOut, ChevronRight, Loader2, Key, Settings, Clock, Crown } from 'lucide-react';
+import { User, Phone, CheckCircle2, ShieldCheck, Mail, LogOut, ChevronRight, Loader2, Key, Settings, Clock, Crown, Play } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { auth } from '../lib/firebase';
 import { Link, useNavigate } from 'react-router-dom';
@@ -247,17 +247,22 @@ export default function Account() {
             <ChevronRight className="w-5 h-5 text-text-muted" />
           </div>
           
-          <div className="flex md:grid md:grid-cols-3 lg:grid-cols-4 gap-2 md:gap-4 overflow-x-auto md:overflow-visible pb-4 md:pb-0 hide-scrollbar snap-x">
+          <div className="flex gap-2 md:gap-4 overflow-x-auto pb-4 hide-scrollbar snap-x">
             {loadingRecent ? (
-              <div className="col-span-full py-12 flex justify-center"><Loader2 className="animate-spin text-brand" /></div>
+              <div className="flex justify-center py-12 w-full"><Loader2 className="animate-spin text-brand" /></div>
             ) : recentContent.length > 0 ? (
               recentContent.map((item, i) => (
-                <div key={item.id} className="flex-shrink-0 w-[240px] md:w-auto snap-start">
+                <div key={item.id} className="flex-shrink-0 w-[240px] md:w-[320px] snap-start relative">
                   <ContentCard content={item} index={i} featured />
+                  <div className="absolute bottom-4 right-4 z-20">
+                    <div className="p-2 bg-brand rounded-full shadow-lg">
+                      <Play className="w-4 h-4 text-white fill-white" />
+                    </div>
+                  </div>
                 </div>
               ))
             ) : (
-              <div className="col-span-full py-12 text-center glass-card">
+              <div className="w-full py-12 text-center glass-card">
                 <p className="text-text-muted text-xs font-bold uppercase tracking-widest italic leading-relaxed">
                   Start watching some contents to see them here!
                 </p>

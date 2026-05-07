@@ -9,6 +9,7 @@ import Plans from './pages/Plans';
 import Account from './pages/Account';
 import Admin from './pages/Admin';
 import Search from './pages/Search';
+import Legal from './pages/Legal';
 import { ThemeProvider } from './lib/ThemeContext';
 import { AuthProvider } from './hooks/useAuth';
 
@@ -28,6 +29,9 @@ function App() {
               <Route path="/account" element={<Account />} />
               <Route path="/admin" element={<Admin />} />
               <Route path="/search" element={<Search />} />
+              <Route path="/legal/privacy" element={<Legal />} />
+              <Route path="/legal/terms" element={<Legal />} />
+              <Route path="/legal/cookies" element={<Legal />} />
             </Routes>
           </Layout>
         </Router>

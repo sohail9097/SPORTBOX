@@ -114,8 +114,11 @@ export default function Account() {
   if (!user) {
     return (
       <div className="min-h-[70vh] flex flex-col items-center justify-center p-4">
-        <h1 className="text-2xl font-black uppercase italic mb-8">Auth Required</h1>
-        <button onClick={() => navigate('/')} className="btn-primary">Return Home</button>
+        <h1 className="text-2xl font-black uppercase italic mb-8">Access Denied</h1>
+        <p className="text-text-muted text-sm mb-8">Please sign in to view your profile and watchlist.</p>
+        <button onClick={() => navigate('/login')} className="px-8 py-4 bg-brand text-white font-black uppercase tracking-widest text-xs rounded-xl shadow-xl shadow-brand/20">
+          Go to Login
+        </button>
       </div>
     );
   }

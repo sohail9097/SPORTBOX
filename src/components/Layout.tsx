@@ -1,8 +1,8 @@
 import { ReactNode, useState, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../lib/ThemeContext';
-import { signInWithGoogle, auth, db } from '../lib/firebase';
+import { auth, db } from '../lib/firebase';
 import { 
   LayoutDashboard, Play, LogOut, User, Crown, 
   Search, Menu, X, Sun, Moon, Home, Tv, 
@@ -16,6 +16,7 @@ import { SiteConfig } from '../types';
 export default function Layout({ children }: { children: ReactNode }) {
   const { user, isAdmin, profile } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [siteConfig, setSiteConfig] = useState<SiteConfig>({
     founderImageUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=1000&auto=format&fit=crop'
@@ -95,7 +96,7 @@ export default function Layout({ children }: { children: ReactNode }) {
 
               {!user && (
                 <button 
-                  onClick={signInWithGoogle}
+                  onClick={() => navigate('/login')}
                   className="p-1 px-2 text-brand md:hidden"
                 >
                   <UserCircle className="w-4 h-4" />
@@ -157,7 +158,7 @@ export default function Layout({ children }: { children: ReactNode }) {
                   </div>
                 ) : (
                   <button
-                    onClick={signInWithGoogle}
+                    onClick={() => navigate('/login')}
                     className="px-6 py-2 bg-brand hover:bg-brand-alt text-white text-xs font-bold uppercase tracking-widest rounded-full transition-all shadow-lg shadow-brand/20"
                   >
                     Sign In

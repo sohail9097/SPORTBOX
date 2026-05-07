@@ -9,6 +9,7 @@ import Plans from './pages/Plans';
 import Account from './pages/Account';
 import Admin from './pages/Admin';
 import Search from './pages/Search';
+import Login from './pages/Login';
 import Legal from './pages/Legal';
 import { ThemeProvider } from './lib/ThemeContext';
 import { AuthProvider } from './hooks/useAuth';
@@ -22,6 +23,7 @@ function App() {
           <Layout>
             <Routes>
               <Route path="/" element={<Home />} />
+              <Route path="/login" element={<Login />} />
               <Route path="/live" element={<Live />} />
               <Route path="/category/:category" element={<CategoryPage />} />
               <Route path="/watch/:id" element={<Watch />} />

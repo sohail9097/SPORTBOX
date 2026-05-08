@@ -6,8 +6,8 @@
   --font-display: "Inter", sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
   
-  --color-brand: #dc2626; /* Solid Red 600 */
-  --color-brand-alt: #991b1b; /* Red 800 */
+  --color-brand: #ee3e38; /* Bright Red from user image */
+  --color-brand-alt: #cc2b26; /* Darker Red */
   
   /* Default Dark Mode */
   --color-bg: #0A0B0E;

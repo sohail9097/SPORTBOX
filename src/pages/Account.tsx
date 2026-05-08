@@ -238,8 +238,8 @@ export default function Account() {
             ) : (
               <div className="col-span-full py-12 text-center glass-card">
                 <p className="text-text-muted text-xs font-bold uppercase tracking-widest italic leading-relaxed">
-                  Your watch list is feeling a bit lonely.<br />
-                  <Link to="/" className="text-brand hover:underline">Explore contents to add some action!</Link>
+                  Your watchlist is feeling a bit lonely.<br />
+                  <Link to="/" className="text-brand hover:underline">Explore content to add some action!</Link>
                 </p>
               </div>
             )}
@@ -270,7 +270,7 @@ export default function Account() {
             ) : (
               <div className="w-full py-12 text-center glass-card">
                 <p className="text-text-muted text-xs font-bold uppercase tracking-widest italic leading-relaxed">
-                  Start watching some contents to see them here!
+                  Start watching some content to see them here!
                 </p>
               </div>
             )}

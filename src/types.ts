@@ -1,4 +1,4 @@
-export type Category = 'football' | 'cricket' | 'basketball' | 'tennis' | 'others';
+export type Category = 'football' | 'cricket' | 'basketball' | 'tennis' | 'f1' | 'boxing' | 'golf' | 'esports' | 'others';
 export type ContentType = 'live' | 'replay' | 'highlight';
 export type Status = 'scheduled' | 'live' | 'ended';
 
@@ -98,4 +98,5 @@ export interface PlayerSettings {
 
 export interface SiteConfig {
   founderImageUrl?: string;
+  logoUrl?: string;
 }

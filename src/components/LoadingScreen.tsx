@@ -1,5 +1,4 @@
 import { motion } from 'motion/react';
-import { Play } from 'lucide-react';
 
 export default function LoadingScreen() {
   return (
@@ -10,11 +9,11 @@ export default function LoadingScreen() {
         className="flex flex-col items-center gap-6"
       >
         <div className="flex items-center gap-3 md:gap-4">
-          <div className="w-10 h-10 md:w-16 md:h-16 bg-brand flex items-center justify-center rounded-lg md:rounded-xl skew-x-[-12deg] shadow-[0_0_40px_rgba(255,0,0,0.3)]">
-            <Play className="w-6 h-6 md:w-10 md:h-10 text-white fill-white ml-0.5" />
+          <div className="w-12 h-12 md:w-20 md:h-20 bg-[#ee3e38] flex items-center justify-center rounded-[22%] transition-transform shadow-[0_0_50px_rgba(238,62,56,0.25)]">
+            <span className="text-2xl md:text-5xl font-black italic text-white leading-none">S</span>
           </div>
           <span className="text-3xl md:text-5xl font-black tracking-tighter uppercase italic text-white font-display">
-            Sport<span className="text-brand">Box</span>
+            SPORTS<span className="text-[#ee3e38]">BOX</span>
           </span>
         </div>
         

@@ -13,13 +13,16 @@ import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
 import { SiteConfig } from '../types';
 
+import BrandLogo from './BrandLogo';
+
 export default function Layout({ children }: { children: ReactNode }) {
   const { user, isAdmin, profile } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [siteConfig, setSiteConfig] = useState<SiteConfig>({
-    founderImageUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=1000&auto=format&fit=crop'
+    founderImageUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=1000&auto=format&fit=crop',
+    logoUrl: ''
   });
   const location = useLocation();
 
@@ -27,7 +30,7 @@ export default function Layout({ children }: { children: ReactNode }) {
     // Sync site configuration
     const unsubscribe = onSnapshot(doc(db, 'settings', 'siteConfig'), (snapshot) => {
       if (snapshot.exists()) {
-        setSiteConfig(snapshot.data());
+        setSiteConfig(prev => ({ ...prev, ...snapshot.data() }));
       }
     });
 
@@ -55,14 +58,10 @@ export default function Layout({ children }: { children: ReactNode }) {
         <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-14 md:h-16">
             <div className="flex items-center gap-4 md:gap-8">
-              <Link to="/" className="flex items-center gap-2 group">
-                <div className="w-5 h-5 md:w-8 md:h-8 bg-brand rounded-sm flex items-center justify-center font-black text-sm md:text-xl italic group-hover:scale-110 transition-transform flex-shrink-0">
-                  S
-                </div>
-                <span className="font-display font-black text-sm md:text-xl tracking-tighter uppercase italic whitespace-nowrap">
-                  Sport<span className="text-brand">Box</span>
-                </span>
-              </Link>
+              <BrandLogo 
+                logoUrl={siteConfig.logoUrl} 
+                className="scale-90 md:scale-100 origin-left"
+              />
               
               <div className="hidden md:flex items-center gap-8">
                 {navLinks.map((link) => (
@@ -250,14 +249,7 @@ export default function Layout({ children }: { children: ReactNode }) {
           <div className="grid grid-cols-1 md:grid-cols-12 gap-8 md:gap-16 items-start">
             <div className="md:col-span-12 lg:col-span-5 flex flex-col gap-4 md:gap-6 items-center md:items-start text-center md:text-left">
               <div className="flex flex-col gap-3 md:gap-4">
-                <Link to="/" className="flex items-center justify-center md:justify-start gap-2">
-                  <div className="w-7 h-7 md:w-8 md:h-8 bg-brand rounded-sm flex items-center justify-center">
-                    <Play className="w-4 h-4 md:w-5 md:h-5 text-black fill-black" />
-                  </div>
-                  <span className="font-display text-lg md:text-xl tracking-tighter uppercase italic">
-                    Sport<span className="text-brand">Box</span>
-                  </span>
-                </Link>
+                <BrandLogo logoUrl={siteConfig.logoUrl} size="lg" />
                 <p className="text-white/40 text-[11px] md:text-sm max-w-sm leading-relaxed">
                   The ultimate destination for sports enthusiasts. Experience live matches, 
                   exclusive highlights, and immersive coverage of your favorite sports.
@@ -295,7 +287,7 @@ export default function Layout({ children }: { children: ReactNode }) {
                 <h4 className="font-display text-[10px] md:text-sm uppercase tracking-widest mb-4 md:mb-6 text-white">Support</h4>
                 <p className="text-[10px] md:text-sm text-white/40 leading-loose uppercase tracking-widest font-bold">
                   24/7 Support:
-                  <span className="text-white block mt-1 text-[11px] md:text-sm lowercase font-sans font-medium tracking-normal">support@sportbox.com</span>
+                  <span className="text-white block mt-1 text-[11px] md:text-sm lowercase font-sans font-medium tracking-normal">support@sportsbox.com</span>
                 </p>
               </div>
             </div>
@@ -304,7 +296,7 @@ export default function Layout({ children }: { children: ReactNode }) {
 
         <div className="max-w-[1600px] mx-auto px-4 mt-8 md:mt-24 pt-6 border-t border-white/5 flex flex-col md:flex-row items-center justify-between gap-4 md:gap-6">
           <div className="text-[8px] md:text-[10px] text-white/20 uppercase tracking-[0.2em] md:tracking-[0.3em] text-center md:text-left leading-relaxed max-w-md">
-            © 2024 SportBox Media Group. All rights reserved.
+            © 2024 SportsBox Media Group. All rights reserved.
           </div>
           <div className="flex flex-wrap justify-center items-center gap-6 md:gap-8 opacity-30 grayscale brightness-200">
              {/* Text elements removed as requested */}

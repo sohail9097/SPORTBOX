@@ -1,44 +1,42 @@
 import { useState } from 'react';
 import { motion } from 'motion/react';
-import { useNavigate, Link } from 'react-router-dom';
-import { Play, Mail, Lock, Bell, ChevronRight, Activity, Trophy } from 'lucide-react';
-import { auth } from '../lib/firebase';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
+import { Play, Activity, Trophy, Bell } from 'lucide-react';
+import { auth, db } from '../lib/firebase';
 import { 
-  signInWithEmailAndPassword, 
-  createUserWithEmailAndPassword,
   GoogleAuthProvider,
   FacebookAuthProvider,
   TwitterAuthProvider,
-  signInWithPopup
+  signInWithPopup,
 } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
 import { cn } from '../lib/utils';
+import BrandLogo from '../components/BrandLogo';
+import { SiteConfig } from '../types';
+import { useEffect } from 'react';
 
 export default function Login() {
   const navigate = useNavigate();
-  const [isLogin, setIsLogin] = useState(true);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const location = useLocation();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [siteConfig, setSiteConfig] = useState<SiteConfig>({
+    logoUrl: ''
+  });
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
-    
-    try {
-      if (isLogin) {
-        await signInWithEmailAndPassword(auth, email, password);
-      } else {
-        await createUserWithEmailAndPassword(auth, email, password);
+  useEffect(() => {
+    const fetchConfig = async () => {
+      try {
+        const snap = await getDoc(doc(db, 'settings', 'siteConfig'));
+        if (snap.exists()) {
+          setSiteConfig(snap.data());
+        }
+      } catch (err) {
+        console.error("Config fetch error:", err);
       }
-      navigate('/account');
-    } catch (err: any) {
-      setError(err.message || 'Authentication failed');
-    } finally {
-      setLoading(false);
-    }
-  };
+    };
+    fetchConfig();
+  }, []);
 
   const handleSocialLogin = async (providerName: 'google' | 'facebook' | 'x') => {
     setLoading(true);
@@ -99,103 +97,80 @@ export default function Login() {
   return (
     <div className="min-h-screen flex items-stretch overflow-hidden bg-bg">
       {/* Left Panel: Form Section (Black Background) */}
-      <div className="flex-1 flex flex-col justify-center px-8 md:px-20 lg:px-32 bg-black z-10 relative">
+      <div className="flex-1 flex flex-col justify-start pt-2 sm:pt-12 px-5 sm:px-12 md:px-20 lg:px-32 bg-black z-10 relative">
         <motion.div 
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
-          className="max-w-md w-full mx-auto space-y-10"
+          className="max-w-md w-full mx-auto space-y-6 sm:space-y-8"
         >
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-3 group inline-flex">
-            <div className="w-10 h-10 bg-brand rounded-lg flex items-center justify-center font-black text-xl italic skew-x-[-12deg] shadow-[0_0_30px_rgba(255,0,0,0.3)] group-hover:scale-110 transition-transform">
-              <Play className="w-6 h-6 text-white fill-white ml-0.5" />
-            </div>
-            <span className="font-display font-black text-2xl tracking-tighter uppercase italic text-white">
-              Sport<span className="text-brand">Box</span>
-            </span>
-          </Link>
+          <BrandLogo logoUrl={siteConfig.logoUrl} size="lg" />
 
           {/* Header Text */}
-          <div className="space-y-4">
-            <h1 className="text-4xl md:text-5xl font-black uppercase italic tracking-tighter text-white leading-tight">
-              {isLogin ? 'Unlock the full' : 'Join the'} <br />
+          <div className="space-y-2 sm:space-y-3 text-left">
+            <div className="flex items-center gap-2">
+              <div className="px-2 py-0.5 bg-brand/10 border border-brand/20 rounded text-[9px] font-black uppercase tracking-widest text-brand">
+                Instant Access
+              </div>
+            </div>
+            <h1 className="text-2xl sm:text-4xl md:text-5xl font-black uppercase italic tracking-tighter text-white leading-[1.1] sm:leading-tight">
+              Unlock the full <br className="hidden sm:block" />
               <span className="text-brand">Arena Experience.</span>
             </h1>
-            <p className="text-text-muted text-sm font-medium leading-relaxed max-w-sm">
-              {isLogin 
-                ? 'Access exclusive broadcasts, real-time stats, and your personalized sports hub.' 
-                : 'Create your account and never miss a momentum-shifting moment again.'
-              }
+            <p className="text-text-muted text-[11px] sm:text-sm font-medium leading-relaxed max-w-sm">
+              Sign in with your preferred social account to access exclusive broadcasts and real-time stats.
             </p>
           </div>
 
           {/* Error Message */}
           {error && (
-            <div className="bg-red-500/10 border border-red-500/20 p-4 rounded-xl">
-              <p className="text-[10px] text-red-500 font-bold uppercase tracking-widest">{error}</p>
-            </div>
+            <motion.div 
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-red-500/10 border border-red-500/20 p-4 rounded-xl flex items-start gap-3"
+            >
+              <div className="w-5 h-5 rounded-full bg-red-500 flex-shrink-0 flex items-center justify-center text-[10px] text-white font-bold">!</div>
+              <p className="text-[10px] text-red-500 font-bold uppercase tracking-widest leading-relaxed">
+                {error}
+              </p>
+            </motion.div>
           )}
 
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <div className="relative group">
-                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted group-focus-within:text-brand transition-colors" />
-                <input 
-                  type="email" 
-                  placeholder="E-mail Address"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-sm font-medium outline-none focus:border-brand focus:bg-white/[0.07] transition-all text-white placeholder:text-text-muted"
-                  required
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <div className="relative group">
-                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted group-focus-within:text-brand transition-colors" />
-                <input 
-                  type="password" 
-                  placeholder="Password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-sm font-medium outline-none focus:border-brand focus:bg-white/[0.07] transition-all text-white placeholder:text-text-muted"
-                  required
-                />
-              </div>
-            </div>
-
-            <div className="flex gap-4 pt-4">
-              <button 
-                type="submit"
-                disabled={loading}
-                className="flex-[2] py-4 bg-brand hover:bg-brand-alt text-white font-black uppercase tracking-widest text-xs rounded-2xl shadow-xl shadow-brand/20 transition-all active:scale-95 disabled:opacity-50"
-              >
-                {loading ? 'Authenticating...' : isLogin ? 'Login Now' : 'Join Now'}
-              </button>
-              <button 
-                type="button"
-                onClick={() => setIsLogin(!isLogin)}
-                className="flex-1 py-4 bg-white/5 border border-white/10 hover:border-brand/40 text-white font-black uppercase tracking-widest text-[10px] rounded-2xl transition-all"
-              >
-                {isLogin ? 'Create Account' : 'Back to Login'}
-              </button>
-            </div>
-          </form>
-
           {/* Social Logins */}
-          <div className="space-y-6 pt-2">
-            <div className="flex items-center gap-4 text-text-muted">
-              <div className="h-[1px] flex-grow bg-white/10"></div>
-              <span className="text-[10px] font-black uppercase tracking-widest">Or login with</span>
-              <div className="h-[1px] flex-grow bg-white/10"></div>
+          <div className="space-y-6">
+            <div className="flex flex-col gap-3">
+              <button 
+                onClick={() => handleSocialLogin('google')}
+                disabled={loading}
+                className="w-full h-14 bg-white text-black font-black uppercase tracking-widest text-xs rounded-xl flex items-center justify-center gap-3 transition-all hover:bg-gray-100 active:scale-[0.98] disabled:opacity-50"
+              >
+                <GoogleIcon />
+                Continue with Google
+              </button>
+              
+              <div className="grid grid-cols-2 gap-3">
+                <button 
+                  onClick={() => handleSocialLogin('facebook')}
+                  disabled={loading}
+                  className="h-14 bg-[#1877F2]/10 border border-[#1877F2]/20 text-[#1877F2] font-black uppercase tracking-widest text-[10px] rounded-xl flex items-center justify-center gap-2 transition-all hover:bg-[#1877F2]/15 active:scale-[0.98] disabled:opacity-50"
+                >
+                  <FacebookIcon />
+                  Facebook
+                </button>
+                <button 
+                  onClick={() => handleSocialLogin('x')}
+                  disabled={loading}
+                  className="h-14 bg-white/5 border border-white/10 text-white font-black uppercase tracking-widest text-[10px] rounded-xl flex items-center justify-center gap-2 transition-all hover:bg-white/10 active:scale-[0.98] disabled:opacity-50"
+                >
+                  <XIcon />
+                  X (Twitter)
+                </button>
+              </div>
             </div>
 
-            <div className="flex items-center justify-center gap-6">
-              <SocialButton icon={GoogleIcon} onClick={() => handleSocialLogin('google')} />
-              <SocialButton icon={FacebookIcon} onClick={() => handleSocialLogin('facebook')} />
-              <SocialButton icon={XIcon} onClick={() => handleSocialLogin('x')} />
-            </div>
+            <p className="text-[10px] text-center text-text-muted font-bold uppercase tracking-[0.2em]">
+              By continuing, you agree to our <Link to="#" className="text-brand hover:underline">Terms of Play</Link>
+            </p>
           </div>
         </motion.div>
 
@@ -208,14 +183,14 @@ export default function Login() {
         <motion.div 
           initial={{ opacity: 0, scale: 0.8 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="relative z-10 text-center space-y-12"
+          className="relative z-10 text-center space-y-8"
         >
           {/* Main Visual Component - Simplified illustration feel from image */}
           <div className="relative">
-            <div className="w-80 h-[500px] bg-black rounded-[40px] border-8 border-black shadow-2xl relative overflow-hidden flex flex-col">
-               <div className="h-4 bg-black w-32 mx-auto rounded-b-2xl mb-4"></div>
-               <div className="flex-grow p-4 space-y-4">
-                  <div className="aspect-[4/5] bg-surface rounded-2xl overflow-hidden relative group">
+            <div className="w-40 h-[280px] bg-zinc-900 rounded-[20px] border-[4px] border-black shadow-2xl relative overflow-hidden flex flex-col">
+               <div className="h-1.5 bg-black w-14 mx-auto rounded-b-lg mb-2"></div>
+               <div className="flex-grow p-1.5 space-y-1.5">
+                  <div className="aspect-[4/5] bg-surface rounded-md overflow-hidden relative group">
                      <img 
                       src="https://images.unsplash.com/photo-1504450758481-7338eba7524a?q=80&w=1000&auto=format&fit=crop" 
                       className="w-full h-full object-cover opacity-80" 
@@ -223,66 +198,66 @@ export default function Login() {
                      />
                      <div className="absolute inset-0 bg-gradient-to-t from-black to-transparent"></div>
                      <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="w-16 h-16 bg-brand rounded-full flex items-center justify-center shadow-2xl">
-                           <Play className="w-8 h-8 text-white fill-white ml-1" />
+                        <div className="w-8 h-8 bg-brand rounded-full flex items-center justify-center shadow-2xl">
+                           <Play className="w-4 h-4 text-white fill-white ml-0.5" />
                         </div>
                      </div>
                   </div>
-                  <div className="space-y-2">
-                     <div className="h-3 w-3/4 bg-white/20 rounded"></div>
-                     <div className="h-3 w-1/2 bg-white/10 rounded"></div>
+                  <div className="space-y-0.5">
+                     <div className="h-1 w-3/4 bg-white/20 rounded-full"></div>
+                     <div className="h-1 w-1/2 bg-white/10 rounded-full"></div>
                   </div>
-                  <div className="grid grid-cols-2 gap-3 mt-4">
-                     <div className="h-10 bg-white/5 rounded-xl border border-white/5"></div>
-                     <div className="h-10 bg-white/5 rounded-xl border border-white/5"></div>
+                  <div className="grid grid-cols-2 gap-1 mt-0.5">
+                     <div className="h-4 bg-white/5 rounded-sm border border-white/5"></div>
+                     <div className="h-4 bg-white/5 rounded-sm border border-white/5"></div>
                   </div>
                </div>
-               <div className="h-2 bg-white/10 w-24 mx-auto mb-6 rounded-full"></div>
+               <div className="h-0.5 bg-white/10 w-10 mx-auto mb-2 rounded-full"></div>
             </div>
 
             {/* Floating UI Elements matching the image concept */}
             <motion.div 
-              animate={{ y: [0, -15, 0] }}
+              animate={{ y: [0, -10, 0] }}
               transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-              className="absolute -right-12 top-20 bg-white p-4 rounded-2xl shadow-xl flex items-center gap-3 border border-black/5"
+              className="absolute -right-6 top-12 bg-white p-2 rounded-lg shadow-xl flex items-center gap-2 border border-black/5"
             >
-              <div className="w-10 h-10 bg-green-500 rounded-xl flex items-center justify-center shadow-lg shadow-green-500/20">
-                <Trophy className="w-5 h-5 text-white" />
+              <div className="w-6 h-6 bg-green-500 rounded-md flex items-center justify-center shadow-lg shadow-green-500/20">
+                <Trophy className="w-3 h-3 text-white" />
               </div>
-              <div>
-                <p className="text-[10px] font-black uppercase text-black/40 tracking-wider">Top Scorer</p>
-                <p className="text-sm font-black text-black">MVP SECURED</p>
+              <div className="text-left">
+                <p className="text-[6px] font-black uppercase text-black/40 tracking-wider">Top Scorer</p>
+                <p className="text-[8px] font-black text-black">MVP SECURED</p>
               </div>
             </motion.div>
 
             <motion.div 
-              animate={{ y: [0, 15, 0] }}
+              animate={{ y: [0, 10, 0] }}
               transition={{ duration: 5, repeat: Infinity, ease: "easeInOut", delay: 1 }}
-              className="absolute -left-12 bottom-40 bg-zinc-900 border border-white/10 p-4 rounded-2xl shadow-2xl flex items-center gap-3"
+              className="absolute -left-6 bottom-24 bg-zinc-900 border border-white/10 p-2 rounded-lg shadow-2xl flex items-center gap-2"
             >
-              <div className="w-10 h-10 bg-brand rounded-xl flex items-center justify-center shadow-lg shadow-brand/20">
-                <Activity className="w-5 h-5 text-white" />
+              <div className="w-6 h-6 bg-brand rounded-md flex items-center justify-center shadow-lg shadow-brand/20">
+                <Activity className="w-3 h-3 text-white" />
               </div>
-              <div>
-                <p className="text-[10px] font-black uppercase text-white/40 tracking-wider">Live Momentum</p>
-                <p className="text-sm font-black text-white italic">+85% INTENSITY</p>
+              <div className="text-left">
+                <p className="text-[6px] font-black uppercase text-white/40 tracking-wider">Live Momentum</p>
+                <p className="text-[8px] font-black text-white italic">+85%</p>
               </div>
             </motion.div>
 
             <motion.div 
               animate={{ scale: [1, 1.1, 1] }}
               transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-              className="absolute -right-8 bottom-20 bg-white p-3 rounded-full shadow-2xl"
+              className="absolute -right-4 bottom-12 bg-white p-2 rounded-full shadow-2xl"
             >
-              <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
-                 <Bell className="w-5 h-5 text-brand" />
+              <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
+                 <Bell className="w-3 h-3 text-brand" />
               </div>
             </motion.div>
           </div>
 
-          <div className="space-y-4">
-            <h3 className="text-3xl font-black uppercase italic tracking-tighter text-white">The Stadium in your pocket.</h3>
-            <p className="text-white/70 text-sm font-medium max-w-sm mx-auto">
+          <div className="space-y-3">
+            <h3 className="text-2xl font-black uppercase italic tracking-tighter text-white">The Stadium in your pocket.</h3>
+            <p className="text-white/70 text-xs font-medium max-w-[280px] mx-auto">
               Broadcast, analyze, and immerse yourself in the world's greatest spectacles in stunning 4K.
             </p>
           </div>
@@ -291,7 +266,7 @@ export default function Login() {
         {/* Background Patterns */}
         <div className="absolute top-0 left-0 w-full h-full opacity-10 flex flex-col justify-between p-20 pointer-events-none">
            <div className="flex justify-between items-center">
-              <span className="text-9xl font-black italic tracking-tighter uppercase select-none">Sport</span>
+              <span className="text-9xl font-black italic tracking-tighter uppercase select-none">Sports</span>
            </div>
            <div className="flex justify-between items-center self-end">
               <span className="text-9xl font-black italic tracking-tighter uppercase select-none">Box</span>
@@ -304,14 +279,4 @@ export default function Login() {
   );
 }
 
-function SocialButton({ icon: Icon, onClick }: { icon: any, onClick: () => void }) {
-  return (
-    <button 
-      onClick={onClick}
-      className="w-14 h-14 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-center transition-all hover:bg-white/10 hover:border-white/20 active:scale-90 group"
-    >
-      <Icon />
-    </button>
-  );
-}
 

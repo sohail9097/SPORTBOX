@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { collection, addDoc, getDocs, getDoc, deleteDoc, doc, updateDoc, query, orderBy, setDoc } from 'firebase/firestore';
 import { SportsContent, Category, ContentType, ContentSection, SliderElement, VideoPromoSettings, SiteConfig, PlayerSettings, SubscriptionPlan } from '../types';
-import { Plus, Trash2, Edit2, Play, LayoutDashboard, Film, Users, Settings, Save, X, Eye, Radio, Crown, Layers, MoveUp, MoveDown, CheckSquare, Square, Image as ImageIcon, Upload, Library, ShieldCheck, Zap, Percent, Trophy, ChevronRight, Activity, Heart } from 'lucide-react';
+import { Plus, Trash2, Edit2, Play, LayoutDashboard, Film, Users, Settings, Save, X, Eye, Radio, Crown, Layers, MoveUp, MoveDown, CheckSquare, Square, Image as ImageIcon, Upload, Library, ShieldCheck, Zap, Percent, Trophy, ChevronRight, Activity, Heart, Dribbble, CircleDot, Target, Disc, Flag, Gamepad2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn, formatDate, transformGDriveUrl } from '../lib/utils';
 import { useAuth } from '../hooks/useAuth';
@@ -27,7 +27,8 @@ export default function Admin() {
   const [selectedContentLikes, setSelectedContentLikes] = useState<{ id: string, title: string, likers: any[] } | null>(null);
   const [likesLoading, setLikesLoading] = useState(false);
   const [siteConfig, setSiteConfig] = useState<SiteConfig>({
-    founderImageUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=1000&auto=format&fit=crop'
+    founderImageUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=1000&auto=format&fit=crop',
+    logoUrl: ''
   });
   const [videoPromo, setVideoPromo] = useState<VideoPromoSettings>({
     isActive: false,
@@ -193,7 +194,15 @@ export default function Admin() {
       const docRef = doc(db, 'settings', 'playerConfig');
       const snap = await getDoc(docRef);
       if (snap.exists()) {
-        setPlayerConfig(snap.data() as PlayerSettings);
+        const data = snap.data();
+        setPlayerConfig({
+          autoplay: data.autoplay ?? true,
+          muted: data.muted ?? false,
+          loop: data.loop ?? false,
+          showControls: data.showControls ?? true,
+          primaryColor: data.primaryColor || '#ff0000',
+          playbackRates: data.playbackRates || [0.5, 1, 1.5, 2]
+        });
       }
     } catch (err) {
       console.error("Player config fetch error:", err);
@@ -241,7 +250,18 @@ export default function Admin() {
       const docRef = doc(db, 'settings', 'videoPromo');
       const docSnap = await getDoc(docRef);
       if (docSnap.exists()) {
-        setVideoPromo(prev => ({ ...prev, ...docSnap.data() }));
+        const data = docSnap.data();
+        setVideoPromo(prev => ({ 
+          ...prev, 
+          ...data,
+          title: data.title || prev.title,
+          description: data.description || prev.description,
+          videoUrl: data.videoUrl || '',
+          embedCode: data.embedCode || '',
+          buttonText: data.buttonText || prev.buttonText,
+          buttonUrl: data.buttonUrl || prev.buttonUrl,
+          backgroundColor: data.backgroundColor || prev.backgroundColor
+        }));
       }
     } catch (error) {
       console.error("Video promo fetch error:", error);
@@ -270,7 +290,11 @@ export default function Admin() {
       const docRef = doc(db, 'settings', 'siteConfig');
       const docSnap = await getDoc(docRef);
       if (docSnap.exists()) {
-        setSiteConfig(docSnap.data());
+        const data = docSnap.data();
+        setSiteConfig({
+          founderImageUrl: data.founderImageUrl || '',
+          logoUrl: data.logoUrl || ''
+        });
       }
     } catch (error) {
       console.error("Config fetch error:", error);
@@ -280,8 +304,9 @@ export default function Admin() {
   const handleConfigUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const transformedUrl = transformGDriveUrl(siteConfig.founderImageUrl || '', 'image');
-      const finalConfig = { ...siteConfig, founderImageUrl: transformedUrl };
+      const transformedFounderUrl = transformGDriveUrl(siteConfig.founderImageUrl || '', 'image');
+      const transformedLogoUrl = transformGDriveUrl(siteConfig.logoUrl || '', 'image');
+      const finalConfig = { ...siteConfig, founderImageUrl: transformedFounderUrl, logoUrl: transformedLogoUrl };
 
       const docRef = doc(db, 'settings', 'siteConfig');
       await updateDoc(docRef, finalConfig).catch(async (err) => {
@@ -568,7 +593,7 @@ export default function Admin() {
             <motion.div key="dashboard" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} className="space-y-12">
                <div className="space-y-2">
                 <h1 className="text-5xl font-black uppercase italic tracking-tighter">Command Center</h1>
-                <p className="text-text-muted font-medium">Real-time statistics and quick actions for SportBox.</p>
+                <p className="text-text-muted font-medium">Real-time statistics and quick actions for SportsBox.</p>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -791,31 +816,41 @@ export default function Admin() {
                         </div>
                       </button>
 
-                      {['cricket', 'football', 'basketball', 'tennis', 'others'].map((cat) => (
-                        <button
-                          key={cat}
-                          onClick={() => setSelectedCategory(cat as Category)}
-                          className="p-8 group hover:border-brand/40 transition-all text-left relative overflow-hidden bg-surface/30 border border-white/5 rounded-3xl"
-                        >
-                          <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity">
-                            <Trophy className="w-32 h-32" />
-                          </div>
-                          <div className="relative z-10 space-y-4">
-                            <div className="w-12 h-12 bg-brand/10 rounded-xl flex items-center justify-center text-brand">
-                              <Trophy className="w-6 h-6" />
+                      {['cricket', 'football', 'basketball', 'tennis', 'f1', 'boxing', 'golf', 'esports', 'others'].map((cat) => {
+                        const Icon = cat === 'football' ? Dribbble : 
+                                     cat === 'cricket' ? Trophy : 
+                                     cat === 'basketball' ? CircleDot : 
+                                     cat === 'tennis' ? Disc : 
+                                     cat === 'f1' ? Flag : 
+                                     cat === 'boxing' ? Zap : 
+                                     cat === 'golf' ? Target : 
+                                     cat === 'esports' ? Gamepad2 : Activity;
+                        return (
+                          <button
+                            key={cat}
+                            onClick={() => setSelectedCategory(cat as Category)}
+                            className="p-8 group hover:border-brand/40 transition-all text-left relative overflow-hidden bg-surface/30 border border-white/5 rounded-3xl"
+                          >
+                            <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity">
+                              <Icon className="w-32 h-32" />
                             </div>
-                            <div>
-                              <h3 className="text-2xl font-display font-black uppercase italic tracking-wider">{cat}</h3>
-                              <p className="text-[10px] text-text-muted uppercase font-bold tracking-widest">
-                                {sections.filter(s => s.page === cat).length} Dynamic Sections
-                              </p>
+                            <div className="relative z-10 space-y-4">
+                              <div className="w-12 h-12 bg-brand/10 rounded-xl flex items-center justify-center text-brand">
+                                <Icon className="w-6 h-6" />
+                              </div>
+                              <div>
+                                <h3 className="text-2xl font-display font-black uppercase italic tracking-wider">{cat}</h3>
+                                <p className="text-[10px] text-text-muted uppercase font-bold tracking-widest">
+                                  {sections.filter(s => s.page === cat).length} Dynamic Sections
+                                </p>
+                              </div>
+                              <div className="flex items-center gap-2 text-brand text-[10px] font-black uppercase italic tracking-widest group-hover:gap-3 transition-all">
+                                Manage Content <ChevronRight className="w-4 h-4" />
+                              </div>
                             </div>
-                            <div className="flex items-center gap-2 text-brand text-[10px] font-black uppercase italic tracking-widest group-hover:gap-3 transition-all">
-                              Manage Content <ChevronRight className="w-4 h-4" />
-                            </div>
-                          </div>
-                        </button>
-                      ))}
+                          </button>
+                        );
+                      })}
                     </div>
                   </>
                 ) : (
@@ -1276,7 +1311,7 @@ export default function Admin() {
                         <div className="flex gap-4 items-start">
                           <input 
                             type="url" 
-                            value={siteConfig.founderImageUrl} 
+                            value={siteConfig.founderImageUrl || ''} 
                             onChange={e => setSiteConfig({...siteConfig, founderImageUrl: e.target.value})} 
                             className="flex-grow bg-bg border border-white/10 p-4 rounded-xl focus:border-brand outline-none transition-all" 
                             placeholder="Paste direct image link (Drive, Pinterest, Vimeo thumbnail, etc.)"
@@ -1324,16 +1359,16 @@ export default function Admin() {
                     <div className="space-y-4">
                       <div className="space-y-2">
                         <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Banner Title</label>
-                        <input type="text" value={videoPromo.title} onChange={e => setVideoPromo({...videoPromo, title: e.target.value})} className="w-full bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none" />
+                        <input type="text" value={videoPromo.title || ''} onChange={e => setVideoPromo({...videoPromo, title: e.target.value})} className="w-full bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none" />
                       </div>
                       <div className="space-y-2">
                         <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Description</label>
-                        <textarea rows={2} value={videoPromo.description} onChange={e => setVideoPromo({...videoPromo, description: e.target.value})} className="w-full bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none" />
+                        <textarea rows={2} value={videoPromo.description || ''} onChange={e => setVideoPromo({...videoPromo, description: e.target.value})} className="w-full bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none" />
                       </div>
                       <div className="space-y-2">
                         <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Direct Video URL (.mp4)</label>
                         <div className="flex gap-2">
-                          <input type="url" value={videoPromo.videoUrl} onChange={e => setVideoPromo({...videoPromo, videoUrl: e.target.value})} className="flex-grow bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none" placeholder="https://..." />
+                          <input type="url" value={videoPromo.videoUrl || ''} onChange={e => setVideoPromo({...videoPromo, videoUrl: e.target.value})} className="flex-grow bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none" placeholder="https://..." />
                           <button 
                             type="button"
                             onClick={() => setActiveTab('media')}
@@ -1355,19 +1390,19 @@ export default function Admin() {
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Button Text</label>
-                          <input type="text" value={videoPromo.buttonText} onChange={e => setVideoPromo({...videoPromo, buttonText: e.target.value})} className="w-full bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none" />
+                          <input type="text" value={videoPromo.buttonText || ''} onChange={e => setVideoPromo({...videoPromo, buttonText: e.target.value})} className="w-full bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none" />
                         </div>
                         <div className="space-y-2">
                           <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Button URL</label>
-                          <input type="text" value={videoPromo.buttonUrl} onChange={e => setVideoPromo({...videoPromo, buttonUrl: e.target.value})} className="w-full bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none" />
+                          <input type="text" value={videoPromo.buttonUrl || ''} onChange={e => setVideoPromo({...videoPromo, buttonUrl: e.target.value})} className="w-full bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none" />
                         </div>
                       </div>
 
                       <div className="space-y-2">
                         <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Background Accent Color</label>
                         <div className="flex gap-4">
-                          <input type="color" value={videoPromo.backgroundColor} onChange={e => setVideoPromo({...videoPromo, backgroundColor: e.target.value})} className="h-10 w-20 bg-bg border border-white/10 rounded cursor-pointer" />
-                          <input type="text" value={videoPromo.backgroundColor} onChange={e => setVideoPromo({...videoPromo, backgroundColor: e.target.value})} className="flex-grow bg-bg border border-white/10 p-2 rounded focus:border-brand outline-none uppercase font-mono text-xs" />
+                          <input type="color" value={videoPromo.backgroundColor || '#ff0000'} onChange={e => setVideoPromo({...videoPromo, backgroundColor: e.target.value})} className="h-10 w-20 bg-bg border border-white/10 rounded cursor-pointer" />
+                          <input type="text" value={videoPromo.backgroundColor || '#ff0000'} onChange={e => setVideoPromo({...videoPromo, backgroundColor: e.target.value})} className="flex-grow bg-bg border border-white/10 p-2 rounded focus:border-brand outline-none uppercase font-mono text-xs" />
                         </div>
                       </div>
                     </div>
@@ -1434,8 +1469,8 @@ export default function Admin() {
                     <div className="space-y-2">
                       <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Player Accent Color</label>
                       <div className="flex gap-4">
-                        <input type="color" value={playerConfig.primaryColor} onChange={e => setPlayerConfig({...playerConfig, primaryColor: e.target.value})} className="h-10 w-20 bg-bg border border-white/10 rounded cursor-pointer" />
-                        <input type="text" value={playerConfig.primaryColor} onChange={e => setPlayerConfig({...playerConfig, primaryColor: e.target.value})} className="flex-grow bg-bg border border-white/10 p-2 rounded focus:border-brand outline-none uppercase font-mono text-xs" />
+                        <input type="color" value={playerConfig.primaryColor || '#ff0000'} onChange={e => setPlayerConfig({...playerConfig, primaryColor: e.target.value})} className="h-10 w-20 bg-bg border border-white/10 rounded cursor-pointer" />
+                        <input type="text" value={playerConfig.primaryColor || '#ff0000'} onChange={e => setPlayerConfig({...playerConfig, primaryColor: e.target.value})} className="flex-grow bg-bg border border-white/10 p-2 rounded focus:border-brand outline-none uppercase font-mono text-xs" />
                       </div>
                     </div>
 
@@ -1715,6 +1750,10 @@ export default function Admin() {
                       <option value="cricket">Cricket</option>
                       <option value="basketball">Basketball</option>
                       <option value="tennis">Tennis</option>
+                      <option value="f1">F1</option>
+                      <option value="boxing">Boxing</option>
+                      <option value="golf">Golf</option>
+                      <option value="esports">Esports</option>
                       <option value="others">Others</option>
                     </select>
                   </div>
@@ -1940,16 +1979,16 @@ export default function Admin() {
 
                 <div className="space-y-2">
                   <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Slide Title</label>
-                  <input type="text" required value={sliderForm.title} onChange={e => setSliderForm({...sliderForm, title: e.target.value})} className="w-full bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none" />
+                  <input type="text" required value={sliderForm.title || ''} onChange={e => setSliderForm({...sliderForm, title: e.target.value})} className="w-full bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none" />
                 </div>
                 <div className="space-y-2">
                   <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Description</label>
-                  <textarea rows={2} value={sliderForm.description} onChange={e => setSliderForm({...sliderForm, description: e.target.value})} className="w-full bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none" />
+                  <textarea rows={2} value={sliderForm.description || ''} onChange={e => setSliderForm({...sliderForm, description: e.target.value})} className="w-full bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none" />
                 </div>
                 <div className="space-y-4">
                   <div className="space-y-2">
                     <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Hero Image URL</label>
-                    <input type="url" required value={sliderForm.imageUrl} onChange={e => setSliderForm({...sliderForm, imageUrl: e.target.value})} className="w-full bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none" />
+                    <input type="url" required value={sliderForm.imageUrl || ''} onChange={e => setSliderForm({...sliderForm, imageUrl: e.target.value})} className="w-full bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none" />
                   </div>
                   <div className="space-y-2">
                     <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Background Video URL (Optional)</label>
@@ -1962,11 +2001,11 @@ export default function Admin() {
                 <div className="grid grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Action URL</label>
-                    <input type="text" value={sliderForm.actionUrl} onChange={e => setSliderForm({...sliderForm, actionUrl: e.target.value})} className="w-full bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none" placeholder="/watch/id" />
+                    <input type="text" value={sliderForm.actionUrl || ''} onChange={e => setSliderForm({...sliderForm, actionUrl: e.target.value})} className="w-full bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none" placeholder="/watch/id" />
                    </div>
                   <div className="space-y-2">
                     <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Animation Type</label>
-                    <select value={sliderForm.animationType} onChange={e => setSliderForm({...sliderForm, animationType: e.target.value as any})} className="w-full bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none">
+                    <select value={sliderForm.animationType || 'fade'} onChange={e => setSliderForm({...sliderForm, animationType: e.target.value as any})} className="w-full bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none">
                       <option value="fade">Fade</option>
                       <option value="slide">Slide</option>
                       <option value="zoom">Zoom</option>
@@ -1974,7 +2013,7 @@ export default function Admin() {
                   </div>
                   <div className="space-y-2">
                     <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Slide Order</label>
-                    <input type="number" value={sliderForm.order} onChange={e => setSliderForm({...sliderForm, order: parseInt(e.target.value) || 0})} className="w-full bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none" />
+                    <input type="number" value={sliderForm.order ?? 0} onChange={e => setSliderForm({...sliderForm, order: parseInt(e.target.value) || 0})} className="w-full bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none" />
                   </div>
                 </div>
                 <div className="space-y-2">
@@ -2019,15 +2058,15 @@ export default function Admin() {
               <form onSubmit={handlePlanSubmit} className="space-y-6">
                 <div className="space-y-2">
                   <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Plan Name</label>
-                  <input type="text" required value={planForm.name} onChange={e => setPlanForm({...planForm, name: e.target.value})} className="w-full bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none" placeholder="e.g. Pro Stadium" />
+                  <input type="text" required value={planForm.name || ''} onChange={e => setPlanForm({...planForm, name: e.target.value})} className="w-full bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none" placeholder="e.g. Pro Stadium" />
                 </div>
                 <div className="space-y-2">
                   <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Price (Monthly INR)</label>
-                  <input type="number" step="1" required value={planForm.price} onChange={e => setPlanForm({...planForm, price: parseFloat(e.target.value)})} className="w-full bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none" />
+                  <input type="number" step="1" required value={planForm.price ?? 0} onChange={e => setPlanForm({...planForm, price: parseFloat(e.target.value) || 0})} className="w-full bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none" />
                 </div>
                 <div className="space-y-2">
                   <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Description</label>
-                  <textarea rows={2} value={planForm.description} onChange={e => setPlanForm({...planForm, description: e.target.value})} className="w-full bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none" />
+                  <textarea rows={2} value={planForm.description || ''} onChange={e => setPlanForm({...planForm, description: e.target.value})} className="w-full bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none" />
                 </div>
                 
                 <div className="space-y-2">

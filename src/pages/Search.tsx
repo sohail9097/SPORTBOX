@@ -66,8 +66,8 @@ export default function Search() {
   return (
     <div className="min-h-screen bg-bg">
       {/* Search Header */}
-      <div className="sticky top-0 z-30 bg-bg/95 backdrop-blur-xl border-b border-white/5 pt-20 pb-6 px-4 md:px-8">
-        <div className="max-w-4xl mx-auto space-y-6">
+      <div className="sticky top-14 md:top-16 z-30 bg-bg/95 backdrop-blur-xl border-b border-white/5 pt-4 pb-6 px-4 md:px-8">
+        <div className="max-w-4xl mx-auto space-y-4">
           <div className="relative group">
             <SearchIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-text-muted group-focus-within:text-brand transition-colors" />
             <input 
@@ -76,7 +76,7 @@ export default function Search() {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               autoFocus
-              className="w-full bg-surface border border-white/10 p-5 pl-14 rounded-2xl md:rounded-3xl outline-none focus:border-brand/50 transition-all text-sm md:text-base font-bold shadow-2xl"
+              className="w-full bg-surface border border-white/10 p-4 pl-14 rounded-2xl md:rounded-3xl outline-none focus:border-brand/50 transition-all text-sm md:text-base font-bold shadow-2xl"
             />
             {searchTerm && (
               <button 
@@ -104,7 +104,7 @@ export default function Search() {
                     : "bg-surface text-text-muted border-white/5 hover:border-white/20"
                 )}
               >
-                {cat}
+                {cat.charAt(0).toUpperCase() + cat.slice(1)}
               </button>
             ))}
           </div>

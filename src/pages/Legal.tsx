@@ -14,7 +14,7 @@ const Legal = () => {
       content: (
         <div className="space-y-8">
           <p className="text-[10px] md:text-sm text-white/60 leading-relaxed">
-            Welcome to SportBox. Your privacy is important to us. This Privacy Policy explains how we collect, use, and protect your information when you use our platform.
+            Welcome to SportsBox. Your privacy is important to us. This Privacy Policy explains how we collect, use, and protect your information when you use our platform.
           </p>
           
           <section className="space-y-4">
@@ -60,7 +60,7 @@ const Legal = () => {
           <section className="space-y-4 pt-6 border-t border-white/5">
             <h3 className="text-[14px] md:text-xl font-black uppercase italic tracking-tighter text-brand">Contact</h3>
             <p className="text-white/50 text-[9px] md:text-sm italic">
-              For privacy-related concerns, contact us at: <span className="text-white font-bold">support@sportbox.com</span>
+              For privacy-related concerns, contact us at: <span className="text-white font-bold">support@sportsbox.com</span>
             </p>
           </section>
         </div>
@@ -72,13 +72,13 @@ const Legal = () => {
       content: (
         <div className="space-y-8">
           <p className="text-[10px] md:text-sm text-white/60 leading-relaxed">
-            By accessing and using SportBox, you agree to comply with the following terms and conditions.
+            By accessing and using SportsBox, you agree to comply with the following terms and conditions.
           </p>
 
           <section className="space-y-4">
             <h3 className="text-[14px] md:text-xl font-black uppercase italic tracking-tighter text-brand">Use of Service</h3>
             <ul className="list-disc pl-5 space-y-2 text-white/50 text-[9px] md:text-sm">
-              <li>SportBox provides sports streaming, highlights, and related entertainment content.</li>
+              <li>SportsBox provides sports streaming, highlights, and related entertainment content.</li>
               <li>Users must be at least 18 years old or have parental permission to use the platform.</li>
               <li>You agree not to misuse, copy, distribute, or illegally reproduce any content from the service.</li>
             </ul>
@@ -119,14 +119,14 @@ const Legal = () => {
           <section className="space-y-4">
             <h3 className="text-[14px] md:text-xl font-black uppercase italic tracking-tighter text-brand">Changes to Terms</h3>
             <p className="text-white/50 text-[9px] md:text-sm leading-relaxed">
-              SportBox reserves the right to update these Terms of Service at any time. Continued use of the platform indicates acceptance of the updated terms.
+              SportsBox reserves the right to update these Terms of Service at any time. Continued use of the platform indicates acceptance of the updated terms.
             </p>
           </section>
 
           <section className="space-y-4 pt-6 border-t border-white/5">
             <h3 className="text-[14px] md:text-xl font-black uppercase italic tracking-tighter text-brand">Contact</h3>
             <p className="text-white/50 text-[9px] md:text-sm italic">
-              For questions regarding these terms: <span className="text-white font-bold">support@sportbox.com</span>
+              For questions regarding these terms: <span className="text-white font-bold">support@sportsbox.com</span>
             </p>
           </section>
         </div>
@@ -138,7 +138,7 @@ const Legal = () => {
       content: (
         <div className="space-y-8">
           <p className="text-[10px] md:text-sm text-white/60 leading-relaxed">
-            SportBox uses cookies and similar technologies to enhance your browsing and streaming experience.
+            SportsBox uses cookies and similar technologies to enhance your browsing and streaming experience.
           </p>
 
           <section className="space-y-4">
@@ -185,7 +185,7 @@ const Legal = () => {
           <section className="space-y-4 pt-6 border-t border-white/5">
             <h3 className="text-[14px] md:text-xl font-black uppercase italic tracking-tighter text-brand">Contact</h3>
             <p className="text-white/50 text-[9px] md:text-sm italic">
-              For any cookie-related questions: <span className="text-white font-bold">support@sportbox.com</span>
+              For any cookie-related questions: <span className="text-white font-bold">support@sportsbox.com</span>
             </p>
           </section>
         </div>

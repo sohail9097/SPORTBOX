@@ -7,7 +7,7 @@ import DynamicSections from '../components/DynamicSections';
 import HeroSlider from '../components/HeroSlider';
 import LoadingScreen from '../components/LoadingScreen';
 import VideoPromoBanner from '../components/VideoPromoBanner';
-import { Play, TrendingUp, Trophy, ChevronRight, Bell } from 'lucide-react';
+import { Play, TrendingUp, Trophy, ChevronRight, Bell, Activity, Dribbble, Target, Flag, Zap, Gamepad2, CircleDot, Disc } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { cn } from '../lib/utils';
 
@@ -82,26 +82,30 @@ export default function Home() {
 
       {/* Categories Bar */}
       <section className="mt-4 relative z-10 max-w-[1600px] mx-auto px-4">
-        <div className="flex md:flex-wrap items-center gap-4 md:justify-between overflow-x-auto pb-4 md:pb-0 hide-scrollbar">
+        <div className="flex md:flex-wrap items-center gap-4 md:justify-between overflow-x-auto pb-4 md:pb-0 hide-scrollbar px-2">
           {[
-            { name: 'Football', color: 'bg-green-500/10 text-green-500', short: 'FB' },
-            { name: 'Cricket', color: 'bg-orange-500/10 text-orange-500', short: 'CK' },
-            { name: 'Basketball', color: 'bg-blue-500/10 text-blue-500', short: 'BK' },
-            { name: 'Tennis', color: 'bg-purple-500/10 text-purple-500', short: 'TN' },
-            { name: 'F1', color: 'bg-red-500/10 text-red-500', short: 'F1' },
-            { name: 'Boxing', color: 'bg-yellow-500/10 text-yellow-500', short: 'BX' },
-            { name: 'Golf', color: 'bg-emerald-500/10 text-emerald-500', short: 'GF' },
-            { name: 'Esports', color: 'bg-cyan-500/10 text-cyan-500', short: 'ES' },
+            { name: 'Football', label: 'FB', color: 'text-[#00ff88]', bg: 'bg-[#00ff88]/10' },
+            { name: 'Cricket', label: 'CK', color: 'text-[#ff9900]', bg: 'bg-[#ff9900]/10' },
+            { name: 'Basketball', label: 'BK', color: 'text-[#3399ff]', bg: 'bg-[#3399ff]/10' },
+            { name: 'Tennis', label: 'TN', color: 'text-[#cc33ff]', bg: 'bg-[#cc33ff]/10' },
+            { name: 'F1', label: 'F1', color: 'text-[#ff3333]', bg: 'bg-[#ff3333]/10' },
+            { name: 'Boxing', label: 'BX', color: 'text-[#ffff00]', bg: 'bg-[#ffff00]/10' },
+            { name: 'Golf', label: 'GF', color: 'text-[#00cc66]', bg: 'bg-[#00cc66]/10' },
+            { name: 'Esports', label: 'ES', color: 'text-[#00ffff]', bg: 'bg-[#00ffff]/10' },
           ].map((cat) => (
             <Link
               key={cat.name}
               to={`/category/${cat.name.toLowerCase()}`}
               className="flex flex-col items-center gap-2 transition-all cursor-pointer group py-2 h-full min-w-[70px] md:min-w-0"
             >
-              <div className={cn("w-12 h-12 md:w-14 md:h-14 rounded-2xl flex items-center justify-center font-black text-sm md:text-base italic group-hover:scale-110 transition-transform", cat.color)}>
-                {cat.short}
+              <div className={cn(
+                "w-12 h-12 md:w-16 md:h-16 rounded-[22%] flex items-center justify-center transition-all duration-300 group-hover:scale-110 group-hover:bg-opacity-20", 
+                cat.bg,
+                cat.color
+              )}>
+                <span className="text-sm md:text-2xl font-black italic tracking-tighter">{cat.label}</span>
               </div>
-              <span className="text-[8px] md:text-[10px] font-black uppercase tracking-[0.2em] text-text-muted group-hover:text-text-base text-center">{cat.name}</span>
+              <span className="text-[7px] md:text-[9px] font-black uppercase tracking-[0.25em] text-white/40 group-hover:text-white transition-colors text-center mt-1">{cat.name}</span>
             </Link>
           ))}
         </div>

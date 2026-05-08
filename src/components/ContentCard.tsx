@@ -58,7 +58,7 @@ export default function ContentCard({
           
           <div className="absolute top-3 left-3 flex flex-wrap gap-2">
             <span className="px-2 py-0.5 bg-black/60 backdrop-blur-md rounded-sm text-[10px] font-bold uppercase tracking-widest border border-white/10">
-              {content.category}
+              {content.category.charAt(0).toUpperCase() + content.category.slice(1)}
             </span>
             {isLocked && (
               <span className="px-2 py-0.5 bg-brand text-white rounded-sm text-[10px] font-black uppercase tracking-widest flex items-center gap-1 shadow-lg">

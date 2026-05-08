@@ -124,7 +124,7 @@ export default function Watch() {
     if (!content) return;
     const shareData = {
       title: content.title,
-      text: `Check out this broadcast on SportBox: ${content.title}`,
+      text: `Check out this broadcast on SportsBox: ${content.title}`,
       url: window.location.href,
     };
 

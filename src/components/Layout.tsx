@@ -281,6 +281,7 @@ export default function Layout({ children }: { children: ReactNode }) {
                   <li><Link to="/legal/privacy" className="hover:text-brand transition-colors">Privacy</Link></li>
                   <li><Link to="/legal/terms" className="hover:text-brand transition-colors">Terms</Link></li>
                   <li><Link to="/legal/cookies" className="hover:text-brand transition-colors">Cookies</Link></li>
+                  <li><Link to="/data-deletion" className="hover:text-brand transition-colors text-brand/60">Data Deletion</Link></li>
                 </ul>
               </div>
               <div className="col-span-2 md:col-span-1">

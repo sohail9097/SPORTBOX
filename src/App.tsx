@@ -11,6 +11,7 @@ import Admin from './pages/Admin';
 import Search from './pages/Search';
 import Login from './pages/Login';
 import Legal from './pages/Legal';
+import DataDeletion from './pages/DataDeletion';
 import { ThemeProvider } from './lib/ThemeContext';
 import { AuthProvider } from './hooks/useAuth';
 
@@ -34,6 +35,7 @@ function App() {
               <Route path="/legal/privacy" element={<Legal />} />
               <Route path="/legal/terms" element={<Legal />} />
               <Route path="/legal/cookies" element={<Legal />} />
+              <Route path="/data-deletion" element={<DataDeletion />} />
             </Routes>
           </Layout>
         </Router>

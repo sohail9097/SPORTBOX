@@ -8,6 +8,8 @@ import {
   FacebookAuthProvider,
   TwitterAuthProvider,
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
 } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { cn } from '../lib/utils';
@@ -36,7 +38,25 @@ export default function Login() {
       }
     };
     fetchConfig();
-  }, []);
+
+    // Check for redirect result
+    const checkRedirect = async () => {
+      try {
+        const result = await getRedirectResult(auth);
+        if (result?.user) {
+          navigate('/account');
+        }
+      } catch (err: any) {
+        console.error("Redirect auth error:", err);
+        if (err.code === 'auth/account-exists-with-different-credential') {
+          setError("An account already exists with the same email address but different sign-in credentials. Try signing in using another provider.");
+        } else {
+          setError(err.message || "Authentication failed");
+        }
+      }
+    };
+    checkRedirect();
+  }, [navigate]);
 
   const handleSocialLogin = async (providerName: 'google' | 'facebook' | 'x') => {
     setLoading(true);
@@ -58,8 +78,14 @@ export default function Login() {
     }
 
     try {
-      await signInWithPopup(auth, provider);
-      navigate('/account');
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      
+      if (isMobile) {
+        await signInWithRedirect(auth, provider);
+      } else {
+        await signInWithPopup(auth, provider);
+        navigate('/account');
+      }
     } catch (err: any) {
       console.error(err);
       if (err.code === 'auth/operation-not-allowed') {

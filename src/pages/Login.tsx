@@ -87,15 +87,27 @@ export default function Login() {
         navigate('/account');
       }
     } catch (err: any) {
-      console.error(err);
-      if (err.code === 'auth/popup-closed-by-user') {
+      console.error("Login component error object:", err);
+      const errorCode = err?.code;
+      const errorMessage = err?.message || '';
+      
+      // Silently handle user cancellation
+      if (
+        errorCode === 'auth/popup-closed-by-user' || 
+        errorCode === 'auth/cancelled-popup-request' ||
+        errorMessage.includes('popup-closed-by-user') ||
+        errorMessage.includes('cancelled-popup-request')
+      ) {
         setLoading(false);
         return;
       }
-      if (err.code === 'auth/operation-not-allowed') {
-        setError(`${providerName.charAt(0).toUpperCase() + providerName.slice(1)} login is not enabled in your Firebase console. Please enable it in Authentication > Sign-in method.`);
+
+      if (errorCode === 'auth/operation-not-allowed') {
+        setError(`${providerName.charAt(0).toUpperCase() + providerName.slice(1)} login is not enabled. Please enable it in your Firebase console.`);
+      } else if (errorCode === 'auth/account-exists-with-different-credential') {
+        setError("An account already exists with the same email but different sign-in credentials.");
       } else {
-        setError(err.message || 'Social login failed');
+        setError(errorMessage || 'Social login failed');
       }
       setLoading(false);
     }

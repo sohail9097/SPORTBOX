@@ -38,24 +38,6 @@ export default function Login() {
       }
     };
     fetchConfig();
-
-    // Check for redirect result
-    const checkRedirect = async () => {
-      try {
-        const result = await getRedirectResult(auth);
-        if (result?.user) {
-          navigate('/account');
-        }
-      } catch (err: any) {
-        console.error("Redirect auth error:", err);
-        if (err.code === 'auth/account-exists-with-different-credential') {
-          setError("An account already exists with the same email address but different sign-in credentials. Try signing in using another provider.");
-        } else {
-          setError(err.message || "Authentication failed");
-        }
-      }
-    };
-    checkRedirect();
   }, [navigate]);
 
   const handleSocialLogin = async (providerName: 'google' | 'facebook' | 'x') => {
@@ -78,14 +60,8 @@ export default function Login() {
     }
 
     try {
-      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-      
-      if (isMobile) {
-        await signInWithRedirect(auth, provider);
-      } else {
-        await signInWithPopup(auth, provider);
-        navigate('/account');
-      }
+      await signInWithPopup(auth, provider);
+      navigate('/account');
     } catch (err: any) {
       const errorCode = err?.code;
       const errorMessage = err?.message || '';
@@ -107,6 +83,8 @@ export default function Login() {
         setError(`${providerName.charAt(0).toUpperCase() + providerName.slice(1)} login is not enabled. Please enable it in your Firebase console.`);
       } else if (errorCode === 'auth/account-exists-with-different-credential') {
         setError("An account already exists with the same email but different sign-in credentials.");
+      } else if (errorCode === 'auth/unauthorized-domain') {
+        setError("This domain is not authorized. Please add your current domain to Authorized Domains in Firebase Console > Authentication > Settings.");
       } else {
         setError(errorMessage || 'Social login failed');
       }

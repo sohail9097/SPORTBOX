@@ -87,7 +87,6 @@ export default function Login() {
         navigate('/account');
       }
     } catch (err: any) {
-      console.error("Login component error object:", err);
       const errorCode = err?.code;
       const errorMessage = err?.message || '';
       
@@ -101,6 +100,8 @@ export default function Login() {
         setLoading(false);
         return;
       }
+
+      console.error("Login component error object:", err);
 
       if (errorCode === 'auth/operation-not-allowed') {
         setError(`${providerName.charAt(0).toUpperCase() + providerName.slice(1)} login is not enabled. Please enable it in your Firebase console.`);

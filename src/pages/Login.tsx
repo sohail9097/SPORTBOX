@@ -78,16 +78,25 @@ export default function Login() {
     }
 
     try {
-      await signInWithPopup(auth, provider);
-      navigate('/account');
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      
+      if (isMobile) {
+        await signInWithRedirect(auth, provider);
+      } else {
+        await signInWithPopup(auth, provider);
+        navigate('/account');
+      }
     } catch (err: any) {
       console.error(err);
+      if (err.code === 'auth/popup-closed-by-user') {
+        setLoading(false);
+        return;
+      }
       if (err.code === 'auth/operation-not-allowed') {
         setError(`${providerName.charAt(0).toUpperCase() + providerName.slice(1)} login is not enabled in your Firebase console. Please enable it in Authentication > Sign-in method.`);
       } else {
         setError(err.message || 'Social login failed');
       }
-    } finally {
       setLoading(false);
     }
   };

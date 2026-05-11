@@ -4,6 +4,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import admin from 'firebase-admin';
 import fs from 'fs';
+import cors from 'cors';
 
 // Initialize Firebase Admin
 try {
@@ -21,12 +22,29 @@ const __dirname = path.dirname(__filename);
 
 async function startServer() {
   const app = express();
+  app.use(cors());
+  
+  // Debug logger
+  app.use((req, res, next) => {
+    console.log(`[Server] ${req.method} ${req.url}`);
+    next();
+  });
+
   app.use(express.json());
   const PORT = 3000;
 
   // Admin API routes
-  app.post('/api/admin/delete-auth-user', async (req, res) => {
-    console.log('Received delete-auth-user request for UID:', req.body.uid);
+  app.all('/admin-api/delete-user', async (req, res) => {
+    console.log('Admin API Request:', req.method, req.url);
+    
+    if (req.method === 'GET') {
+      return res.json({ status: 'active', message: 'Endpoint is reachable. Use POST with credentials to perform deletion.' });
+    }
+
+    if (req.method !== 'POST') {
+      return res.status(405).json({ error: 'Method Not Allowed. Please use POST.' });
+    }
+
     const { uid, idToken } = req.body;
     
     if (!uid || !idToken) {

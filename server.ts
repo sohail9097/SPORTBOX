@@ -47,20 +47,20 @@ async function startServer() {
   const PORT = 3000;
 
   // Admin API routes
-  app.all('/admin-api/delete-user', async (req, res) => {
+  app.get('/admin-api/delete-user', (req, res) => {
+    res.json({ 
+      status: 'active', 
+      message: 'Endpoint is reachable. Use POST with credentials to perform deletion.',
+      initialized: admin.apps.length > 0
+    });
+  });
+
+  app.post('/admin-api/delete-user', async (req, res) => {
     console.log('Admin API Request:', req.method, req.url);
     
     // Check if initialized
     if (admin.apps.length === 0) {
-      return res.status(500).json({ error: 'Firebase Admin not initialized. Please ensure service account is configured.' });
-    }
-
-    if (req.method === 'GET') {
-      return res.json({ status: 'active', message: 'Endpoint is reachable. Use POST with credentials to perform deletion.' });
-    }
-
-    if (req.method !== 'POST') {
-      return res.status(405).json({ error: 'Method Not Allowed. Please use POST.' });
+      return res.status(500).json({ error: 'Firebase Admin not initialized. Please ensure the service account JSON file is present in the root directory.' });
     }
 
     const { uid, idToken } = req.body;

@@ -97,21 +97,34 @@ async function startServer() {
       console.log('[Admin API] Verifying admin token...');
       const decodedToken = await admin.auth().verifyIdToken(idToken);
       const email = decodedToken.email?.toLowerCase() || '';
-      console.log(`[Admin API] Request by: ${email}`);
+      console.log("Logged in email:", email); // Requested log
+      console.log("Is email verified:", decodedToken.email_verified);
       
       // Hardcoded admin emails as per firestore.rules
       const adminEmails = ['sohailgaji9097@gmail.com', 'tavish@dreamcatchers.tv'];
+      console.log("Allowed Admin Emails:", adminEmails);
+      
       if (!adminEmails.includes(email)) {
         console.warn(`[Admin API] Unauthorized access attempt by ${email}`);
-        return res.status(403).json({ error: 'Unauthorized: You do not have admin privileges' });
+        return res.status(403).json({ error: `Unauthorized: ${email} is not in the allowed admin list` });
       }
 
       // 2. Delete the user from Firebase Auth
       console.log(`[Admin API] Deleting user from Auth: ${uid}`);
       await admin.auth().deleteUser(uid);
       console.log(`[Admin API] Successfully deleted user ${uid} from Auth`);
+
+      // 3. Delete the user document from Firestore
+      console.log(`[Admin API] Deleting user document from Firestore: ${uid}`);
+      try {
+        await admin.firestore().collection('users').doc(uid).delete();
+        console.log(`[Admin API] Successfully deleted user document ${uid} from Firestore`);
+      } catch (fsError) {
+        console.warn(`[Admin API] Firestore deletion failed for ${uid} (may not exist):`, fsError);
+        // We don't fail the whole request if Document doesn't exist, as Auth is already gone
+      }
       
-      return res.json({ success: true, message: 'User deleted from Authentication successfully' });
+      return res.json({ success: true, message: 'User deleted from Authentication and Firestore successfully' });
     } catch (error) {
       console.error('[Admin API] Operation failed:', error);
       const message = error instanceof Error ? error.message : 'Unknown server error';

@@ -391,6 +391,7 @@ export default function Admin() {
       const currentUser = auth.currentUser;
       if (!currentUser) throw new Error("No authenticated admin user found");
       
+      console.log("Attempting to delete user. Admin logged in as:", currentUser.email);
       const idToken = await currentUser.getIdToken();
       const response = await fetch('/api/v1/admin/delete-user', {
         method: 'POST',

@@ -8,23 +8,21 @@ import cors from 'cors';
 
 // Initialize Firebase Admin
 try {
-  let serviceAccount: any = null;
-  const files = fs.readdirSync('./');
-  const serviceAccountFile = files.find(f => f.startsWith('gen-lang-client') && f.endsWith('.json')) || 
-                             files.find(f => f.startsWith('firebase-adminsdk') && f.endsWith('.json'));
-
-  if (serviceAccountFile) {
-    console.log(`Found service account file: ${serviceAccountFile}`);
-    serviceAccount = JSON.parse(fs.readFileSync(path.join('./', serviceAccountFile), 'utf8'));
+  const serviceAccountPath = './gen-lang-client-0783495181-firebase-adminsdk-fbsvc-c6efa0d61d.json';
+  
+  if (fs.existsSync(serviceAccountPath)) {
+    const serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, 'utf8'));
     admin.initializeApp({
       credential: admin.credential.cert(serviceAccount),
     });
     console.log("Firebase Admin initialized successfully using service account file.");
   } else {
-    // Attempt initialization with default credentials (ADC)
-    console.log("No service account file found. Attempting default credentials...");
-    admin.initializeApp();
-    console.log("Firebase Admin initialized using default credentials.");
+    // Attempt initialization with default credentials (ADC) if no file
+    console.log("No specific service account file found. Attempting default credentials...");
+    if (!admin.apps.length) {
+      admin.initializeApp();
+      console.log("Firebase Admin initialized using default credentials.");
+    }
   }
 } catch (error) {
   console.error("Firebase Admin initialization error:", error);
@@ -47,7 +45,7 @@ async function startServer() {
   const PORT = 3000;
 
   // Admin API routes
-  app.get('/admin-api/delete-user', (req, res) => {
+  app.get('/api/admin/delete-auth-user', (req, res) => {
     res.json({ 
       status: 'active', 
       message: 'Endpoint is reachable. Use POST with credentials to perform deletion.',
@@ -55,7 +53,7 @@ async function startServer() {
     });
   });
 
-  app.post('/admin-api/delete-user', async (req, res) => {
+  app.post('/api/admin/delete-auth-user', async (req, res) => {
     console.log('Admin API Request:', req.method, req.url);
     
     // Check if initialized

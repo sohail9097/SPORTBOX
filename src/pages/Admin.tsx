@@ -392,7 +392,7 @@ export default function Admin() {
       if (!currentUser) throw new Error("No authenticated admin user found");
       
       const idToken = await currentUser.getIdToken();
-      const response = await fetch('/admin-api/delete-user', {
+      const response = await fetch('/api/admin/delete-auth-user', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

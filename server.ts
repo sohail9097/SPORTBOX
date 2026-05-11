@@ -8,11 +8,18 @@ import cors from 'cors';
 
 // Initialize Firebase Admin
 try {
-  const serviceAccount = JSON.parse(fs.readFileSync('./gen-lang-client-0783495181-firebase-adminsdk-fbsvc-c6efa0d61d.json', 'utf8'));
-  admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount),
-  });
-  console.log("Firebase Admin initialized successfully.");
+  const serviceAccountPath = './gen-lang-client-0783495181-firebase-adminsdk-fbsvc-c6efa0d61d.json';
+  if (fs.existsSync(serviceAccountPath)) {
+    const serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, 'utf8'));
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount),
+    });
+    console.log("Firebase Admin initialized successfully using service account file.");
+  } else {
+    // Attempt initialization with default credentials (ADC)
+    admin.initializeApp();
+    console.log("Firebase Admin initialized using default credentials.");
+  }
 } catch (error) {
   console.error("Firebase Admin initialization error:", error);
 }
@@ -37,6 +44,11 @@ async function startServer() {
   app.all('/admin-api/delete-user', async (req, res) => {
     console.log('Admin API Request:', req.method, req.url);
     
+    // Check if initialized
+    if (admin.apps.length === 0) {
+      return res.status(500).json({ error: 'Firebase Admin not initialized. Please ensure service account is configured.' });
+    }
+
     if (req.method === 'GET') {
       return res.json({ status: 'active', message: 'Endpoint is reachable. Use POST with credentials to perform deletion.' });
     }

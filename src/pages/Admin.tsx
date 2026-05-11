@@ -128,6 +128,12 @@ export default function Admin() {
 
   useEffect(() => {
     if (isAdmin) {
+      // Admin API Health Check
+      fetch('/admin/api/v1/delete-user')
+        .then(res => res.json())
+        .then(data => console.log("[Admin API Health]", data))
+        .catch(err => console.error("[Admin API Health Error]", err));
+
       fetchContent();
       fetchSections();
       fetchSlider();
@@ -393,7 +399,7 @@ export default function Admin() {
       
       console.log("Attempting to delete user. Admin logged in as:", currentUser.email);
       const idToken = await currentUser.getIdToken();
-      const response = await fetch('/api/v1/admin/delete-user', {
+      const response = await fetch('/admin/api/v1/delete-user', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

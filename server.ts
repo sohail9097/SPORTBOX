@@ -57,14 +57,9 @@ async function startServer() {
   const PORT = 3000;
 
   // Dedicated Admin API Route Handler
-  app.all('/api/v1/admin/delete-user', async (req, res) => {
-    console.log(`[Admin API] Received ${req.method} request for user deletion`);
+  app.all('/admin/api/v1/delete-user', async (req, res) => {
+    console.log(`[Admin API] Received ${req.method} request`);
     
-    // Handle CORS preflight explicitly if needed (though app.use(cors()) does this)
-    if (req.method === 'OPTIONS') {
-      return res.sendStatus(204);
-    }
-
     // Health check / Info endpoint
     if (req.method === 'GET') {
       return res.json({ 
@@ -82,53 +77,47 @@ async function startServer() {
     // Check Firebase Admin Status
     if (admin.apps.length === 0) {
       console.error('[Admin API] Firebase Admin NOT initialized');
-      return res.status(500).json({ error: 'Firebase Admin not initialized. Check server logs for startup errors.' });
+      return res.status(500).json({ error: 'Firebase Admin not initialized. Check server logs.' });
     }
 
     const { uid, idToken } = req.body;
     
     if (!uid || !idToken) {
-      console.warn('[Admin API] Missing UID or ID Token in request body');
+      console.warn('[Admin API] Missing UID or ID Token');
       return res.status(400).json({ error: 'Missing uid or idToken' });
     }
 
     try {
       // 1. Verify the Admin's ID Token
-      console.log('[Admin API] Verifying admin token...');
       const decodedToken = await admin.auth().verifyIdToken(idToken);
       const email = decodedToken.email?.toLowerCase() || '';
-      console.log("Logged in email:", email); // Requested log
+      
+      // LOGS AS REQUESTED BY USER
+      console.log("User email:", email); 
+      console.log("Logged in email:", email);
       console.log("Is email verified:", decodedToken.email_verified);
       
-      // Hardcoded admin emails as per firestore.rules
+      // Hardcoded admin emails
       const adminEmails = ['sohailgaji9097@gmail.com', 'tavish@dreamcatchers.tv'];
       console.log("Allowed Admin Emails:", adminEmails);
       
       if (!adminEmails.includes(email)) {
-        console.warn(`[Admin API] Unauthorized access attempt by ${email}`);
-        return res.status(403).json({ error: `Unauthorized: ${email} is not in the allowed admin list` });
+        console.warn(`[Admin API] Unauthorized: ${email}`);
+        return res.status(403).json({ error: `Unauthorized: ${email} is not an admin.` });
       }
 
       // 2. Delete the user from Firebase Auth
-      console.log(`[Admin API] Deleting user from Auth: ${uid}`);
+      console.log(`[Admin API] Deleting from Auth: ${uid}`);
       await admin.auth().deleteUser(uid);
-      console.log(`[Admin API] Successfully deleted user ${uid} from Auth`);
 
-      // 3. Delete the user document from Firestore
-      console.log(`[Admin API] Deleting user document from Firestore: ${uid}`);
-      try {
-        await admin.firestore().collection('users').doc(uid).delete();
-        console.log(`[Admin API] Successfully deleted user document ${uid} from Firestore`);
-      } catch (fsError) {
-        console.warn(`[Admin API] Firestore deletion failed for ${uid} (may not exist):`, fsError);
-        // We don't fail the whole request if Document doesn't exist, as Auth is already gone
-      }
+      // 3. Delete from Firestore
+      console.log(`[Admin API] Deleting from Firestore: ${uid}`);
+      await admin.firestore().collection('users').doc(uid).delete();
       
-      return res.json({ success: true, message: 'User deleted from Authentication and Firestore successfully' });
+      return res.json({ success: true, message: 'User deleted from Auth and Firestore' });
     } catch (error) {
-      console.error('[Admin API] Operation failed:', error);
-      const message = error instanceof Error ? error.message : 'Unknown server error';
-      return res.status(500).json({ error: message });
+      console.error('[Admin API] Error:', error);
+      return res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
     }
   });
 

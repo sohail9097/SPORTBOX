@@ -8,85 +8,114 @@ import cors from 'cors';
 
 // Initialize Firebase Admin
 try {
-  const serviceAccountPath = './gen-lang-client-0783495181-firebase-adminsdk-fbsvc-c6efa0d61d.json';
-  
-  if (fs.existsSync(serviceAccountPath)) {
+  const rootFiles = fs.readdirSync('./');
+  const serviceAccountFile = rootFiles.find(f => 
+    (f.startsWith('gen-lang-client') || f.startsWith('firebase-adminsdk')) && f.endsWith('.json')
+  );
+
+  if (serviceAccountFile) {
+    const serviceAccountPath = path.join('./', serviceAccountFile);
+    console.log(`[Admin Init] Found service account: ${serviceAccountFile}`);
     const serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, 'utf8'));
-    admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount),
-    });
-    console.log("Firebase Admin initialized successfully using service account file.");
+    
+    if (!admin.apps.length) {
+      admin.initializeApp({
+        credential: admin.credential.cert(serviceAccount),
+      });
+      console.log("[Admin Init] Firebase Admin initialized with service account.");
+    }
   } else {
-    // Attempt initialization with default credentials (ADC) if no file
-    console.log("No specific service account file found. Attempting default credentials...");
+    console.warn("[Admin Init] No service account JSON file found in root. Falling back to default credentials.");
     if (!admin.apps.length) {
       admin.initializeApp();
-      console.log("Firebase Admin initialized using default credentials.");
+      console.log("[Admin Init] Firebase Admin initialized with default credentials.");
     }
   }
 } catch (error) {
-  console.error("Firebase Admin initialization error:", error);
+  console.error("[Admin Init] ERROR during initialization:", error);
 }
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 async function startServer() {
+  console.log(`[Server Initialization] Initializing Express app...`);
   const app = express();
+  
+  // Enable CORS for all routes
   app.use(cors());
   
-  // Debug logger
+  // Parse JSON bodies
+  app.use(express.json());
+  
+  // Debug logger for all incoming requests
   app.use((req, res, next) => {
-    console.log(`[Server] ${req.method} ${req.url}`);
+    console.log(`[Request Log] ${new Date().toISOString()} - ${req.method} ${req.url}`);
     next();
   });
 
-  app.use(express.json());
   const PORT = 3000;
 
-  // Admin API routes
-  app.get('/api/admin/delete-auth-user', (req, res) => {
-    res.json({ 
-      status: 'active', 
-      message: 'Endpoint is reachable. Use POST with credentials to perform deletion.',
-      initialized: admin.apps.length > 0
-    });
-  });
-
-  app.post('/api/admin/delete-auth-user', async (req, res) => {
-    console.log('Admin API Request:', req.method, req.url);
+  // Dedicated Admin API Route Handler
+  app.all('/api/v1/admin/delete-user', async (req, res) => {
+    console.log(`[Admin API] Received ${req.method} request for user deletion`);
     
-    // Check if initialized
+    // Handle CORS preflight explicitly if needed (though app.use(cors()) does this)
+    if (req.method === 'OPTIONS') {
+      return res.sendStatus(204);
+    }
+
+    // Health check / Info endpoint
+    if (req.method === 'GET') {
+      return res.json({ 
+        status: 'online', 
+        initialized: admin.apps.length > 0,
+        appName: admin.apps[0]?.name || 'none'
+      });
+    }
+
+    if (req.method !== 'POST') {
+      console.warn(`[Admin API] Method ${req.method} not allowed`);
+      return res.status(405).json({ error: 'Method Not Allowed. Use POST.' });
+    }
+
+    // Check Firebase Admin Status
     if (admin.apps.length === 0) {
-      return res.status(500).json({ error: 'Firebase Admin not initialized. Please ensure the service account JSON file is present in the root directory.' });
+      console.error('[Admin API] Firebase Admin NOT initialized');
+      return res.status(500).json({ error: 'Firebase Admin not initialized. Check server logs for startup errors.' });
     }
 
     const { uid, idToken } = req.body;
     
     if (!uid || !idToken) {
-      console.warn('Missing uid or idToken in request');
+      console.warn('[Admin API] Missing UID or ID Token in request body');
       return res.status(400).json({ error: 'Missing uid or idToken' });
     }
 
     try {
-      // Verify token
+      // 1. Verify the Admin's ID Token
+      console.log('[Admin API] Verifying admin token...');
       const decodedToken = await admin.auth().verifyIdToken(idToken);
-      console.log('Token verified for:', decodedToken.email);
+      const email = decodedToken.email?.toLowerCase() || '';
+      console.log(`[Admin API] Request by: ${email}`);
       
       // Hardcoded admin emails as per firestore.rules
       const adminEmails = ['sohailgaji9097@gmail.com', 'tavish@dreamcatchers.tv'];
-      if (!adminEmails.includes(decodedToken.email?.toLowerCase() || '')) {
-        console.warn('Unauthorized attempt by:', decodedToken.email);
-        return res.status(403).json({ error: 'Unauthorized' });
+      if (!adminEmails.includes(email)) {
+        console.warn(`[Admin API] Unauthorized access attempt by ${email}`);
+        return res.status(403).json({ error: 'Unauthorized: You do not have admin privileges' });
       }
 
-      // Delete from Auth
+      // 2. Delete the user from Firebase Auth
+      console.log(`[Admin API] Deleting user from Auth: ${uid}`);
       await admin.auth().deleteUser(uid);
-      console.log('User deleted successfully from Auth:', uid);
-      res.json({ success: true });
+      console.log(`[Admin API] Successfully deleted user ${uid} from Auth`);
+      
+      return res.json({ success: true, message: 'User deleted from Authentication successfully' });
     } catch (error) {
-      console.error('Delete Auth User error:', error);
-      res.status(500).json({ error: error instanceof Error ? error.message : 'Internal Server Error' });
+      console.error('[Admin API] Operation failed:', error);
+      const message = error instanceof Error ? error.message : 'Unknown server error';
+      return res.status(500).json({ error: message });
     }
   });
 

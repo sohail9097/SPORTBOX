@@ -29,6 +29,7 @@ export default function StadiumPlayer({ url, poster, isLive, useIframe: initialU
   const [hasError, setHasError] = useState(false);
   const [useIframe, setUseIframe] = useState(initialUseIframe);
   const [config, setConfig] = useState<PlayerSettings>({
+    useCustomPlayer: true,
     autoplay: true,
     muted: false,
     loop: false,
@@ -278,6 +279,28 @@ export default function StadiumPlayer({ url, poster, isLive, useIframe: initialU
                 </div>
 
                 <div className="flex items-center gap-6">
+                  {/* Quality Control */}
+                  <div className="relative group/quality">
+                     <button className="text-white/70 hover:text-white transition-colors text-[10px] font-bold uppercase tracking-widest px-2 py-1 bg-white/5 rounded-sm flex items-center gap-2">
+                        <Settings className="w-3 h-3" />
+                        Quality
+                     </button>
+                     <div className="absolute bottom-full right-0 mb-2 bg-black/90 backdrop-blur-xl border border-white/10 rounded-md overflow-hidden hidden group-hover/quality:block min-w-[120px]">
+                        {['Auto', '1080p (HQ)', '720p', '480p', 'Data Saver'].map(quality => (
+                           <button 
+                               key={quality} 
+                               onClick={() => alert(`Quality changed to ${quality} (Simulated)`)}
+                               className={cn(
+                                 "w-full px-4 py-3 text-[10px] font-bold hover:bg-brand/20 transition-colors text-left border-b border-white/5 last:border-0",
+                                 quality === 'Auto' ? "text-brand" : "text-white/60"
+                               )}
+                           >
+                              {quality}
+                           </button>
+                        ))}
+                     </div>
+                  </div>
+
                   {/* Playback Rate */}
                   <div className="relative group/rate">
                      <button className="text-white/70 hover:text-white transition-colors text-[10px] font-bold uppercase tracking-widest px-2 py-1 bg-white/5 rounded-sm">

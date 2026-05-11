@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { db, handleFirestoreError, OperationType } from '../lib/firebase';
+import { db, handleFirestoreError, OperationType, auth } from '../lib/firebase';
 import { collection, addDoc, getDocs, getDoc, deleteDoc, doc, updateDoc, query, orderBy, setDoc } from 'firebase/firestore';
 import { SportsContent, Category, ContentType, ContentSection, SliderElement, VideoPromoSettings, SiteConfig, PlayerSettings, SubscriptionPlan } from '../types';
 import { Plus, Trash2, Edit2, Play, LayoutDashboard, Film, Users, Settings, Save, X, Eye, Radio, Crown, Layers, MoveUp, MoveDown, CheckSquare, Square, Image as ImageIcon, Upload, Library, ShieldCheck, Zap, Percent, Trophy, ChevronRight, Activity, Heart, Dribbble, CircleDot, Target, Disc, Flag, Gamepad2 } from 'lucide-react';
@@ -22,7 +22,11 @@ export default function Admin() {
   const [sections, setSections] = useState<ContentSection[]>([]);
   const [slider, setSlider] = useState<SliderElement[]>([]);
   const [subscribers, setSubscribers] = useState<any[]>([]);
+  const [allUsersCount, setAllUsersCount] = useState(0);
+  const [premiumUsersCount, setPremiumUsersCount] = useState(0);
   const [subscriptionPlans, setSubscriptionPlans] = useState<SubscriptionPlan[]>([]);
+  const [isResetting, setIsResetting] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   
   const [selectedContentLikes, setSelectedContentLikes] = useState<{ id: string, title: string, likers: any[] } | null>(null);
   const [likesLoading, setLikesLoading] = useState(false);
@@ -41,6 +45,7 @@ export default function Admin() {
     backgroundColor: '#ff0000'
   });
   const [playerConfig, setPlayerConfig] = useState<PlayerSettings>({
+    useCustomPlayer: true,
     autoplay: true,
     muted: false,
     loop: false,
@@ -135,6 +140,29 @@ export default function Admin() {
     }
   }, [isAdmin]);
 
+  const resetAllViews = async () => {
+    if (!confirm("Are you sure you want to reset all impressions to zero? This will clear all view data from every media item in the database.")) return;
+    
+    setIsResetting(true);
+    try {
+      const q = query(collection(db, 'content'));
+      const querySnapshot = await getDocs(q);
+      
+      const promises = querySnapshot.docs.map(docSnap => 
+        updateDoc(doc(db, 'content', docSnap.id), { viewCount: 0 })
+      );
+      
+      await Promise.all(promises);
+      await fetchContent();
+      alert("All impressions have been reset to zero successfully!");
+    } catch (error) {
+      console.error(error);
+      alert("Failed to reset impressions.");
+    } finally {
+      setIsResetting(false);
+    }
+  };
+
   const fetchSubscriptionPlans = async () => {
     try {
       const q = query(collection(db, 'subscription_plans'), orderBy('order', 'asc'));
@@ -196,6 +224,7 @@ export default function Admin() {
       if (snap.exists()) {
         const data = snap.data();
         setPlayerConfig({
+          useCustomPlayer: data.useCustomPlayer ?? true,
           autoplay: data.autoplay ?? true,
           muted: data.muted ?? false,
           loop: data.loop ?? false,
@@ -211,12 +240,17 @@ export default function Admin() {
 
   const handlePlayerConfigUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSaving(true);
     try {
       const docRef = doc(db, 'settings', 'playerConfig');
       await setDoc(docRef, playerConfig);
       alert("Player configuration updated!");
     } catch (error) {
+      console.error("Player Config Save Error:", error);
+      alert("Failed to update player configuration. " + (error instanceof Error ? error.message : ""));
       handleFirestoreError(error, OperationType.UPDATE, 'settings/playerConfig');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -272,6 +306,7 @@ export default function Admin() {
 
   const handleVideoPromoUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSaving(true);
     try {
       const transformedUrl = transformGDriveUrl(videoPromo.videoUrl, 'video');
       const finalPromo = { ...videoPromo, videoUrl: transformedUrl };
@@ -281,7 +316,11 @@ export default function Admin() {
       setVideoPromo(finalPromo);
       alert("Video Promo Banner updated successfully!");
     } catch (error) {
+      console.error("Video Promo Update Error:", error);
+      alert("Failed to update banner. " + (error instanceof Error ? error.message : ""));
       handleFirestoreError(error, OperationType.UPDATE, 'settings/videoPromo');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -303,6 +342,7 @@ export default function Admin() {
 
   const handleConfigUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSaving(true);
     try {
       const transformedFounderUrl = transformGDriveUrl(siteConfig.founderImageUrl || '', 'image');
       const transformedLogoUrl = transformGDriveUrl(siteConfig.logoUrl || '', 'image');
@@ -319,7 +359,11 @@ export default function Admin() {
       setSiteConfig(finalConfig);
       alert("Settings updated successfully! Links were optimized for display.");
     } catch (error) {
+      console.error("Config Update Error:", error);
+      alert("Failed to update general settings. " + (error instanceof Error ? error.message : ""));
       handleFirestoreError(error, OperationType.UPDATE, 'settings/siteConfig');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -328,9 +372,48 @@ export default function Admin() {
       const q = query(collection(db, 'users'), orderBy('createdAt', 'desc'));
       const querySnapshot = await getDocs(q);
       const items = querySnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as any));
+      
+      setAllUsersCount(items.length);
+      const premiumUsers = items.filter(u => u.subscriptionTier && u.subscriptionTier !== 'free' && u.subscriptionStatus === 'active');
+      setPremiumUsersCount(premiumUsers.length);
+      
       setSubscribers(items.filter(u => u.subscriptionTier !== 'free' || u.mobileNumber));
     } catch (error) {
       console.error(error);
+    }
+  };
+
+  const handleDeleteUser = async (id: string, name: string) => {
+    if (!confirm(`Are you sure you want to delete user ${name}? This action will remove them from both the database and Authentication (login access). This cannot be undone.`)) return;
+    
+    try {
+      // 1. Delete from Firebase Auth (via server-side Admin SDK)
+      const currentUser = auth.currentUser;
+      if (!currentUser) throw new Error("No authenticated admin user found");
+      
+      const idToken = await currentUser.getIdToken();
+      const response = await fetch('/api/admin/delete-auth-user', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ uid: id, idToken })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to delete user from Authentication");
+      }
+
+      // 2. Delete from Firestore
+      await deleteDoc(doc(db, 'users', id));
+      
+      alert("User deleted successfully from both Auth and Database!");
+      fetchSubscribers();
+    } catch (error) {
+      console.error(error);
+      alert("Failed to delete user. Error: " + (error as Error).message);
+      handleFirestoreError(error, OperationType.DELETE, `users/${id}`);
     }
   };
 
@@ -389,12 +472,15 @@ export default function Admin() {
         };
         await addDoc(collection(db, 'content'), payload);
       }
+      alert("Content saved successfully!");
       setIsAdding(false);
       setEditingId(null);
       fetchContent();
       setForm({ title: '', description: '', category: 'football', type: 'replay', videoUrl: '', isPremium: false, status: 'scheduled', tags: [] });
       setTagsInput('');
     } catch (error) {
+      console.error("Content Save Error:", error);
+      alert("Failed to save content. " + (error instanceof Error ? error.message : ""));
       handleFirestoreError(error, editingId ? OperationType.UPDATE : OperationType.CREATE, 'content');
     }
   };
@@ -420,9 +506,11 @@ export default function Admin() {
       setIsAddingSection(false);
       setEditingSectionId(null);
       await fetchSections();
+      alert("Section saved successfully!");
       setSectionForm({ title: '', page: 'home', contentIds: [], type: 'normal', order: 0, isActive: true, aspectRatio: 'landscape' });
     } catch (error) {
       console.error("Section save error:", error);
+      alert("Failed to save section. " + (error instanceof Error ? error.message : ""));
       handleFirestoreError(error, editingSectionId ? OperationType.UPDATE : OperationType.CREATE, 'sections');
     }
   };
@@ -446,8 +534,11 @@ export default function Admin() {
       setIsAddingSlider(false);
       setEditingSliderId(null);
       fetchSlider();
+      alert("Slide saved successfully!");
       setSliderForm({ title: '', description: '', imageUrl: '', videoUrl: '', actionUrl: '', isLive: false, order: 0, isActive: true, animationType: 'fade', page: 'home' });
     } catch (error) {
+      console.error("Slider save error:", error);
+      alert("Failed to save slide. " + (error instanceof Error ? error.message : ""));
       handleFirestoreError(error, editingSliderId ? OperationType.UPDATE : OperationType.CREATE, 'slider');
     }
   };
@@ -598,10 +689,91 @@ export default function Admin() {
 
               <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 <StatsCard label="Total Media" value={content.length} icon={Film} color="text-red-600" />
-                <StatsCard label="Broadcasting" value={liveItems.length} icon={Radio} color="text-red-500" />
-                <StatsCard label="Total Impressions" value={(content.reduce((acc, c) => acc + (c.viewCount || 0), 0) / 1000000).toFixed(1) + 'M'} icon={Eye} color="text-blue-500" />
-                <StatsCard label="Premium Ratio" value={content.length > 0 ? Math.round((content.filter(c => c.isPremium).length / content.length) * 100) + '%' : '0%'} icon={Crown} color="text-yellow-500" />
+                <StatsCard 
+                  label="Broadcasting" 
+                  value={liveItems.length > 0 ? liveItems.length : "None"} 
+                  icon={Radio} 
+                  color={liveItems.length > 0 ? "text-red-500 animate-pulse" : "text-white/20"} 
+                />
+                <StatsCard 
+                  label="Total Impressions" 
+                  value={
+                    content.reduce((acc, c) => acc + (c.viewCount || 0), 0) >= 1000000
+                      ? (content.reduce((acc, c) => acc + (c.viewCount || 0), 0) / 1000000).toFixed(1) + 'M'
+                      : (content.reduce((acc, c) => acc + (c.viewCount || 0), 0) >= 1000)
+                        ? (content.reduce((acc, c) => acc + (c.viewCount || 0), 0) / 1000).toFixed(1) + 'K'
+                        : content.reduce((acc, c) => acc + (c.viewCount || 0), 0)
+                  } 
+                  icon={Eye} 
+                  color="text-blue-500" 
+                />
+                <StatsCard 
+                  label="Premium Ratio" 
+                  value={allUsersCount > 0 ? Math.round((premiumUsersCount / allUsersCount) * 100) + '%' : '0%'} 
+                  icon={Crown} 
+                  color="text-yellow-500" 
+                />
               </div>
+
+              <div className="flex flex-wrap gap-4">
+                <button 
+                  onClick={resetAllViews}
+                  disabled={isResetting}
+                  className="px-6 py-3 bg-red-600/10 border border-red-500/20 text-red-500 rounded-2xl text-xs font-black uppercase italic hover:bg-red-600 hover:text-white transition-all disabled:opacity-50 flex items-center gap-2"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  {isResetting ? "Resetting Views..." : "Reset All Views (Zero Impressions)"}
+                </button>
+              </div>
+
+              {liveItems.length > 0 ? (
+                <div className="glass-card p-8 border border-red-500/20 bg-red-500/5">
+                  <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center gap-4">
+                      <div className="p-3 bg-red-600 text-white rounded-xl animate-pulse">
+                        <Radio className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <h2 className="text-xl font-display font-black uppercase italic tracking-widest text-white">Active Streamers</h2>
+                        <p className="text-[10px] text-red-500 uppercase font-bold tracking-tighter">Real-time broadcast monitoring</p>
+                      </div>
+                    </div>
+                    <button onClick={() => setActiveTab('live')} className="text-[10px] font-black uppercase italic text-text-muted hover:text-white transition-colors flex items-center gap-2 group">
+                      Live Center <ChevronRight className="w-3 h-3 group-hover:translate-x-1 transition-transform" />
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {liveItems.map(stream => (
+                      <div key={`stream-stat-${stream.id}`} className="flex items-center gap-4 p-4 bg-surface/50 border border-white/5 rounded-2xl">
+                        <div className="w-16 h-10 rounded-lg overflow-hidden border border-border bg-black">
+                          {stream.thumbnailUrl && <img src={stream.thumbnailUrl} className="w-full h-full object-cover" alt="" />}
+                        </div>
+                        <div className="flex-grow">
+                          <p className="text-xs font-bold text-white truncate max-w-[150px]">{stream.title}</p>
+                          <div className="flex items-center gap-2">
+                            <span className="w-1.5 h-1.5 rounded-full bg-red-600 animate-pulse" />
+                            <p className="text-[9px] text-text-muted uppercase font-black">{stream.category}</p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-[10px] font-mono text-brand">{stream.viewCount?.toLocaleString() || 0}</p>
+                          <p className="text-[8px] text-text-muted uppercase font-bold">Views</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="glass-card p-8 border border-white/5 bg-surface/30 flex flex-col items-center justify-center text-center space-y-4">
+                  <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center">
+                    <Radio className="w-8 h-8 text-white/10" />
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-lg font-black uppercase italic tracking-tighter text-white/40">No live streaming is active</p>
+                    <p className="text-[10px] text-text-muted font-bold uppercase tracking-widest">Connect to a stadium to start broadcasting</p>
+                  </div>
+                </div>
+              )}
 
               <div className="glass-card p-8 border border-brand/20 bg-brand/5">
                 <div className="flex items-center gap-4 mb-6">
@@ -1140,8 +1312,14 @@ export default function Admin() {
                     </div>
                   ))}
                   {content.filter(c => c.type === 'live' || c.status === 'live').length === 0 && (
-                    <div className="col-span-full py-12 text-center glass-card text-text-muted italic">
-                      No live events scheduled. Go to Library to add a "Live Stream".
+                    <div className="col-span-full py-20 text-center glass-card border-dashed border-white/10 bg-white/5 space-y-4">
+                      <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mx-auto">
+                        <Radio className="w-8 h-8 text-white/20" />
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-white font-bold text-lg uppercase italic tracking-tighter">No live streaming is active</p>
+                        <p className="text-text-muted text-xs uppercase tracking-widest">Go to Library to add a "Live Stream" or update status</p>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -1164,6 +1342,7 @@ export default function Admin() {
                       <th className="px-6 py-5">Plan</th>
                       <th className="px-6 py-5">Status</th>
                       <th className="px-6 py-5">Member Since</th>
+                      <th className="px-6 py-5">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
@@ -1195,11 +1374,20 @@ export default function Admin() {
                            </span>
                         </td>
                         <td className="px-6 py-4 text-[10px] text-text-muted font-mono">{formatDate(sub.createdAt)}</td>
+                        <td className="px-6 py-4">
+                          <button 
+                            onClick={() => handleDeleteUser(sub.id, sub.displayName || sub.email)}
+                            className="p-2 hover:bg-red-500/10 text-text-muted hover:text-red-500 rounded-lg transition-colors group"
+                            title="Delete User"
+                          >
+                            <Trash2 className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                          </button>
+                        </td>
                       </tr>
                     ))}
                     {subscribers.length === 0 && (
                       <tr>
-                        <td colSpan={5} className="px-6 py-12 text-center text-text-muted italic">No active subscribers found.</td>
+                        <td colSpan={6} className="px-6 py-12 text-center text-text-muted italic">No active subscribers found.</td>
                       </tr>
                     )}
                   </tbody>
@@ -1326,9 +1514,13 @@ export default function Admin() {
                       </div>
                     </div>
 
-                    <button type="submit" className="btn-primary w-full flex items-center justify-center gap-2 py-4">
-                      <Save className="w-5 h-5" />
-                      Save Global Configurations
+                    <button 
+                      type="submit" 
+                      disabled={isSaving}
+                      className="btn-primary w-full flex items-center justify-center gap-2 py-4 disabled:opacity-50"
+                    >
+                      {isSaving ? <Activity className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
+                      {isSaving ? "Saving..." : "Save Global Configurations"}
                     </button>
                   </form>
                 </div>
@@ -1389,7 +1581,7 @@ export default function Admin() {
 
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Button Text</label>
+                          <label className="text-[10px) font-bold uppercase tracking-widest text-white/40">Button Text</label>
                           <input type="text" value={videoPromo.buttonText || ''} onChange={e => setVideoPromo({...videoPromo, buttonText: e.target.value})} className="w-full bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none" />
                         </div>
                         <div className="space-y-2">
@@ -1407,9 +1599,13 @@ export default function Admin() {
                       </div>
                     </div>
 
-                    <button type="submit" className="btn-primary w-full flex items-center justify-center gap-2 py-4">
-                      <Save className="w-5 h-5" />
-                      Save Banner Configuration
+                    <button 
+                      type="submit" 
+                      disabled={isSaving}
+                      className="btn-primary w-full flex items-center justify-center gap-2 py-4 disabled:opacity-50"
+                    >
+                      {isSaving ? <Activity className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
+                      {isSaving ? "Saving..." : "Save Banner Configuration"}
                     </button>
                   </form>
                 </div>
@@ -1423,6 +1619,29 @@ export default function Admin() {
                   </div>
 
                   <form onSubmit={handlePlayerConfigUpdate} className="space-y-6">
+                    <div className="p-4 bg-brand/5 border border-brand/20 rounded-xl space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-xs font-black uppercase italic text-brand">Player Engine</p>
+                          <p className="text-[10px] text-text-muted font-bold uppercase tracking-widest mt-1">
+                            {playerConfig.useCustomPlayer ? "Using SportsBox Custom Player" : "Using Server Native/Iframe Player"}
+                          </p>
+                        </div>
+                        <button 
+                          type="button"
+                          onClick={() => setPlayerConfig({...playerConfig, useCustomPlayer: !playerConfig.useCustomPlayer})}
+                          className={cn("w-14 h-7 rounded-full transition-all relative border border-white/10", playerConfig.useCustomPlayer ? "bg-brand" : "bg-surface")}
+                        >
+                          <div className={cn("absolute top-1 w-5 h-5 rounded-full bg-white shadow-xl transition-all", playerConfig.useCustomPlayer ? "right-1" : "left-1")} />
+                        </button>
+                      </div>
+                      <p className="text-[9px] text-text-muted italic uppercase leading-tight">
+                        {playerConfig.useCustomPlayer 
+                          ? "Our custom player provides cinematic controls, gestures, and premium UI. Recommended for MP4 files." 
+                          : "Native player uses raw iframes or browser defaults. Recommended for Bunny Stream, external hosts, and better mobile compatibility."}
+                      </p>
+                    </div>
+
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="flex items-center justify-between bg-white/5 p-4 rounded-xl">
                         <span className="text-xs font-bold uppercase italic">Autoplay</span>
@@ -1474,9 +1693,13 @@ export default function Admin() {
                       </div>
                     </div>
 
-                    <button type="submit" className="btn-primary w-full flex items-center justify-center gap-2 py-4">
-                      <Save className="w-5 h-5" />
-                      Update Player Config
+                    <button 
+                      type="submit" 
+                      disabled={isSaving}
+                      className="btn-primary w-full flex items-center justify-center gap-2 py-4 disabled:opacity-50"
+                    >
+                      {isSaving ? <Activity className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
+                      {isSaving ? "Updating..." : "Update Player Config"}
                     </button>
                   </form>
                 </div>

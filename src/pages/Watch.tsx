@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { doc, getDoc, updateDoc, increment, arrayUnion, arrayRemove, collection, query, where, limit, getDocs, setDoc, deleteDoc } from 'firebase/firestore';
-import { SportsContent } from '../types';
+import { SportsContent, PlayerSettings } from '../types';
 import { useAuth } from '../hooks/useAuth';
 import { Play, Share2, Heart, MessageSquare, Crown, Info, ChevronRight, Activity, PlusCircle, CheckCircle2 } from 'lucide-react';
 import { motion } from 'motion/react';
@@ -20,6 +20,7 @@ export default function Watch() {
   const [loading, setLoading] = useState(true);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isWatchLater, setIsWatchLater] = useState(false);
+  const [playerConfig, setPlayerConfig] = useState<PlayerSettings | null>(null);
 
   const [hasLiked, setHasLiked] = useState(false);
 
@@ -63,6 +64,7 @@ export default function Watch() {
       window.scrollTo(0, 0);
       setIsPlaying(false);
       fetchContent();
+      fetchPlayerConfig();
       // Increment view count
       updateDoc(doc(db, 'content', id), {
         viewCount: increment(1)
@@ -137,6 +139,17 @@ export default function Watch() {
       }
     } catch (error) {
       console.error('Error sharing:', error);
+    }
+  };
+
+  const fetchPlayerConfig = async () => {
+    try {
+      const snap = await getDoc(doc(db, 'settings', 'playerConfig'));
+      if (snap.exists()) {
+        setPlayerConfig(snap.data() as PlayerSettings);
+      }
+    } catch (error) {
+      console.error("Error fetching player config:", error);
     }
   };
 
@@ -241,13 +254,26 @@ export default function Watch() {
                         </div>
                       </div>
                     </div>
-                  ) : content.videoUrl && content.videoUrl.trim() !== '' && isIframeUrl(content.videoUrl) ? (
-                    <iframe
-                      src={`${content.videoUrl}${content.videoUrl.includes('?') ? '&' : '?'}autoplay=1`}
-                      className="w-full h-full border-0"
-                      allowFullScreen
-                      allow="autoplay; encrypted-media; picture-in-picture"
-                    />
+                  ) : content.videoUrl && content.videoUrl.trim() !== '' && (isIframeUrl(content.videoUrl) || (playerConfig && !playerConfig.useCustomPlayer)) ? (
+                    // Using Native/Iframe Player (Server)
+                    content.videoUrl.includes('<iframe') ? (
+                      <div className="w-full h-full flex items-center justify-center p-0" dangerouslySetInnerHTML={{ __html: content.videoUrl.replace('<iframe', '<iframe style="width:100%;height:100%;border:0;position:absolute;top:0;left:0;"') }} />
+                    ) : isIframeUrl(content.videoUrl) ? (
+                      <iframe
+                        src={`${content.videoUrl}${content.videoUrl.includes('?') ? '&' : '?'}autoplay=1`}
+                        className="w-full h-full border-0 absolute inset-0"
+                        allowFullScreen
+                        allow="autoplay; encrypted-media; picture-in-picture"
+                      />
+                    ) : (
+                      <video 
+                        src={transformGDriveUrl(content.videoUrl, 'video')}
+                        autoPlay
+                        controls
+                        className="w-full h-full bg-black object-contain"
+                        poster={transformGDriveUrl(content.thumbnailUrl, 'image')}
+                      />
+                    )
                   ) : content.videoUrl && content.videoUrl.trim() !== '' ? (
                     <StadiumPlayer 
                       url={transformGDriveUrl(content.videoUrl, 'video')} 
@@ -328,14 +354,6 @@ export default function Watch() {
                 </div>
               </div>
 
-              {/* Momentum Section (Desktop) */}
-              <div className="hidden lg:block pt-2">
-                 <h3 className="text-xs font-black uppercase tracking-widest text-text-muted italic mb-4">Match Momentum</h3>
-                 <div className="grid grid-cols-2 gap-8">
-                   <MomentumTracker label="Offensive Power" value="82%" width="w-[82%]" />
-                   <MomentumTracker label="Fan Sentiment" value="94%" width="w-[94%]" />
-                 </div>
-              </div>
 
               {/* Related/More Content Sections - Horizontal Sliders */}
               <div className="space-y-8 pt-4">
@@ -409,16 +427,3 @@ function ActionButton({ icon: Icon, label, onClick, circle, isActive }: { icon: 
   );
 }
 
-function MomentumTracker({ label, value, width }: { label: string, value: string, width: string }) {
-  return (
-    <div className="space-y-1.5">
-      <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest">
-        <span className="text-white/40">{label}</span>
-        <span>{value}</span>
-      </div>
-      <div className="h-1 bg-white/5 rounded-full overflow-hidden">
-        <div className={cn("h-full bg-brand", width)} />
-      </div>
-    </div>
-  );
-}

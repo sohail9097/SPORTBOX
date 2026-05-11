@@ -8,7 +8,7 @@ import {
   Search, Menu, X, Sun, Moon, Home, Tv, 
   Calendar, UserCircle, Bell, Clock
 } from 'lucide-react';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { doc, onSnapshot, query, collection, where } from 'firebase/firestore';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
 import { SiteConfig } from '../types';
@@ -24,6 +24,7 @@ export default function Layout({ children }: { children: ReactNode }) {
     founderImageUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=1000&auto=format&fit=crop',
     logoUrl: ''
   });
+  const [liveCount, setLiveCount] = useState(0);
   const location = useLocation();
 
   useEffect(() => {
@@ -34,6 +35,18 @@ export default function Layout({ children }: { children: ReactNode }) {
       }
     });
 
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    const q = query(collection(db, 'content'), where('status', '==', 'live'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      // Sum views of all active live streams
+      const totalViews = snapshot.docs.reduce((acc, doc) => acc + (doc.data().viewCount || 0), 0);
+      setLiveCount(totalViews);
+    }, (error) => {
+      console.error("Live count snapshot error:", error);
+    });
     return () => unsubscribe();
   }, []);
 
@@ -133,9 +146,15 @@ export default function Layout({ children }: { children: ReactNode }) {
                   {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
                 </button>
 
-                <div className="px-4 py-2 bg-white/5 rounded-full border border-white/5 text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 text-text-muted">
-                  <span className="w-1.5 h-1.5 rounded-full bg-brand animate-pulse"></span>
-                  2,402 Active Streams
+                <div className={cn(
+                  "px-4 py-2 bg-white/5 rounded-full border border-white/5 text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 transition-all duration-500",
+                  liveCount > 0 ? "text-brand border-brand/20 bg-brand/5" : "text-text-muted opacity-50"
+                )}>
+                  <span className={cn(
+                    "w-1.5 h-1.5 rounded-full transition-all duration-1000",
+                    liveCount > 0 ? "bg-brand animate-pulse scale-110" : "bg-text-muted"
+                  )}></span>
+                  {liveCount > 0 ? `${liveCount.toLocaleString()} Viewing Live` : "No live stream is active"}
                 </div>
                 
                 {user ? (
@@ -197,17 +216,33 @@ export default function Layout({ children }: { children: ReactNode }) {
           {mobileNavLinks.map((link, i) => {
             const Icon = link.icon;
             const isActive = location.pathname === link.path;
+            const isLive = link.name === 'Live' && liveCount > 0;
+            
             return (
               <Link
                 key={`mobile-nav-${link.name}-${i}`}
                 to={link.path}
                 className={cn(
-                  "flex flex-col items-center justify-center gap-1 w-full h-full transition-colors",
-                  isActive ? "text-brand" : "text-text-muted"
+                  "flex flex-col items-center justify-center gap-1 w-full h-full transition-all duration-500 relative",
+                  isActive ? "text-brand" : (isLive ? "text-red-500" : "text-text-muted")
                 )}
               >
-                <Icon className={cn("w-5 h-5", isActive && "fill-brand/20")} />
-                <span className="text-[10px] font-bold uppercase tracking-tighter">{link.name}</span>
+                {isLive && (
+                  <motion.span 
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    className="absolute top-2 right-1/2 translate-x-3 w-1.5 h-1.5 bg-red-600 rounded-full animate-pulse shadow-[0_0_8px_rgba(220,38,38,0.8)]" 
+                  />
+                )}
+                <Icon className={cn(
+                  "w-5 h-5 transition-all duration-500", 
+                  isActive && "fill-brand/20",
+                  isLive && "text-red-500 drop-shadow-[0_0_8px_rgba(239,68,68,0.6)] animate-pulse"
+                )} />
+                <span className={cn(
+                  "text-[10px] font-bold uppercase tracking-tighter",
+                  isLive && "text-red-500"
+                )}>{link.name}</span>
               </Link>
             );
           })}

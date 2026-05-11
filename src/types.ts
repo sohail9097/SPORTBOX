@@ -88,6 +88,7 @@ export interface VideoPromoSettings {
 }
 
 export interface PlayerSettings {
+  useCustomPlayer: boolean;
   autoplay: boolean;
   muted: boolean;
   loop: boolean;

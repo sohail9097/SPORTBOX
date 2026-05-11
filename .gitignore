@@ -6,3 +6,4 @@ coverage/
 *.log
 .env*
 !.env.example
+gen-lang-client-0783495181-firebase-adminsdk-fbsvc-c6efa0d61d.json

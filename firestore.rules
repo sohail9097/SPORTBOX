@@ -15,8 +15,7 @@ service cloud.firestore {
     function isAdmin() { 
       return isSignedIn() && 
              (request.auth.token.email.lower() == 'sohailgaji9097@gmail.com' ||
-              request.auth.token.email.lower() == 'tavish@dreamcatchers.tv') && 
-             request.auth.token.email_verified == true;
+              request.auth.token.email.lower() == 'tavish@dreamcatchers.tv');
     }
     function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
     function incoming() { return request.resource.data; }
@@ -61,6 +60,7 @@ service cloud.firestore {
         // Action: Subscribe / Payment Upgrade (including profile updates)
         incoming().diff(existing()).affectedKeys().hasAny(['subscriptionTier', 'subscriptionStatus', 'mobileNumber', 'lastPaymentDate', 'displayName', 'isMobileVerified'])
       )) || isAdmin();
+      allow delete: if isAdmin();
     }
 
     // Content Collection

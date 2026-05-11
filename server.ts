@@ -3,13 +3,15 @@ import { createServer as createViteServer } from 'vite';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import admin from 'firebase-admin';
-import serviceAccount from './gen-lang-client-0783495181-firebase-adminsdk-fbsvc-c6efa0d61d.json';
+import fs from 'fs';
 
 // Initialize Firebase Admin
 try {
+  const serviceAccount = JSON.parse(fs.readFileSync('./gen-lang-client-0783495181-firebase-adminsdk-fbsvc-c6efa0d61d.json', 'utf8'));
   admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount as any),
+    credential: admin.credential.cert(serviceAccount),
   });
+  console.log("Firebase Admin initialized successfully.");
 } catch (error) {
   console.error("Firebase Admin initialization error:", error);
 }
@@ -24,24 +26,29 @@ async function startServer() {
 
   // Admin API routes
   app.post('/api/admin/delete-auth-user', async (req, res) => {
+    console.log('Received delete-auth-user request for UID:', req.body.uid);
     const { uid, idToken } = req.body;
     
     if (!uid || !idToken) {
+      console.warn('Missing uid or idToken in request');
       return res.status(400).json({ error: 'Missing uid or idToken' });
     }
 
     try {
       // Verify token
       const decodedToken = await admin.auth().verifyIdToken(idToken);
+      console.log('Token verified for:', decodedToken.email);
       
       // Hardcoded admin emails as per firestore.rules
       const adminEmails = ['sohailgaji9097@gmail.com', 'tavish@dreamcatchers.tv'];
       if (!adminEmails.includes(decodedToken.email?.toLowerCase() || '')) {
+        console.warn('Unauthorized attempt by:', decodedToken.email);
         return res.status(403).json({ error: 'Unauthorized' });
       }
 
       // Delete from Auth
       await admin.auth().deleteUser(uid);
+      console.log('User deleted successfully from Auth:', uid);
       res.json({ success: true });
     } catch (error) {
       console.error('Delete Auth User error:', error);

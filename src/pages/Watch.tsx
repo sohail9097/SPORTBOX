@@ -138,6 +138,10 @@ export default function Watch() {
         alert('Link copied to clipboard!');
       }
     } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        // User cancelled the share, ignore this error
+        return;
+      }
       console.error('Error sharing:', error);
     }
   };

@@ -15,7 +15,7 @@ import LoadingScreen from '../components/LoadingScreen';
 export default function Admin() {
   const { user, isAdmin, loading: authLoading } = useAuth();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'content' | 'live' | 'sections' | 'categories' | 'slider' | 'users' | 'settings' | 'media' | 'plans' | 'trending' | 'likes'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'content' | 'live' | 'sections' | 'categories' | 'slider' | 'users' | 'settings' | 'media' | 'plans' | 'trending' | 'likes' | 'domain_setup'>('dashboard');
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [content, setContent] = useState<SportsContent[]>([]);
   const [mediaItems, setMediaItems] = useState<any[]>([]);
@@ -773,6 +773,7 @@ export default function Admin() {
           <SidebarLink icon={Activity} label="Trending Editor" active={activeTab === 'trending'} onClick={() => setActiveTab('trending')} />
           <SidebarLink icon={Crown} label="Subscription Plans" active={activeTab === 'plans'} onClick={() => setActiveTab('plans')} />
           <SidebarLink icon={Settings} label="Settings" active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} />
+          <SidebarLink icon={ShieldCheck} label="Domain Setup" active={activeTab === 'domain_setup'} onClick={() => setActiveTab('domain_setup')} />
           <SidebarLink icon={Heart} label="Likes Insight" active={activeTab === 'likes'} onClick={() => setActiveTab('likes')} />
           <SidebarLink icon={Library} label="Media Uploads" active={activeTab === 'media'} onClick={() => setActiveTab('media')} />
         </div>
@@ -1858,6 +1859,109 @@ export default function Admin() {
                </div>
              </motion.div>
           )}
+          {activeTab === 'domain_setup' && (
+            <motion.div key="domain_setup" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} className="space-y-12">
+               <div className="space-y-2">
+                <h1 className="text-5xl font-black uppercase italic tracking-tighter text-brand">Project Identity</h1>
+                <p className="text-text-muted font-medium">Configure domains and branding for Google Sign-in.</p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="glass-card p-8 border border-amber-500/20 bg-amber-500/5 space-y-6">
+                  <div className="flex items-center gap-4 mb-4">
+                    <div className="p-3 bg-amber-500/10 rounded-xl text-amber-500">
+                      <ShieldCheck className="w-6 h-6" />
+                    </div>
+                    <h2 className="text-xl font-display font-black uppercase italic tracking-widest text-white">1. Authorized Domains</h2>
+                  </div>
+                  
+                  <p className="text-xs text-text-muted leading-relaxed">
+                    To prevent <b>"Unauthorized Domain"</b> errors during login, you MUST add these URLs to your Firebase Console.
+                  </p>
+
+                  <div className="space-y-3">
+                    <div className="p-4 bg-black/40 rounded-xl border border-white/5 space-y-2">
+                      <p className="text-[10px] font-bold uppercase text-white/40">Domains to Add:</p>
+                      <div className="flex flex-col gap-2">
+                        <code className="text-[10px] bg-bg p-2 rounded border border-white/5 text-amber-400 select-all">ais-dev-mh4r6wg37qxzkiuioan5mi-304563445639.asia-southeast1.run.app</code>
+                        <code className="text-[10px] bg-bg p-2 rounded border border-white/5 text-amber-400 select-all">ais-pre-mh4r6wg37qxzkiuioan5mi-304563445639.asia-southeast1.run.app</code>
+                      </div>
+                    </div>
+                    
+                    <a 
+                      href="https://console.firebase.google.com/project/central-bricolage-1cf5x/authentication/settings" 
+                      target="_blank" 
+                      className="flex items-center justify-between p-4 bg-white/5 hover:bg-white/10 rounded-xl group transition-all"
+                    >
+                      <span className="text-[10px] font-black uppercase italic">Open Firebase Authentication Settings</span>
+                      <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                    </a>
+                  </div>
+                </div>
+
+                <div className="glass-card p-8 border border-blue-500/20 bg-blue-500/5 space-y-6">
+                  <div className="flex items-center gap-4 mb-4">
+                    <div className="p-3 bg-blue-500/10 rounded-xl text-blue-500">
+                      <Zap className="w-6 h-6" />
+                    </div>
+                    <h2 className="text-xl font-display font-black uppercase italic tracking-widest text-white">2. Sign-in Branding</h2>
+                  </div>
+                  
+                  <p className="text-xs text-text-muted leading-relaxed">
+                    To change <b>"Sign in to gen-lang-client..."</b> to <b>"Sign in to Sportsbox"</b>, update your Project Name.
+                  </p>
+
+                  <div className="space-y-4">
+                    <div className="p-4 bg-black/40 rounded-xl border border-white/5 space-y-4">
+                      <div className="space-y-1">
+                        <p className="text-[10px] font-bold uppercase text-blue-400">Step A: Project Name</p>
+                        <p className="text-[10px] text-text-muted italic">Go to General Settings and set "Project name" to <b>Sportsbox</b>.</p>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-[10px] font-bold uppercase text-blue-400">Step B: OAuth Consent</p>
+                        <p className="text-[10px] text-text-muted italic">In Google Cloud APIs & Services, set "App name" to <b>Sportsbox</b>.</p>
+                      </div>
+                    </div>
+
+                    <a 
+                      href="https://console.firebase.google.com/project/central-bricolage-1cf5x/settings/general" 
+                      target="_blank" 
+                      className="flex items-center justify-between p-4 bg-white/5 hover:bg-white/10 rounded-xl group transition-all"
+                    >
+                      <span className="text-[10px] font-black uppercase italic">Open Firebase General Settings</span>
+                      <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                    </a>
+                  </div>
+                </div>
+
+                <div className="glass-card p-8 border border-red-500/20 bg-red-500/5 space-y-6 md:col-span-2">
+                   <div className="flex items-center gap-4 mb-4">
+                    <div className="p-3 bg-red-500/10 rounded-xl text-red-500">
+                      <Trash2 className="w-6 h-6" />
+                    </div>
+                    <h2 className="text-xl font-display font-black uppercase italic tracking-widest text-white">Troubleshooting "Internal Errors"</h2>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="space-y-4">
+                       <p className="text-xs font-bold text-red-500 uppercase italic">Error: An internal error occurred</p>
+                       <p className="text-xs text-text-muted leading-relaxed">
+                         If you see this error when fetching data, it usually means the <b>Named Database</b> is not yet created or provisioned in your Firebase Project.
+                       </p>
+                    </div>
+                    <div className="space-y-3">
+                       <div className="p-4 bg-black/40 rounded-xl border border-white/5">
+                          <p className="text-[10px] font-bold uppercase text-white/40 mb-2">Current Database ID:</p>
+                          <code className="text-[10px] bg-bg p-2 rounded border border-white/5 text-red-400 block truncate">ai-studio-a22be501-62d9-4b19-b6a4-5c3356b9a90c</code>
+                       </div>
+                       <p className="text-[9px] text-text-muted italic">Ensure this database ID exists in your Firestore console under "Databases".</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
+
           {activeTab === 'likes' && (
             <motion.div key="likes" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} className="space-y-8">
               <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">

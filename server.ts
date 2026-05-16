@@ -20,9 +20,9 @@ try {
     
     if (!admin.apps.length) {
       admin.initializeApp({
-        credential: admin.credential.cert(serviceAccount),
+        credential: admin.credential.cert(serviceAccount)
       });
-      console.log("[Admin Init] Firebase Admin initialized with service account.");
+      console.log("[Admin Init] Firebase Admin initialized.");
     }
   } else {
     console.warn("[Admin Init] No service account JSON file found in root. Falling back to default credentials.");
@@ -112,7 +112,9 @@ async function startServer() {
 
       // 3. Delete from Firestore
       console.log(`[Admin API] Deleting from Firestore: ${uid}`);
-      await admin.firestore().collection('users').doc(uid).delete();
+      const firebaseConfig = JSON.parse(fs.readFileSync('./firebase-applet-config.json', 'utf8'));
+      const db = admin.firestore(firebaseConfig.firestoreDatabaseId || undefined);
+      await db.collection('users').doc(uid).delete();
       
       return res.json({ success: true, message: 'User deleted from Auth and Firestore' });
     } catch (error) {

@@ -311,11 +311,14 @@ export default function Admin() {
           createdFolders.push({ id: docRef.id, name, parentId: null });
         }
         setFolders(createdFolders);
+        return createdFolders;
       } else {
         setFolders(folderList);
+        return folderList;
       }
     } catch (err) {
       console.error("Fetch folders error:", err);
+      return [];
     }
   };
 
@@ -1915,7 +1918,9 @@ export default function Admin() {
                             <td className="px-6 py-4">
                               <div className="flex items-center gap-3">
                                 <div className="w-12 h-8 rounded bg-surface overflow-hidden">
-                                  <img src={transformGDriveUrl(item.thumbnailUrl, 'image')} className="w-full h-full object-cover" alt="" />
+                                  {item.thumbnailUrl && item.thumbnailUrl.trim() !== '' && (
+                                    <img src={transformGDriveUrl(item.thumbnailUrl, 'image')} className="w-full h-full object-cover" alt="" />
+                                  )}
                                 </div>
                                 <span className="text-sm font-bold truncate max-w-[200px]">{item.title}</span>
                               </div>
@@ -2094,7 +2099,7 @@ export default function Admin() {
                         mediaItems.map(item => (
                           <div key={`library-${item.id}`} className="glass-card p-4 group flex gap-4 items-center">
                             <div className="w-20 h-20 bg-bg rounded-xl overflow-hidden shrink-0 flex items-center justify-center relative">
-                              <video src={item.url} className="w-full h-full object-cover opacity-50" />
+                              {item.url && item.url.trim() !== '' && <video src={item.url} className="w-full h-full object-cover opacity-50" />}
                               <div className="absolute inset-0 flex items-center justify-center group-hover:bg-black/20 transition-all">
                                 <Play className="w-6 h-6 text-white/50 group-hover:text-brand transition-colors" />
                               </div>

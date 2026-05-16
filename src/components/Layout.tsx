@@ -229,19 +229,27 @@ export default function Layout({ children }: { children: ReactNode }) {
               >
                 {isLive && (
                   <motion.span 
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    className="absolute top-2 right-1/2 translate-x-3 w-1.5 h-1.5 bg-red-600 rounded-full animate-pulse shadow-[0_0_8px_rgba(220,38,38,0.8)]" 
+                    initial={{ scale: 0, opacity: 0 }}
+                    animate={{ 
+                      scale: [1, 1.5, 1],
+                      opacity: [0.8, 1, 0.8],
+                    }}
+                    transition={{
+                      duration: 2,
+                      repeat: Infinity,
+                      ease: "easeInOut"
+                    }}
+                    className="absolute top-2 right-1/2 translate-x-3 w-2 h-2 bg-red-600 rounded-full shadow-[0_0_15px_rgba(220,38,38,1),0_0_30px_rgba(220,38,38,0.6)]" 
                   />
                 )}
                 <Icon className={cn(
                   "w-5 h-5 transition-all duration-500", 
                   isActive && "fill-brand/20",
-                  isLive && "text-red-500 drop-shadow-[0_0_8px_rgba(239,68,68,0.6)] animate-pulse"
+                  isLive && "text-red-500 drop-shadow-[0_0_12px_rgba(239,68,68,0.8)] animate-pulse"
                 )} />
                 <span className={cn(
-                  "text-[10px] font-bold uppercase tracking-tighter",
-                  isLive && "text-red-500"
+                  "text-[10px] font-black uppercase tracking-tighter",
+                  isLive ? "text-red-500 animate-pulse" : ""
                 )}>{link.name}</span>
               </Link>
             );

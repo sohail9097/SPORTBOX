@@ -250,11 +250,13 @@ export default function Watch() {
                       className="absolute inset-0 z-10 cursor-pointer group"
                       onClick={() => setIsPlaying(true)}
                     >
-                      <img 
-                        src={transformGDriveUrl(content.thumbnailUrl, 'image')} 
-                        alt={content.title}
-                        className="w-full h-full object-cover"
-                      />
+                      {content.thumbnailUrl && content.thumbnailUrl.trim() !== '' && (
+                        <img 
+                          src={transformGDriveUrl(content.thumbnailUrl, 'image')} 
+                          alt={content.title}
+                          className="w-full h-full object-cover"
+                        />
+                      )}
                       <div className="absolute inset-0 bg-black/40 group-hover:bg-black/20 transition-colors flex items-center justify-center">
                         <div className="w-16 h-16 md:w-24 md:h-24 bg-brand/90 rounded-full flex items-center justify-center shadow-2xl transform group-hover:scale-110 transition-transform duration-500">
                           <Play className="w-8 h-8 md:w-12 md:h-12 text-white fill-white ml-1" />
@@ -282,7 +284,7 @@ export default function Watch() {
                         autoPlay
                         controls
                         className="w-full h-full bg-black object-contain"
-                        poster={transformGDriveUrl(content.thumbnailUrl, 'image')}
+                        poster={content.thumbnailUrl && content.thumbnailUrl.trim() !== '' ? transformGDriveUrl(content.thumbnailUrl, 'image') : undefined}
                       />
                     )
                   ) : content.videoUrl && content.videoUrl.trim() !== '' ? (
@@ -388,11 +390,13 @@ export default function Watch() {
                             className="group block space-y-1.5 flex-shrink-0 w-[42vw] md:w-[240px] snap-start"
                           >
                             <div className="relative aspect-video rounded-xl overflow-hidden bg-surface shadow-2xl">
-                              <img 
-                                src={transformGDriveUrl(item.thumbnailUrl, 'image')} 
-                                alt={item.title}
-                                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
-                              />
+                              {item.thumbnailUrl && item.thumbnailUrl.trim() !== '' && (
+                                <img 
+                                  src={transformGDriveUrl(item.thumbnailUrl, 'image')} 
+                                  alt={item.title}
+                                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                                />
+                              )}
                               <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                                 <Play className="w-6 h-6 text-white fill-white" />
                               </div>

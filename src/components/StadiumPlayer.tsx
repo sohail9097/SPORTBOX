@@ -163,6 +163,7 @@ export default function StadiumPlayer({ url, poster, isLive, useIframe: initialU
 
   if ((isGDrive && driveId) || isIframeUrl) {
     const iframeSrc = isGDrive ? `https://drive.google.com/file/d/${driveId}/preview` : url;
+    if (!iframeSrc) return null;
     return (
       <div className="relative w-full aspect-video bg-black group rounded-xl overflow-hidden border border-white/10 shadow-2xl">
         <iframe 

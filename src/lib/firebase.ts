@@ -5,7 +5,9 @@ import { getStorage } from 'firebase/storage';
 import firebaseConfig from '../../firebase-applet-config.json';
 
 const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+export const db = firebaseConfig.firestoreDatabaseId 
+  ? getFirestore(app, firebaseConfig.firestoreDatabaseId)
+  : getFirestore(app);
 export const auth = getAuth(app);
 export const storage = getStorage(app);
 export const googleProvider = new GoogleAuthProvider();
@@ -80,10 +82,18 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
 // Connection test
 async function testConnection() {
   try {
-    await getDocFromServer(doc(db, 'test', 'connection'));
+    const testDoc = doc(db, 'settings', 'siteConfig');
+    await getDocFromServer(testDoc);
+    console.log("Firebase connection established successfully.");
   } catch (error) {
-    if(error instanceof Error && error.message.includes('the client is offline')) {
-      console.error("Please check your Firebase configuration.");
+    if (error instanceof Error) {
+      if (error.message.includes('the client is offline')) {
+        console.error("Firebase is offline. Please check your internet connection.");
+      } else if (error.message.includes('internal')) {
+        console.error("Firebase Internal Error: This usually means the database is not provisioned or there is a configuration mismatch.");
+      } else {
+        console.error("Firebase Connection Error:", error.message);
+      }
     }
   }
 }

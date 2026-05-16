@@ -111,11 +111,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Dynamic Admin-Managed Sections */}
-      <div className="max-w-[1600px] mx-auto px-4 mt-4">
-        <DynamicSections page="home" />
-      </div>
-
       {/* Live Section */}
       {liveNow.length > 0 && (
         <section key="home-live-section" className="max-w-[1600px] mx-auto px-4 mt-2 md:mt-4">
@@ -129,6 +124,11 @@ export default function Home() {
           </div>
         </section>
       )}
+
+      {/* Dynamic Admin-Managed Sections */}
+      <div className="max-w-[1600px] mx-auto px-4 mt-4">
+        <DynamicSections page="home" />
+      </div>
 
       {/* Video Promo Banner (Dynamic) */}
       {videoPromo?.isActive && (

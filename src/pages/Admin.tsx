@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { db, handleFirestoreError, OperationType, auth } from '../lib/firebase';
 import { collection, addDoc, getDocs, getDoc, deleteDoc, doc, updateDoc, query, orderBy, setDoc } from 'firebase/firestore';
 import { SportsContent, Category, ContentType, ContentSection, SliderElement, VideoPromoSettings, SiteConfig, PlayerSettings, SubscriptionPlan } from '../types';
-import { Plus, Trash2, Edit2, Play, LayoutDashboard, Film, Users, Settings, Save, X, Eye, Radio, Crown, Layers, MoveUp, MoveDown, CheckSquare, Square, Image as ImageIcon, Upload, Library, ShieldCheck, Zap, Percent, Trophy, ChevronRight, Activity, Heart, Dribbble, CircleDot, Target, Disc, Flag, Gamepad2 } from 'lucide-react';
+import { Plus, Trash2, Edit2, Play, LayoutDashboard, Film, Users, Settings, Save, X, Eye, Radio, Crown, Layers, MoveUp, MoveDown, CheckSquare, Square, Image as ImageIcon, Upload, Library, ShieldCheck, Zap, Percent, Trophy, ChevronRight, Activity, Heart, Dribbble, CircleDot, Target, Disc, Flag, Gamepad2, Folder, ChevronLeft } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn, formatDate, transformGDriveUrl } from '../lib/utils';
 import { useAuth } from '../hooks/useAuth';
@@ -19,6 +19,11 @@ export default function Admin() {
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [content, setContent] = useState<SportsContent[]>([]);
   const [mediaItems, setMediaItems] = useState<any[]>([]);
+  const [folders, setFolders] = useState<any[]>([]);
+  const [currentFolder, setCurrentFolder] = useState<string | null>(null);
+  const [currentFolderName, setCurrentFolderName] = useState<string | null>(null);
+  const [isCreatingFolder, setIsCreatingFolder] = useState(false);
+  const [newFolderName, setNewFolderName] = useState('');
   const [sections, setSections] = useState<ContentSection[]>([]);
   const [slider, setSlider] = useState<SliderElement[]>([]);
   const [subscribers, setSubscribers] = useState<any[]>([]);
@@ -141,6 +146,7 @@ export default function Admin() {
       fetchSiteConfig();
       fetchVideoPromo();
       fetchMediaItems();
+      fetchFolders();
       fetchPlayerConfig();
       fetchSubscriptionPlans();
     }
@@ -262,11 +268,88 @@ export default function Admin() {
 
   const fetchMediaItems = async () => {
     try {
-      const q = query(collection(db, 'library'), orderBy('createdAt', 'desc'));
+      const q = query(
+        collection(db, 'library'), 
+        orderBy('createdAt', 'desc')
+      );
       const snap = await getDocs(q);
-      setMediaItems(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      const items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      
+      // Filter by folder client-side if needed, or update query
+      if (currentFolder) {
+        setMediaItems(items.filter((item: any) => item.folderId === currentFolder));
+      } else {
+        setMediaItems(items.filter((item: any) => !item.folderId));
+      }
     } catch (err) {
       console.error("Fetch media error:", err);
+    }
+  };
+
+  const fetchFolders = async () => {
+    try {
+      const q = query(collection(db, 'library_folders'), orderBy('createdAt', 'asc'));
+      const snap = await getDocs(q);
+      const folderList = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      
+      if (folderList.length === 0) {
+        // Initial setup for default folders if they don't exist
+        const defaultFolders = [
+          'Ads', 'Banner', 'Cast & Crew', 'Constant', 'Genres', 
+          'Live TV', 'Logos', 'Movie', 'Onboarding', 'TV Show', 
+          'Users', 'Video', 'Cricket', 'Football', 'Basketball', 
+          'Tennis', 'Kabaddi', 'Hockey', 'Combat Sports'
+        ];
+        
+        const createdFolders = [];
+        for (const name of defaultFolders) {
+          const docRef = await addDoc(collection(db, 'library_folders'), {
+            name,
+            createdAt: new Date().toISOString(),
+            parentId: null
+          });
+          createdFolders.push({ id: docRef.id, name, parentId: null });
+        }
+        setFolders(createdFolders);
+      } else {
+        setFolders(folderList);
+      }
+    } catch (err) {
+      console.error("Fetch folders error:", err);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'media') {
+      fetchMediaItems();
+    }
+  }, [currentFolder, activeTab]);
+
+  const createFolder = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newFolderName.trim()) return;
+    
+    try {
+      await addDoc(collection(db, 'library_folders'), {
+        name: newFolderName,
+        createdAt: new Date().toISOString(),
+        parentId: currentFolder
+      });
+      setNewFolderName('');
+      setIsCreatingFolder(false);
+      fetchFolders();
+    } catch (err) {
+      console.error("Create folder error:", err);
+    }
+  };
+
+  const deleteFolder = async (id: string, name: string) => {
+    if (!confirm(`Are you sure you want to delete the folder "${name}"? Items inside may become orphaned.`)) return;
+    try {
+      await deleteDoc(doc(db, 'library_folders', id));
+      fetchFolders();
+    } catch (err) {
+      console.error("Delete folder error:", err);
     }
   };
 
@@ -1907,52 +1990,137 @@ export default function Admin() {
                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
                 <div className="space-y-2">
                   <h1 className="text-5xl font-black uppercase italic tracking-tighter">Media Assets</h1>
-                  <p className="text-text-muted font-medium">Direct video uploads to Firebase Storage.</p>
+                  <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                    <button 
+                      onClick={() => { setCurrentFolder(null); setCurrentFolderName(null); }}
+                      className={cn(
+                        "text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-lg transition-all flex items-center gap-2 whitespace-nowrap",
+                        !currentFolder ? "bg-brand text-white" : "bg-surface hover:bg-brand/20 text-text-muted"
+                      )}
+                    >
+                      Library
+                    </button>
+                    {currentFolderName && (
+                      <>
+                        <ChevronRight className="w-3 h-3 text-white/20 shrink-0" />
+                        <span className="text-[10px] font-black uppercase tracking-widest px-3 py-1.5 bg-brand text-white rounded-lg whitespace-nowrap">
+                          {currentFolderName}
+                        </span>
+                      </>
+                    )}
+                  </div>
+                </div>
+                <div className="flex gap-4">
+                  <button 
+                    onClick={() => setIsCreatingFolder(true)}
+                    className="px-6 py-3 bg-surface border border-white/5 text-xs font-black uppercase italic hover:bg-brand hover:text-white transition-all flex items-center gap-2 rounded-2xl"
+                  >
+                    <Plus className="w-4 h-4" />
+                    New Folder
+                  </button>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              {isCreatingFolder && (
+                <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="glass-card p-6 border-brand/50 bg-brand/5 flex items-center gap-4">
+                  <Folder className="w-8 h-8 text-brand" />
+                  <form onSubmit={createFolder} className="flex-grow flex gap-4">
+                    <input 
+                      autoFocus
+                      type="text" 
+                      value={newFolderName} 
+                      onChange={(e) => setNewFolderName(e.target.value)}
+                      placeholder="Folder Name..."
+                      className="flex-grow bg-bg border border-white/10 p-3 rounded-xl focus:border-brand outline-none"
+                    />
+                    <button type="submit" className="px-6 bg-brand text-white rounded-xl font-bold uppercase text-[10px]">Create</button>
+                    <button type="button" onClick={() => setIsCreatingFolder(false)} className="px-6 bg-surface text-text-muted rounded-xl font-bold uppercase text-[10px]">Cancel</button>
+                  </form>
+                </motion.div>
+              )}
+
+              <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
                 <div className="lg:col-span-1">
-                  <MediaManager onUploadComplete={fetchMediaItems} />
+                  <MediaManager onUploadComplete={fetchMediaItems} folderId={currentFolder} />
                 </div>
                 
-                <div className="lg:col-span-2 space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 h-fit">
-                    {mediaItems.length === 0 ? (
-                      <div className="col-span-full py-20 bg-surface/30 rounded-[32px] border-2 border-dashed border-white/5 flex flex-col items-center justify-center text-center">
-                        <Film className="w-12 h-12 text-white/10 mb-4" />
-                        <p className="text-text-muted font-bold uppercase tracking-widest text-xs">No media uploaded yet</p>
-                      </div>
-                    ) : (
-                      mediaItems.map(item => (
-                        <div key={`library-${item.id}`} className="glass-card p-4 group flex gap-4 items-center">
-                          <div className="w-20 h-20 bg-bg rounded-xl overflow-hidden shrink-0 flex items-center justify-center relative">
-                            <video src={item.url} className="w-full h-full object-cover opacity-50" />
-                            <div className="absolute inset-0 flex items-center justify-center group-hover:bg-black/20 transition-all">
-                              <Play className="w-6 h-6 text-white/50 group-hover:text-brand transition-colors" />
-                            </div>
+                <div className="lg:col-span-3 space-y-8">
+                  {/* Folders Selection (Only shown at root or can be nested if parentId implemented) */}
+                  {!currentFolder && (
+                    <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-5 gap-4">
+                      {folders.filter(f => !f.parentId).map(folder => (
+                        <button
+                          key={folder.id}
+                          onClick={() => { setCurrentFolder(folder.id); setCurrentFolderName(folder.name); }}
+                          className="bg-[#0a0c10] border border-white/5 p-8 group flex flex-col items-center justify-center text-center gap-5 hover:border-brand/40 hover:bg-brand/5 transition-all aspect-square rounded-[32px] relative"
+                        >
+                          <div className="w-20 h-20 flex items-center justify-center transition-all group-hover:scale-110">
+                            <Folder className="w-12 h-12 text-brand fill-brand/10" strokeWidth={1.5} />
                           </div>
-                          <div className="flex-grow min-w-0">
-                            <h4 className="font-bold text-xs truncate uppercase tracking-wider">{item.name}</h4>
-                            <p className="text-[10px] text-text-muted mb-2">{(item.size / (1024 * 1024)).toFixed(2)} MB</p>
-                            <div className="flex gap-2">
-                              <button 
-                                onClick={() => copyToClipboard(item.url)}
-                                className="text-[10px] font-black uppercase tracking-widest text-brand hover:underline"
-                              >
-                                Copy URL
-                              </button>
-                              <button 
-                                onClick={() => deleteMedia(item.id)}
-                                className="text-[10px] font-black uppercase tracking-widest text-white/20 hover:text-red-500 transition-colors"
-                              >
-                                Delete
-                              </button>
-                            </div>
+                          <div className="space-y-1">
+                            <p className="font-black text-xs uppercase tracking-widest text-white/90">{folder.name}</p>
                           </div>
-                        </div>
-                      ))
+                          <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button 
+                              onClick={(e) => { e.stopPropagation(); deleteFolder(folder.id, folder.name); }}
+                              className="p-2 text-white/10 hover:text-red-500 transition-colors"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="space-y-4">
+                    {currentFolder && (
+                      <button 
+                        onClick={() => { setCurrentFolder(null); setCurrentFolderName(null); }}
+                        className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-text-muted hover:text-brand transition-colors mb-4"
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                        Back to Library
+                      </button>
                     )}
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                      {mediaItems.length === 0 ? (
+                        <div className="col-span-full py-20 bg-surface/30 rounded-[32px] border-2 border-dashed border-white/5 flex flex-col items-center justify-center text-center">
+                          <Film className="w-12 h-12 text-white/10 mb-4" />
+                          <p className="text-text-muted font-bold uppercase tracking-widest text-xs">No media in this directory</p>
+                        </div>
+                      ) : (
+                        mediaItems.map(item => (
+                          <div key={`library-${item.id}`} className="glass-card p-4 group flex gap-4 items-center">
+                            <div className="w-20 h-20 bg-bg rounded-xl overflow-hidden shrink-0 flex items-center justify-center relative">
+                              <video src={item.url} className="w-full h-full object-cover opacity-50" />
+                              <div className="absolute inset-0 flex items-center justify-center group-hover:bg-black/20 transition-all">
+                                <Play className="w-6 h-6 text-white/50 group-hover:text-brand transition-colors" />
+                              </div>
+                            </div>
+                            <div className="flex-grow min-w-0">
+                              <h4 className="font-bold text-xs truncate uppercase tracking-wider">{item.name}</h4>
+                              <p className="text-[10px] text-text-muted mb-2">{(item.size / (1024 * 1024)).toFixed(2)} MB</p>
+                              <div className="flex gap-2">
+                                <button 
+                                  onClick={() => copyToClipboard(item.url)}
+                                  className="text-[10px] font-black uppercase tracking-widest text-brand hover:underline"
+                                >
+                                  Copy URL
+                                </button>
+                                <button 
+                                  onClick={() => deleteMedia(item.id)}
+                                  className="text-[10px] font-black uppercase tracking-widest text-white/20 hover:text-red-500 transition-colors"
+                                >
+                                  Delete
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>

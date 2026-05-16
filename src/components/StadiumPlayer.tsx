@@ -159,14 +159,16 @@ export default function StadiumPlayer({ url, poster, isLive, useIframe: initialU
 
   const isGDrive = url.includes('drive.google.com') || url.includes('id=');
   const driveId = url.match(/[?&]id=([a-zA-Z0-9_-]+)/)?.[1] || url.match(/\/d\/([a-zA-Z0-9_-]+)/)?.[1];
+  const isIframeUrl = url.includes('cloudflarestream.com') || url.endsWith('/iframe') || useIframe;
 
-  if (isGDrive && driveId) {
+  if ((isGDrive && driveId) || isIframeUrl) {
+    const iframeSrc = isGDrive ? `https://drive.google.com/file/d/${driveId}/preview` : url;
     return (
       <div className="relative w-full aspect-video bg-black group rounded-xl overflow-hidden border border-white/10 shadow-2xl">
         <iframe 
-          src={`https://drive.google.com/file/d/${driveId}/preview`}
+          src={iframeSrc}
           className="absolute inset-0 w-full h-full border-0"
-          allow="autoplay; encrypted-media"
+          allow="autoplay; encrypted-media; picture-in-picture"
           allowFullScreen
         ></iframe>
       </div>

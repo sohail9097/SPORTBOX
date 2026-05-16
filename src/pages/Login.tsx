@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { motion } from 'motion/react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
-import { Play, Activity, Trophy, Bell } from 'lucide-react';
+import { Play, Activity, Trophy, Bell, ShieldCheck } from 'lucide-react';
 import { auth, db } from '../lib/firebase';
+import ReCAPTCHA from 'react-google-recaptcha';
 import { 
   GoogleAuthProvider,
   FacebookAuthProvider,
@@ -20,11 +21,17 @@ import { useEffect } from 'react';
 export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
+  const recaptchaRef = useRef<ReCAPTCHA>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [isBotVerified, setIsBotVerified] = useState(false);
   const [siteConfig, setSiteConfig] = useState<SiteConfig>({
     logoUrl: ''
   });
+
+  // PLACEHOLDER SITE KEY - User should replace this with their own
+  // This is a Google public testing key (always returns success)
+  const RECAPTCHA_SITE_KEY = "6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI";
 
   useEffect(() => {
     const fetchConfig = async () => {
@@ -40,7 +47,16 @@ export default function Login() {
     fetchConfig();
   }, [navigate]);
 
+  const handleRecaptchaChange = (token: string | null) => {
+    setIsBotVerified(!!token);
+  };
+
   const handleSocialLogin = async (providerName: 'google' | 'facebook' | 'x') => {
+    if (!isBotVerified && process.env.NODE_ENV === 'production') {
+      setError("Please complete the reCAPTCHA verification first.");
+      return;
+    }
+
     setLoading(true);
     setError('');
     let provider;
@@ -158,11 +174,30 @@ export default function Login() {
 
           {/* Social Logins */}
           <div className="space-y-6">
-            <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-5">
+              {/* reCAPTCHA Section */}
+              <div className="bg-white/5 border border-white/10 p-4 rounded-2xl flex flex-col items-center gap-3">
+                <div className="flex items-center gap-2 mb-1">
+                  <ShieldCheck className="w-3 h-3 text-brand" />
+                  <span className="text-[9px] font-black uppercase tracking-widest text-text-muted">Security Check</span>
+                </div>
+                <div className="scale-90 sm:scale-100 origin-center">
+                  <ReCAPTCHA
+                    ref={recaptchaRef}
+                    sitekey={RECAPTCHA_SITE_KEY}
+                    onChange={handleRecaptchaChange}
+                    theme="dark"
+                  />
+                </div>
+              </div>
+
               <button 
                 onClick={() => handleSocialLogin('google')}
-                disabled={loading}
-                className="w-full h-14 bg-white text-black font-black uppercase tracking-widest text-xs rounded-xl flex items-center justify-center gap-3 transition-all hover:bg-gray-100 active:scale-[0.98] disabled:opacity-50"
+                disabled={loading || !isBotVerified}
+                className={cn(
+                  "w-full h-14 font-black uppercase tracking-widest text-xs rounded-xl flex items-center justify-center gap-3 transition-all active:scale-[0.98] disabled:opacity-30 disabled:cursor-not-allowed",
+                  isBotVerified ? "bg-white text-black hover:bg-gray-100" : "bg-white/10 text-white/40"
+                )}
               >
                 <GoogleIcon />
                 Continue with Google
@@ -171,16 +206,26 @@ export default function Login() {
               <div className="grid grid-cols-2 gap-3">
                 <button 
                   onClick={() => handleSocialLogin('facebook')}
-                  disabled={loading}
-                  className="h-14 bg-[#1877F2]/10 border border-[#1877F2]/20 text-[#1877F2] font-black uppercase tracking-widest text-[10px] rounded-xl flex items-center justify-center gap-2 transition-all hover:bg-[#1877F2]/15 active:scale-[0.98] disabled:opacity-50"
+                  disabled={loading || !isBotVerified}
+                  className={cn(
+                    "h-14 border font-black uppercase tracking-widest text-[10px] rounded-xl flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-30 disabled:cursor-not-allowed",
+                    isBotVerified 
+                      ? "bg-[#1877F2]/10 border-[#1877F2]/20 text-[#1877F2] hover:bg-[#1877F2]/15" 
+                      : "bg-white/5 border-white/10 text-white/20"
+                  )}
                 >
                   <FacebookIcon />
                   Facebook
                 </button>
                 <button 
                   onClick={() => handleSocialLogin('x')}
-                  disabled={loading}
-                  className="h-14 bg-white/5 border border-white/10 text-white font-black uppercase tracking-widest text-[10px] rounded-xl flex items-center justify-center gap-2 transition-all hover:bg-white/10 active:scale-[0.98] disabled:opacity-50"
+                  disabled={loading || !isBotVerified}
+                  className={cn(
+                    "h-14 border font-black uppercase tracking-widest text-[10px] rounded-xl flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-30 disabled:cursor-not-allowed",
+                    isBotVerified 
+                      ? "bg-white/5 border-white/10 text-white hover:bg-white/10" 
+                      : "bg-white/5 border-white/10 text-white/20"
+                  )}
                 >
                   <XIcon />
                   X (Twitter)

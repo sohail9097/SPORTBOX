@@ -105,7 +105,14 @@ export default function HeroSlider({ page = 'home' }: HeroSliderProps) {
 
   const isIframeUrl = (url: string) => {
     if (!url) return false;
-    const iframeProviders = ['iframe.dacast.com', 'player.vimeo.com', 'facebook.com', 'twitch.tv/embed'];
+    const iframeProviders = [
+      'iframe.dacast.com', 
+      'player.vimeo.com', 
+      'facebook.com', 
+      'twitch.tv/embed',
+      'cloudflarestream.com',
+      '/iframe'
+    ];
     return iframeProviders.some(p => url.includes(p));
   };
 

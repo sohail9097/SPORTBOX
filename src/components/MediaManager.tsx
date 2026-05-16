@@ -6,7 +6,7 @@ import { Upload, X, CheckCircle2, Film, Loader2 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { cn } from '../lib/utils';
 
-export default function MediaManager({ onUploadComplete }: { onUploadComplete?: (url: string) => void }) {
+export default function MediaManager({ onUploadComplete, folderId }: { onUploadComplete?: (url: string) => void, folderId?: string | null }) {
   const [file, setFile] = useState<File | null>(null);
   const [progress, setProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
@@ -32,7 +32,7 @@ export default function MediaManager({ onUploadComplete }: { onUploadComplete?: 
     setUploadError(null);
     setProgress(0);
 
-    const storageRef = ref(storage, `videos/${Date.now()}_${file.name}`);
+    const storageRef = ref(storage, `library/${folderId || 'root'}/${Date.now()}_${file.name}`);
     const uploadTask = uploadBytesResumable(storageRef, file);
 
     uploadTask.on(
@@ -43,7 +43,7 @@ export default function MediaManager({ onUploadComplete }: { onUploadComplete?: 
       },
       (error) => {
         console.error("Upload error:", error);
-        setUploadError("Upload failed. Make sure Firebase Storage is enabled and rules allow writes.");
+        setUploadError("Upload failed. Check Firebase Storage rules.");
         setIsUploading(false);
       },
       async () => {
@@ -56,6 +56,7 @@ export default function MediaManager({ onUploadComplete }: { onUploadComplete?: 
             url: downloadURL,
             type: 'video',
             size: file.size,
+            folderId: folderId || null,
             createdAt: serverTimestamp()
           });
 

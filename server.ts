@@ -80,37 +80,37 @@ async function startServer() {
     next();
   });
 
-  // 1. DEDICATED API ROUTES (MOVE TO THE VERY TOP)
-  // Base API monitor
+  // 1. DEDICATED API ROUTES (FLATTENED FOR RELIABILITY)
+  
+  // Middleware to add diagnostic headers to all API responses
   app.use('/api', (req, res, next) => {
-    console.log(`[API Router Diagnostic] Incoming: ${req.method} ${req.url}`);
+    res.setHeader('X-API-Path', req.path);
+    res.setHeader('X-API-Matched', 'false');
     next();
   });
 
-  // API Health check
+  // Health check API
   app.get('/api/health', (req, res) => {
+    res.setHeader('X-API-Matched', 'true');
     res.json({ 
       status: 'ok', 
-      api: 'root',
       env: process.env.NODE_ENV,
       adminInitialized: admin.apps.length > 0 
     });
   });
 
-  // Admin API Routes
-  const adminRouter = express.Router();
-
-  adminRouter.get('/health', (req, res) => {
-    console.log("[Admin API] /health checked");
+  app.get('/api/admin/health', (req, res) => {
+    res.setHeader('X-API-Matched', 'true');
     res.json({ status: 'admin-ok', initialized: admin.apps.length > 0 });
   });
 
-  adminRouter.get('/list-users', async (req, res) => {
+  // List all users from Auth and Merge with Firestore
+  app.get('/api/admin/list-users', async (req, res) => {
+    res.setHeader('X-API-Matched', 'true');
     try {
-      console.log(`[Admin API] GET /list-users - Processing request at ${new Date().toISOString()}`);
+      console.log(`[Admin API] GET /api/admin/list-users - Request received at ${new Date().toISOString()}`);
       const authHeader = req.headers.authorization;
       if (!authHeader?.startsWith('Bearer ')) {
-        console.warn("[Admin API] Missing Authorization header");
         return res.status(401).json({ error: 'Unauthorized: No token provided' });
       }
 
@@ -119,29 +119,21 @@ async function startServer() {
       
       const adminEmails = ['sohailgaji9097@gmail.com', 'tavish@dreamcatchers.tv'];
       if (!adminEmails.includes(decodedToken.email?.toLowerCase() || '')) {
-        console.error(`[Admin API] Unauthorized access attempt by ${decodedToken.email}`);
         return res.status(403).json({ error: 'Forbidden: Admins only' });
       }
 
-      console.log("[Admin API] Fetching all users from Auth and Firestore...");
-      
       // 1. Get all users from Auth
       let authUsers: admin.auth.UserRecord[] = [];
-      let authError: string | null = null;
       try {
         const listUsersResult = await admin.auth().listUsers(1000);
         authUsers = listUsersResult.users;
-        console.log(`[Admin API] Auth: Found ${authUsers.length} users.`);
       } catch (authErr: any) {
-        console.error("[Admin API] Auth listUsers failed:", authErr.message);
-        authError = authErr.message;
+        console.error("Auth listUsers failed:", authErr.message);
       }
 
       // 2. Get all users from Firestore
       let firestoreData: Record<string, any> = {};
-      let firestoreError: string | null = null;
       try {
-        // Correctly handle non-default databases
         const configPath = path.join(process.cwd(), 'firebase-applet-config.json');
         const firebaseConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
         const dbId = firebaseConfig.firestoreDatabaseId && firebaseConfig.firestoreDatabaseId !== '(default)'
@@ -153,13 +145,10 @@ async function startServer() {
         snapshot.forEach(doc => {
           firestoreData[doc.id] = doc.data();
         });
-        console.log(`[Admin API] Firestore: Found ${Object.keys(firestoreData).length} profiles in ${dbId || '(default)'} database.`);
       } catch (fsError: any) {
-        console.warn(`[Admin API] Firestore fetch failed: ${fsError.message}`);
-        firestoreError = fsError.message;
+        console.warn("Firestore fetch failed:", fsError.message);
       }
 
-      // 3. Merge data
       const allUids = new Set([
         ...authUsers.map(u => u.uid),
         ...Object.keys(firestoreData)
@@ -184,78 +173,49 @@ async function startServer() {
         };
       });
 
-      console.log(`[Admin API] Returning ${mergedUsers.length} merged users.`);
-      res.json({
-        users: mergedUsers,
-        diag: {
-          authCount: authUsers.length,
-          firestoreCount: Object.keys(firestoreData).length,
-          projectId: admin.app().options.projectId,
-          authError,
-          firestoreError,
-          hasServiceAccount: !!process.env.FIREBASE_SERVICE_ACCOUNT || fs.readdirSync(process.cwd()).some(f => (f.startsWith('gen-lang-client') || f.startsWith('firebase-adminsdk')) && f.endsWith('.json'))
-        }
-      });
+      res.json({ users: mergedUsers });
     } catch (error) {
-      console.error('[Admin API] Critical Error in list-users:', error);
-      res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown internal error' });
+      console.error('[Admin API] Error in list-users:', error);
+      res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
     }
   });
 
-  adminRouter.post('/delete-user', async (req, res) => {
-    console.log(`[Admin API] POST /delete-user received`);
-    const configPath = path.join(process.cwd(), 'firebase-applet-config.json');
-    const firebaseConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-    
-    // Check Firebase Admin Status
-    if (admin.apps.length === 0) {
-      console.error('[Admin API] Firebase Admin NOT initialized');
-      return res.status(500).json({ error: 'Firebase Admin not initialized. Check server logs.' });
-    }
-
-    const { uid, idToken } = req.body;
-    
-    if (!uid || !idToken) {
-      console.warn('[Admin API] Missing UID or ID Token');
-      return res.status(400).json({ error: 'Missing uid or idToken' });
-    }
-
+  app.post('/api/admin/delete-user', async (req, res) => {
+    res.setHeader('X-API-Matched', 'true');
     try {
+      const { uid, idToken } = req.body;
+      if (!uid || !idToken) return res.status(400).json({ error: 'Missing uid or idToken' });
+
       const decodedToken = await admin.auth().verifyIdToken(idToken);
       const email = decodedToken.email?.toLowerCase() || '';
       const adminEmails = ['sohailgaji9097@gmail.com', 'tavish@dreamcatchers.tv'];
       
       if (!adminEmails.includes(email)) {
-        return res.status(403).json({ error: `Unauthorized: ${email} is not an admin.` });
+        return res.status(403).json({ error: `Unauthorized` });
       }
 
       await admin.auth().deleteUser(uid);
-      
+      const configPath = path.join(process.cwd(), 'firebase-applet-config.json');
+      const firebaseConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
       const dbId = firebaseConfig.firestoreDatabaseId && firebaseConfig.firestoreDatabaseId !== '(default)'
         ? firebaseConfig.firestoreDatabaseId
         : undefined;
-
       const db = admin.firestore(dbId);
       await db.collection('users').doc(uid).delete();
       
-      res.json({ success: true, message: 'User deletion process completed.' });
+      res.json({ success: true });
     } catch (error) {
-      console.error('[Admin API] Delete User Error:', error);
-      res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
+      res.status(500).json({ error: 'Internal server error' });
     }
   });
 
-  // Mount Admin Router
-  app.use('/api/admin', adminRouter);
-
-  const PORT = 3000;
-
-  // Catch-all for missing API routes - MUST return JSON
+  // Catch-all for API routes
   app.all('/api/*', (req, res) => {
     console.warn(`[API 404] Missing endpoint hit: ${req.method} ${req.url}`);
     res.status(404).json({ 
-      error: `API endpoint not found: ${req.method} ${req.url}`,
-      tip: "Verify that the path /api/admin/list-users or similar exists in server.ts"
+      error: 'API endpoint not found',
+      path: req.url,
+      method: req.method
     });
   });
 

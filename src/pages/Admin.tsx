@@ -758,19 +758,32 @@ export default function Admin() {
       if (!currentUser) return;
 
       const idToken = await currentUser.getIdToken();
-      // Helper for fetching with retries
+      // Helper for fetching with retries and validation
       const fetchWithRetry = async (url: string, options: any, retries = 2): Promise<Response> => {
-        try {
-          const res = await fetch(url, options);
-          return res;
-        } catch (err) {
+        const res = await fetch(url, options);
+        
+        const contentType = res.headers.get("content-type");
+        const isFallback = res.headers.get("X-SPA-Fallback") === "true";
+        
+        // If we get HTML instead of JSON for an API call, it's a routing error
+        if ((!contentType || !contentType.includes("application/json") || isFallback) && res.ok) {
           if (retries > 0) {
-            console.log(`[Admin] Fetch failed, retrying... (${retries} left)`);
+            console.warn(`[Admin] Received HTML/Fallback when expecting JSON. Retrying... (${retries} left)`);
             await new Promise(r => setTimeout(r, 1000));
             return fetchWithRetry(url, options, retries - 1);
           }
-          throw err;
+          const text = await res.text();
+          console.error("Invalid response format details:", {
+            url,
+            status: res.status,
+            contentType,
+            isFallback,
+            snippet: text.substring(0, 200)
+          });
+          throw new Error(`Connection Error: The backend returned HTML (SPA Fallback) instead of JSON. Path: ${url}. Status: ${res.status}. Header matched: ${res.headers.get('X-API-Matched')}`);
         }
+        
+        return res;
       };
 
       const response = await fetchWithRetry(`/api/admin/list-users?v=${Date.now()}`, {
@@ -792,7 +805,7 @@ export default function Admin() {
           } else {
             const text = await response.text();
             console.error("Non-JSON Error Response:", text.substring(0, 500));
-            errorMessage = `Communication Error (${response.status}): The server returned an invalid response. Please try refreshing the page or check the server status.`;
+            errorMessage = `Communication Error (${response.status}): The server returned an invalid response. Raw snippet: ${text.substring(0, 50)}...`;
           }
         } catch (e) {
           console.error("Error parsing error response:", e);
@@ -800,18 +813,6 @@ export default function Admin() {
         throw new Error(errorMessage);
       }
       
-      const contentType = response.headers.get("content-type");
-      const isFallback = response.headers.get("X-SPA-Fallback") === "true";
-      
-      // If we got HTML (fallback) instead of JSON for an API call, it's a routing error
-      if (!contentType || !contentType.includes("application/json") || isFallback) {
-        const text = await response.text();
-        console.error("API returned non-JSON despite 200 OK. Fallback header:", isFallback, "Content:", text.substring(0, 100));
-        
-        // This is a more descriptive error for the user
-        throw new Error("Connection failed: The server returned an invalid data format (HTML instead of JSON). This typically indicates a system configuration issue or server maintenance. Please try again in 30 seconds.");
-      }
-
       const data = await response.json();
       
       // Handle both old array format and new object format

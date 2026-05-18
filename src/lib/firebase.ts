@@ -19,7 +19,8 @@ try {
   console.log(`[Firebase] Initializing Firestore for Project: ${firebaseConfig.projectId}, Database ID: ${dbId}`);
   
   dbInstance = initializeFirestore(app, {
-    localCache: persistentLocalCache({})
+    localCache: persistentLocalCache({}),
+    experimentalForceLongPolling: true,
   }, firebaseConfig.firestoreDatabaseId || undefined);
 } catch (e) {
   console.error("[Firebase] Failed to initialize Firestore with persistent cache:", e);

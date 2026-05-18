@@ -91,6 +91,11 @@ export default function Account() {
       return;
     }
 
+    if (!mobileNumber || mobileNumber.trim().length < 10) {
+      alert("Please enter a valid mobile number (min 10 digits).");
+      return;
+    }
+
     setLoading(true);
     try {
       if (!user) return;

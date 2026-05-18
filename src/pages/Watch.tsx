@@ -64,20 +64,22 @@ export default function Watch() {
       window.scrollTo(0, 0);
       setIsPlaying(false);
       
-      // Concurrently setup listeners and metadata
-      const unsubContent = onSnapshot(doc(db, 'content', id), (snap) => {
-        if (snap.exists()) {
-          const contentData = { id: snap.id, ...snap.data() } as SportsContent;
-          setContent(contentData);
-          setLoading(false);
-          
-          // Related content depends on category
-          const q = query(
-            collection(db, 'content'),
-            where('category', '==', contentData.category),
-            limit(12)
-          );
-          getDocs(q).then(relatedSnap => {
+      // Initial fetch for content and related items
+      const fetchOnce = async () => {
+        try {
+          const snap = await getDoc(doc(db, 'content', id));
+          if (snap.exists()) {
+            const contentData = { id: snap.id, ...snap.data() } as SportsContent;
+            setContent(contentData);
+            setLoading(false);
+            
+            // Related content depends on category
+            const q = query(
+              collection(db, 'content'),
+              where('category', '==', contentData.category),
+              limit(12)
+            );
+            const relatedSnap = await getDocs(q);
             const related = relatedSnap.docs
               .map(d => ({ id: d.id, ...d.data() } as SportsContent))
               .filter(item => item.id !== id);
@@ -89,11 +91,20 @@ export default function Watch() {
               grouped[tag].push(item);
             });
             setSections(grouped);
-          });
+          }
+        } catch (err) {
+          console.error("Fetch error:", err);
+          setLoading(false);
         }
-      }, (err) => {
-        console.error("Content sync error:", err);
-        setLoading(false);
+      };
+
+      fetchOnce();
+      
+      // Live metadata updates only (doesn't trigger related fetch again)
+      const unsubContent = onSnapshot(doc(db, 'content', id), (snap) => {
+        if (snap.exists()) {
+          setContent({ id: snap.id, ...snap.data() } as SportsContent);
+        }
       });
 
       const unsubPlayer = onSnapshot(doc(db, 'settings', 'playerConfig'), (snap) => {

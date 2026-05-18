@@ -72,7 +72,8 @@ export default function Home() {
   }, []);
 
   // Use skeletons or partial loading instead of total block if possible
-  // Removing hard loading block for faster perceived speed
+  // Restore loading screen for initial load as requested
+  if (loading && liveNow.length === 0 && trending.length === 0) return <LoadingScreen />;
   
   return (
     <div className="pb-20 text-text-base">

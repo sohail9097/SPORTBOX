@@ -499,6 +499,63 @@ export default function Admin() {
     }
   };
 
+  const initializeDefaultContent = async () => {
+    if (!confirm("This will add sample Football and Cricket content to your app. Continue?")) return;
+    setIsSaving(true);
+    try {
+      const samples: Partial<SportsContent>[] = [
+        {
+          title: "Premier League: City vs United",
+          description: "Full match replay of the Manchester Derby.",
+          type: "replay",
+          category: "football",
+          status: "ended",
+          thumbnailUrl: "https://images.unsplash.com/photo-1574629810360-7efbbe195018?auto=format&fit=crop&q=80",
+          videoUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+          tags: ["Highlight", "Derby"],
+          viewCount: 120502,
+          likes: 4500,
+          createdAt: new Date().toISOString()
+        },
+        {
+          title: "Champions League Final 2024",
+          description: "Experience the magic of Europes biggest night.",
+          type: "replay",
+          category: "football",
+          status: "ended",
+          thumbnailUrl: "https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&q=80",
+          videoUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+          tags: ["Climax", "Big Game"],
+          viewCount: 340200,
+          likes: 12900,
+          createdAt: new Date().toISOString()
+        },
+        {
+          title: "IPL 2024 Highlights",
+          description: "Breathtaking moments from the Indian Premier League.",
+          type: "replay",
+          category: "cricket",
+          status: "ended",
+          thumbnailUrl: "https://images.unsplash.com/photo-1531415074968-036ba1b575da?auto=format&fit=crop&q=80",
+          videoUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+          tags: ["T20", "India"],
+          viewCount: 456700,
+          likes: 25000,
+          createdAt: new Date().toISOString()
+        }
+      ];
+
+      for (const sample of samples) {
+        await addDoc(collection(db, 'content'), sample);
+      }
+      alert("Sample content added successfully!");
+    } catch (err) {
+      console.error("Init content error:", err);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   // fetchPlayerConfig, fetchVideoPromo, fetchSiteConfig are handled by onSnapshot in useEffect
 
   const handlePlayerConfigUpdate = async (e: React.FormEvent) => {
@@ -2037,6 +2094,45 @@ export default function Admin() {
                       {isSaving ? "Updating..." : "Update Player Config"}
                     </button>
                   </form>
+                </div>
+
+                <div className="glass-card p-8 border border-brand/20 bg-brand/5 space-y-6">
+                  <div className="flex items-center gap-4 mb-4">
+                    <div className="p-3 bg-brand/10 rounded-xl text-brand">
+                      <Trophy className="w-6 h-6" />
+                    </div>
+                    <h2 className="text-xl font-display font-black uppercase italic tracking-widest text-white">Database Recovery & Setup</h2>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                     <div className="space-y-4">
+                       <h4 className="font-bold text-brand uppercase text-xs tracking-widest italic">Recover Missing Content</h4>
+                       <p className="text-xs text-text-muted leading-relaxed">
+                         If you accidentally deleted your content or just switched to a new project, use this to populate your database with high-quality sample content for <b>Football</b> and <b>Cricket</b>.
+                       </p>
+                       <button 
+                         onClick={initializeDefaultContent}
+                         disabled={isSaving}
+                         className="px-6 py-4 bg-brand text-white rounded-xl text-[10px] font-black uppercase italic tracking-[0.2em] shadow-xl shadow-brand/20 hover:scale-[1.02] transition-all flex items-center gap-2 disabled:opacity-50"
+                       >
+                         {isSaving ? <Activity className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                         Recover/Add Sample Content
+                       </button>
+                     </div>
+                     <div className="space-y-4">
+                        <h4 className="font-bold text-blue-400 uppercase text-xs tracking-widest italic">Initialize Subscription Plans</h4>
+                        <p className="text-xs text-text-muted leading-relaxed">
+                          Reset or create the default pricing plans (Basic, Medium, Pro) to enable paid access on your platform.
+                        </p>
+                        <button 
+                          onClick={initializeSubscriptionPlans}
+                          className="px-6 py-4 bg-surface border border-white/10 text-white rounded-xl text-[10px] font-black uppercase italic tracking-[0.2em] hover:bg-white/5 transition-all flex items-center gap-2"
+                        >
+                          <Crown className="w-4 h-4 text-amber-400" />
+                          Initialize Pricing Plans
+                        </button>
+                     </div>
+                  </div>
                 </div>
 
                 <div className="glass-card p-8 border-dashed border-white/5 opacity-50 flex flex-col items-center justify-center text-center">

@@ -1,7 +1,7 @@
-import { useState, useRef } from 'react';
-import { motion } from 'motion/react';
+import { useState, useRef, useEffect } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
-import { Play, Activity, Trophy, Bell, ShieldCheck } from 'lucide-react';
+import { Play, Activity, Trophy, Bell, ShieldCheck, Mail, Lock, User as UserIcon, Phone, ArrowLeft, Loader2 } from 'lucide-react';
 import { auth, db } from '../lib/firebase';
 import ReCAPTCHA from 'react-google-recaptcha';
 import { 
@@ -9,14 +9,16 @@ import {
   FacebookAuthProvider,
   TwitterAuthProvider,
   signInWithPopup,
-  signInWithRedirect,
-  getRedirectResult,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  updateProfile,
 } from 'firebase/auth';
-import { doc, getDoc, onSnapshot } from 'firebase/firestore';
+import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 import { cn } from '../lib/utils';
 import BrandLogo from '../components/BrandLogo';
 import { SiteConfig } from '../types';
-import { useEffect } from 'react';
+
+type AuthMode = 'login' | 'signup' | 'social';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -25,16 +27,21 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [isBotVerified, setIsBotVerified] = useState(false);
+  const [authMode, setAuthMode] = useState<AuthMode>('social');
+  
+  // Form State
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [fullName, setFullName] = useState('');
+  const [mobileNumber, setMobileNumber] = useState('');
+
   const [siteConfig, setSiteConfig] = useState<SiteConfig>({
     logoUrl: ''
   });
 
-  // PLACEHOLDER SITE KEY - User should replace this with their own
-  // This is a Google public testing key (always returns success)
   const RECAPTCHA_SITE_KEY = "6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI";
 
   useEffect(() => {
-    // Use onSnapshot for more resilient config fetching
     const unsub = onSnapshot(doc(db, 'settings', 'siteConfig'), (snap) => {
       if (snap.exists()) {
         setSiteConfig(snap.data() as SiteConfig);
@@ -47,6 +54,52 @@ export default function Login() {
 
   const handleRecaptchaChange = (token: string | null) => {
     setIsBotVerified(!!token);
+  };
+
+  const handleEmailAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!isBotVerified && process.env.NODE_ENV === 'production') {
+      setError("Please complete the reCAPTCHA verification first.");
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+
+    try {
+      if (authMode === 'signup') {
+        if (!fullName.trim() || !mobileNumber.trim()) {
+          throw new Error("Name and Mobile Number are compulsory.");
+        }
+        if (mobileNumber.length < 10) {
+          throw new Error("Please enter a valid mobile number.");
+        }
+
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        const user = userCredential.user;
+
+        await updateProfile(user, { displayName: fullName });
+
+        await setDoc(doc(db, 'users', user.uid), {
+          uid: user.uid,
+          email: user.email,
+          displayName: fullName,
+          mobileNumber: mobileNumber,
+          subscriptionTier: 'free',
+          subscriptionStatus: 'none',
+          favorites: [],
+          watchLater: [],
+          recentlyWatched: [],
+          createdAt: new Date().toISOString()
+        });
+      } else {
+        await signInWithEmailAndPassword(auth, email, password);
+      }
+      navigate('/account');
+    } catch (err: any) {
+      setError(err.message || "Authentication failed");
+      setLoading(false);
+    }
   };
 
   const handleSocialLogin = async (providerName: 'google' | 'facebook' | 'x') => {
@@ -80,7 +133,6 @@ export default function Login() {
       const errorCode = err?.code;
       const errorMessage = err?.message || '';
       
-      // Silently handle user cancellation
       if (
         errorCode === 'auth/popup-closed-by-user' || 
         errorCode === 'auth/cancelled-popup-request' ||
@@ -91,22 +143,11 @@ export default function Login() {
         return;
       }
 
-      console.error("Login component error object:", err);
-
-      if (errorCode === 'auth/operation-not-allowed') {
-        setError(`${providerName.charAt(0).toUpperCase() + providerName.slice(1)} login is not enabled. Please enable it in your Firebase console.`);
-      } else if (errorCode === 'auth/account-exists-with-different-credential') {
-        setError("An account already exists with the same email but different sign-in credentials.");
-      } else if (errorCode === 'auth/unauthorized-domain') {
-        setError(`UNAUTHORIZED DOMAIN: ${window.location.hostname}. Please add this domain to your Firebase Console settings.`);
-      } else {
-        setError(errorMessage || 'Social login failed');
-      }
+      setError(errorMessage || 'Social login failed');
       setLoading(false);
     }
   };
 
-  // SVGs for Logos
   const GoogleIcon = () => (
     <svg viewBox="0 0 24 24" className="w-5 h-5">
       <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
@@ -130,157 +171,196 @@ export default function Login() {
 
   return (
     <div className="min-h-screen flex items-stretch overflow-hidden bg-bg">
-      {/* Left Panel: Form Section (Black Background) */}
-      <div className="flex-1 flex flex-col justify-start pt-2 sm:pt-12 px-5 sm:px-12 md:px-20 lg:px-32 bg-black z-10 relative">
+      {/* Left Panel */}
+      <div className="flex-1 flex flex-col justify-start pt-2 sm:pt-12 px-5 sm:px-12 md:px-20 lg:px-32 bg-black z-10 relative overflow-y-auto">
         <motion.div 
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
-          className="max-w-md w-full mx-auto space-y-6 sm:space-y-8"
+          className="max-w-md w-full mx-auto space-y-6 sm:space-y-8 py-10"
         >
-          {/* Logo */}
           <BrandLogo logoUrl={siteConfig.logoUrl} size="lg" />
 
-          {/* Header Text */}
           <div className="space-y-2 sm:space-y-3 text-left">
-            <div className="flex items-center gap-2">
-              <div className="px-2 py-0.5 bg-brand/10 border border-brand/20 rounded text-[9px] font-black uppercase tracking-widest text-brand">
-                Instant Access
-              </div>
-            </div>
             <h1 className="text-2xl sm:text-4xl md:text-5xl font-black uppercase italic tracking-tighter text-white leading-[1.1] sm:leading-tight">
-              Unlock the full <br className="hidden sm:block" />
+              {authMode === 'social' ? 'Unlock the full' : authMode === 'signup' ? 'Join the' : 'Welcome back to the'} <br className="hidden sm:block" />
               <span className="text-brand">Arena Experience.</span>
             </h1>
             <p className="text-text-muted text-[11px] sm:text-sm font-medium leading-relaxed max-w-sm">
-              Sign in with your preferred social account to access exclusive broadcasts and real-time stats.
+              {authMode === 'social' 
+                ? 'Sign in with your preferred social account or email to access exclusive broadcasts.' 
+                : authMode === 'signup' 
+                  ? 'Complete the form below to start your journey.' 
+                  : 'Enter your credentials to continue.'}
             </p>
           </div>
 
-          {/* Error Message */}
           {error && (
             <motion.div 
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
-              className={cn(
-                "p-4 rounded-xl flex flex-col gap-3",
-                error.includes('UNAUTHORIZED DOMAIN') 
-                  ? "bg-amber-500/10 border border-amber-500/20" 
-                  : "bg-red-500/10 border border-red-500/20"
-              )}
+              className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 flex items-start gap-3"
             >
-              <div className="flex items-start gap-3">
-                <div className={cn(
-                  "w-5 h-5 rounded-full flex-shrink-0 flex items-center justify-center text-[10px] text-white font-bold",
-                  error.includes('UNAUTHORIZED DOMAIN') ? "bg-amber-500" : "bg-red-500"
-                )}>!</div>
-                <p className={cn(
-                  "text-[10px] font-bold uppercase tracking-widest leading-relaxed",
-                  error.includes('UNAUTHORIZED DOMAIN') ? "text-amber-500" : "text-red-500"
-                )}>
-                  {error}
-                </p>
-              </div>
-
-              {error.includes('UNAUTHORIZED DOMAIN') && (
-                <div className="space-y-3 pt-2 border-t border-amber-500/10 mt-1">
-                  <p className="text-[9px] text-text-muted font-medium uppercase tracking-tight">
-                    Go to <b>Authentication &gt; Settings &gt; Authorized Domains</b> and add:
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <code className="flex-1 text-[10px] bg-black/40 p-2 rounded border border-white/5 text-amber-400 select-all font-mono">
-                      {window.location.hostname}
-                    </code>
-                    <button 
-                      onClick={() => {
-                        navigator.clipboard.writeText(window.location.hostname);
-                        const btn = document.activeElement as HTMLButtonElement;
-                        const originalText = btn.innerText;
-                        btn.innerText = "COPIED!";
-                        setTimeout(() => btn.innerText = originalText, 2000);
-                      }}
-                      className="px-3 py-2 bg-amber-500 text-white rounded font-black text-[8px] uppercase tracking-widest hover:scale-105 transition-transform"
-                    >
-                      COPY
-                    </button>
-                  </div>
-                  <a 
-                    href={`https://console.firebase.google.com/project/${auth.app.options.projectId}/authentication/settings`}
-                    target="_blank"
-                    className="flex items-center justify-between p-3 bg-white/5 hover:bg-white/10 rounded-lg group transition-all"
-                  >
-                    <span className="text-[9px] font-black uppercase text-amber-500 italic">Open Firebase Console</span>
-                    <Play className="w-3 h-3 text-amber-500 group-hover:translate-x-1 transition-transform" />
-                  </a>
-                  
-                  <div className="p-3 bg-white/5 rounded-lg border border-white/5">
-                    <p className="text-[8px] text-text-muted font-bold uppercase tracking-wider mb-1">Owner Pro-Tip:</p>
-                    <p className="text-[8px] text-text-muted leading-relaxed italic">
-                      Getting a permission error? Open the link in **Incognito Mode** and log in with the correct Google account.
-                    </p>
-                  </div>
-                </div>
-              )}
+              <div className="w-5 h-5 rounded-full bg-red-500 flex-shrink-0 flex items-center justify-center text-[10px] text-white font-bold">!</div>
+              <p className="text-[10px] font-bold uppercase tracking-widest leading-relaxed text-red-500 italic">
+                {error}
+              </p>
             </motion.div>
           )}
 
-          {/* Social Logins */}
           <div className="space-y-6">
-            <div className="flex flex-col gap-5">
-              {/* reCAPTCHA Section */}
-              <div className="bg-white/5 border border-white/10 p-4 rounded-2xl flex flex-col items-center gap-3">
-                <div className="flex items-center gap-2 mb-1">
-                  <ShieldCheck className="w-3 h-3 text-brand" />
-                  <span className="text-[9px] font-black uppercase tracking-widest text-text-muted">Security Check</span>
-                </div>
-                <div className="scale-90 sm:scale-100 origin-center">
-                  <ReCAPTCHA
-                    ref={recaptchaRef}
-                    sitekey={RECAPTCHA_SITE_KEY}
-                    onChange={handleRecaptchaChange}
-                    theme="dark"
-                  />
-                </div>
-              </div>
+            <AnimatePresence mode="wait">
+              {authMode === 'social' ? (
+                <motion.div 
+                  key="social"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className="space-y-4"
+                >
+                  <button 
+                    onClick={() => handleSocialLogin('google')}
+                    disabled={loading || !isBotVerified}
+                    className="w-full h-14 bg-white text-black font-black uppercase tracking-widest text-xs rounded-xl flex items-center justify-center gap-3 transition-all active:scale-[0.98] disabled:opacity-30"
+                  >
+                    <GoogleIcon />
+                    Continue with Google
+                  </button>
+                  
+                  <div className="grid grid-cols-2 gap-3">
+                    <button 
+                      onClick={() => handleSocialLogin('facebook')}
+                      disabled={loading || !isBotVerified}
+                      className="h-14 bg-[#1877F2]/10 border border-[#1877F2]/20 text-[#1877F2] font-black uppercase tracking-widest text-[10px] rounded-xl flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-30"
+                    >
+                      <FacebookIcon />
+                      Facebook
+                    </button>
+                    <button 
+                      onClick={() => handleSocialLogin('x')}
+                      disabled={loading || !isBotVerified}
+                      className="h-14 bg-white/5 border border-white/10 text-white font-black uppercase tracking-widest text-[10px] rounded-xl flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-30"
+                    >
+                      <XIcon />
+                      X (Twitter)
+                    </button>
+                  </div>
 
-              <button 
-                onClick={() => handleSocialLogin('google')}
-                disabled={loading || !isBotVerified}
-                className={cn(
-                  "w-full h-14 font-black uppercase tracking-widest text-xs rounded-xl flex items-center justify-center gap-3 transition-all active:scale-[0.98] disabled:opacity-30 disabled:cursor-not-allowed",
-                  isBotVerified ? "bg-white text-black hover:bg-gray-100" : "bg-white/10 text-white/40"
-                )}
-              >
-                <GoogleIcon />
-                Continue with Google
-              </button>
-              
-              <div className="grid grid-cols-2 gap-3">
-                <button 
-                  onClick={() => handleSocialLogin('facebook')}
-                  disabled={loading || !isBotVerified}
-                  className={cn(
-                    "h-14 border font-black uppercase tracking-widest text-[10px] rounded-xl flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-30 disabled:cursor-not-allowed",
-                    isBotVerified 
-                      ? "bg-[#1877F2]/10 border-[#1877F2]/20 text-[#1877F2] hover:bg-[#1877F2]/15" 
-                      : "bg-white/5 border-white/10 text-white/20"
-                  )}
+                  <div className="relative py-4">
+                    <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-white/5"></div></div>
+                    <div className="relative flex justify-center text-xs uppercase"><span className="bg-black px-2 text-text-muted font-black tracking-widest italic">Or</span></div>
+                  </div>
+
+                  <button 
+                    onClick={(e) => { e.preventDefault(); setAuthMode('signup'); }}
+                    className="w-full h-14 border border-white/10 text-white font-black uppercase tracking-widest text-xs rounded-xl flex items-center justify-center gap-3 transition-all hover:bg-white/5"
+                  >
+                    <Mail className="w-4 h-4 text-brand" />
+                    Sign up with Email
+                  </button>
+
+                  <p className="text-center text-[10px] font-bold text-text-muted">
+                    ALREADY HAVE AN ACCOUNT? <button onClick={() => setAuthMode('login')} className="text-brand hover:underline">LOGIN HERE</button>
+                  </p>
+                </motion.div>
+              ) : (
+                <motion.form 
+                  key="form"
+                  onSubmit={handleEmailAuth}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className="space-y-4"
                 >
-                  <FacebookIcon />
-                  Facebook
-                </button>
-                <button 
-                  onClick={() => handleSocialLogin('x')}
-                  disabled={loading || !isBotVerified}
-                  className={cn(
-                    "h-14 border font-black uppercase tracking-widest text-[10px] rounded-xl flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-30 disabled:cursor-not-allowed",
-                    isBotVerified 
-                      ? "bg-white/5 border-white/10 text-white hover:bg-white/10" 
-                      : "bg-white/5 border-white/10 text-white/20"
-                  )}
-                >
-                  <XIcon />
-                  X (Twitter)
-                </button>
+                  <button 
+                    onClick={(e) => { e.preventDefault(); setAuthMode('social'); }}
+                    className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-text-muted hover:text-brand transition-colors mb-4"
+                  >
+                    <ArrowLeft className="w-3 h-3" />
+                    Back to Social
+                  </button>
+
+                  <div className="space-y-3">
+                    {authMode === 'signup' && (
+                      <>
+                        <div className="relative group">
+                          <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted group-focus-within:text-brand transition-colors" />
+                          <input 
+                            type="text"
+                            placeholder="FULL NAME (COMPULSORY)"
+                            required
+                            value={fullName}
+                            onChange={(e) => setFullName(e.target.value)}
+                            className="w-full h-14 bg-white/5 border border-white/10 rounded-xl pl-12 pr-4 text-xs font-bold text-white placeholder:text-white/20 focus:border-brand/50 focus:bg-white/10 transition-all outline-none"
+                          />
+                        </div>
+                        <div className="relative group">
+                          <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted group-focus-within:text-brand transition-colors" />
+                          <input 
+                            type="tel"
+                            placeholder="MOBILE NUMBER (COMPULSORY)"
+                            required
+                            value={mobileNumber}
+                            onChange={(e) => setMobileNumber(e.target.value)}
+                            className="w-full h-14 bg-white/5 border border-white/10 rounded-xl pl-12 pr-4 text-xs font-bold text-white placeholder:text-white/20 focus:border-brand/50 focus:bg-white/10 transition-all outline-none"
+                          />
+                        </div>
+                      </>
+                    )}
+                    <div className="relative group">
+                      <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted group-focus-within:text-brand transition-colors" />
+                      <input 
+                        type="email"
+                        placeholder="EMAIL ADDRESS"
+                        required
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        className="w-full h-14 bg-white/5 border border-white/10 rounded-xl pl-12 pr-4 text-xs font-bold text-white placeholder:text-white/20 focus:border-brand/50 focus:bg-white/10 transition-all outline-none"
+                      />
+                    </div>
+                    <div className="relative group">
+                      <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted group-focus-within:text-brand transition-colors" />
+                      <input 
+                        type="password"
+                        placeholder="PASSWORD"
+                        required
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="w-full h-14 bg-white/5 border border-white/10 rounded-xl pl-12 pr-4 text-xs font-bold text-white placeholder:text-white/20 focus:border-brand/50 focus:bg-white/10 transition-all outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <button 
+                    type="submit"
+                    disabled={loading || !isBotVerified}
+                    className="w-full h-14 bg-brand text-white font-black uppercase tracking-widest text-xs rounded-xl flex items-center justify-center gap-3 transition-all active:scale-[0.98] disabled:opacity-50"
+                  >
+                    {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : authMode === 'signup' ? 'Create Account' : 'Sign In'}
+                  </button>
+
+                  <p className="text-center text-[10px] font-bold text-text-muted py-2">
+                    {authMode === 'signup' ? (
+                      <>ALREADY HAVE AN ACCOUNT? <button onClick={(e) => { e.preventDefault(); setAuthMode('login'); }} className="text-brand hover:underline">LOGIN HERE</button></>
+                    ) : (
+                      <>NEW TO SPORTSBOX? <button onClick={(e) => { e.preventDefault(); setAuthMode('signup'); }} className="text-brand hover:underline">CREATE ACCOUNT</button></>
+                    )}
+                  </p>
+                </motion.form>
+              )}
+            </AnimatePresence>
+
+            <div className="bg-white/5 border border-white/10 p-4 rounded-2xl flex flex-col items-center gap-3">
+              <div className="flex items-center gap-2 mb-1">
+                <ShieldCheck className="w-3 h-3 text-brand" />
+                <span className="text-[9px] font-black uppercase tracking-widest text-text-muted">Security Check</span>
+              </div>
+              <div className="scale-90 origin-center">
+                <ReCAPTCHA
+                  ref={recaptchaRef}
+                  sitekey={RECAPTCHA_SITE_KEY}
+                  onChange={handleRecaptchaChange}
+                  theme="dark"
+                />
               </div>
             </div>
 
@@ -289,19 +369,15 @@ export default function Login() {
             </p>
           </div>
         </motion.div>
-
-        {/* Decorative subtle gradient */}
-        <div className="absolute top-0 right-0 w-64 h-64 bg-brand/5 blur-[120px] rounded-full"></div>
       </div>
 
-      {/* Right Panel: Feature Section (Red Background) */}
+      {/* Right Panel */}
       <div className="hidden lg:flex lg:flex-1 bg-brand relative overflow-hidden flex-col items-center justify-center p-20">
         <motion.div 
           initial={{ opacity: 0, scale: 0.8 }}
           animate={{ opacity: 1, scale: 1 }}
           className="relative z-10 text-center space-y-8"
         >
-          {/* Main Visual Component - Simplified illustration feel from image */}
           <div className="relative">
             <div className="w-40 h-[280px] bg-zinc-900 rounded-[20px] border-[4px] border-black shadow-2xl relative overflow-hidden flex flex-col">
                <div className="h-1.5 bg-black w-14 mx-auto rounded-b-lg mb-2"></div>
@@ -331,7 +407,6 @@ export default function Login() {
                <div className="h-0.5 bg-white/10 w-10 mx-auto mb-2 rounded-full"></div>
             </div>
 
-            {/* Floating UI Elements matching the image concept */}
             <motion.div 
               animate={{ y: [0, -10, 0] }}
               transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
@@ -343,20 +418,6 @@ export default function Login() {
               <div className="text-left">
                 <p className="text-[6px] font-black uppercase text-black/40 tracking-wider">Top Scorer</p>
                 <p className="text-[8px] font-black text-black">MVP SECURED</p>
-              </div>
-            </motion.div>
-
-            <motion.div 
-              animate={{ y: [0, 10, 0] }}
-              transition={{ duration: 5, repeat: Infinity, ease: "easeInOut", delay: 1 }}
-              className="absolute -left-6 bottom-24 bg-zinc-900 border border-white/10 p-2 rounded-lg shadow-2xl flex items-center gap-2"
-            >
-              <div className="w-6 h-6 bg-brand rounded-md flex items-center justify-center shadow-lg shadow-brand/20">
-                <Activity className="w-3 h-3 text-white" />
-              </div>
-              <div className="text-left">
-                <p className="text-[6px] font-black uppercase text-white/40 tracking-wider">Live Momentum</p>
-                <p className="text-[8px] font-black text-white italic">+85%</p>
               </div>
             </motion.div>
 
@@ -378,21 +439,19 @@ export default function Login() {
             </p>
           </div>
         </motion.div>
-
-        {/* Background Patterns */}
-        <div className="absolute top-0 left-0 w-full h-full opacity-10 flex flex-col justify-between p-20 pointer-events-none">
-           <div className="flex justify-between items-center">
+        
+        <div className="absolute top-0 left-0 w-full h-full opacity-10 flex flex-col justify-between p-20 pointer-events-none text-black">
+           <div className="flex justify-between items-center text-black">
               <span className="text-9xl font-black italic tracking-tighter uppercase select-none">Sports</span>
            </div>
            <div className="flex justify-between items-center self-end">
               <span className="text-9xl font-black italic tracking-tighter uppercase select-none">Box</span>
            </div>
         </div>
-        <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-black/10 blur-[120px] rounded-full"></div>
-        <div className="absolute -top-40 -right-40 w-96 h-96 bg-white/10 blur-[120px] rounded-full"></div>
       </div>
     </div>
   );
 }
+
 
 

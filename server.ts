@@ -9,8 +9,8 @@ import cors from 'cors';
 // Initialize Firebase Admin
 let adminApp: admin.app.App;
 try {
-  const firebaseConfig = JSON.parse(fs.readFileSync('./firebase-applet-config.json', 'utf8'));
-  const rootFiles = fs.readdirSync('./');
+  const firebaseConfig = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'firebase-applet-config.json'), 'utf8'));
+  const rootFiles = fs.readdirSync(process.cwd());
   
   let serviceAccount: any = null;
 
@@ -31,7 +31,7 @@ try {
     );
 
     if (serviceAccountFile) {
-      const serviceAccountPath = path.join('./', serviceAccountFile);
+      const serviceAccountPath = path.join(process.cwd(), serviceAccountFile);
       console.log(`[Admin Init] Found local service account: ${serviceAccountFile}`);
       serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, 'utf8'));
     }
@@ -181,7 +181,7 @@ async function startServer() {
 
   adminRouter.post('/delete-user', async (req, res) => {
     console.log(`[Admin API] POST /delete-user received`);
-    const firebaseConfig = JSON.parse(fs.readFileSync('./firebase-applet-config.json', 'utf8'));
+    const firebaseConfig = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'firebase-applet-config.json'), 'utf8'));
     
     // Check Firebase Admin Status
     if (admin.apps.length === 0) {

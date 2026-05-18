@@ -16,12 +16,15 @@ const app = initializeApp(firebaseConfig);
 // Improved database initialization with local persistent cache
 let dbInstance;
 try {
-  const dbId = firebaseConfig.firestoreDatabaseId || '(default)';
-  console.log(`[Firebase] Initializing Firestore for Project: ${firebaseConfig.projectId}, Database ID: ${dbId}`);
+  const dbId = firebaseConfig.firestoreDatabaseId && firebaseConfig.firestoreDatabaseId !== '(default)' 
+    ? firebaseConfig.firestoreDatabaseId 
+    : undefined;
+  
+  console.log(`[Firebase] Initializing Firestore for Project: ${firebaseConfig.projectId}, Database ID: ${dbId || '(default)'}`);
   
   dbInstance = initializeFirestore(app, {
     localCache: persistentLocalCache({})
-  }, firebaseConfig.firestoreDatabaseId || undefined);
+  }, dbId);
 } catch (e) {
   console.error("[Firebase] Failed to initialize Firestore with persistent cache:", e);
   dbInstance = getFirestore(app);

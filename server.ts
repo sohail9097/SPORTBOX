@@ -7,7 +7,10 @@ import fs from 'fs';
 import cors from 'cors';
 
 // Initialize Firebase Admin
+let adminApp: admin.app.App;
 try {
+  const firebaseConfigPath = './firebase-applet-config.json';
+  const firebaseConfig = JSON.parse(fs.readFileSync(firebaseConfigPath, 'utf8'));
   const rootFiles = fs.readdirSync('./');
   const serviceAccountFile = rootFiles.find(f => 
     (f.startsWith('gen-lang-client') || f.startsWith('firebase-adminsdk')) && f.endsWith('.json')
@@ -19,16 +22,19 @@ try {
     const serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, 'utf8'));
     
     if (!admin.apps.length) {
-      admin.initializeApp({
-        credential: admin.credential.cert(serviceAccount)
+      adminApp = admin.initializeApp({
+        credential: admin.credential.cert(serviceAccount),
+        projectId: firebaseConfig.projectId
       });
-      console.log("[Admin Init] Firebase Admin initialized.");
+      console.log(`[Admin Init] Firebase Admin initialized with service account for project: ${firebaseConfig.projectId}`);
     }
   } else {
-    console.warn("[Admin Init] No service account JSON file found in root. Falling back to default credentials.");
+    console.warn("[Admin Init] No service account JSON file found in root. Using ADC with explicit Project ID.");
     if (!admin.apps.length) {
-      admin.initializeApp();
-      console.log("[Admin Init] Firebase Admin initialized with default credentials.");
+      adminApp = admin.initializeApp({
+        projectId: firebaseConfig.projectId
+      });
+      console.log(`[Admin Init] Firebase Admin initialized with ADC for project: ${firebaseConfig.projectId}`);
     }
   }
 } catch (error) {
@@ -59,12 +65,15 @@ async function startServer() {
   // Dedicated Admin API Route Handler
   app.all('/admin/api/v1/delete-user', async (req, res) => {
     console.log(`[Admin API] Received ${req.method} request`);
+    const firebaseConfig = JSON.parse(fs.readFileSync('./firebase-applet-config.json', 'utf8'));
     
     // Health check / Info endpoint
     if (req.method === 'GET') {
       return res.json({ 
         status: 'online', 
         initialized: admin.apps.length > 0,
+        projectId: firebaseConfig.projectId,
+        databaseId: firebaseConfig.firestoreDatabaseId || '(default)',
         appName: admin.apps[0]?.name || 'none'
       });
     }
@@ -108,15 +117,23 @@ async function startServer() {
 
       // 2. Delete the user from Firebase Auth
       console.log(`[Admin API] Deleting from Auth: ${uid}`);
-      await admin.auth().deleteUser(uid);
+      try {
+        await admin.auth().deleteUser(uid);
+        console.log(`[Admin API] Successfully deleted ${uid} from Auth`);
+      } catch (authErr: any) {
+        console.warn(`[Admin API] Auth deletion warning (user might already be gone): ${authErr.message}`);
+        // Continue to Firestore even if Auth fails (maybe already deleted)
+      }
 
       // 3. Delete from Firestore
       console.log(`[Admin API] Deleting from Firestore: ${uid}`);
-      const firebaseConfig = JSON.parse(fs.readFileSync('./firebase-applet-config.json', 'utf8'));
-      const db = admin.firestore(firebaseConfig.firestoreDatabaseId || undefined);
+      const dbId = firebaseConfig.firestoreDatabaseId && firebaseConfig.firestoreDatabaseId !== '(default)'
+        ? firebaseConfig.firestoreDatabaseId
+        : undefined;
+      const db = admin.firestore(dbId);
       await db.collection('users').doc(uid).delete();
       
-      return res.json({ success: true, message: 'User deleted from Auth and Firestore' });
+      return res.json({ success: true, message: 'User deletion process completed.' });
     } catch (error) {
       console.error('[Admin API] Error:', error);
       return res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });

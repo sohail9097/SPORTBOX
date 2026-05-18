@@ -81,6 +81,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         displayName: authenticatedUser.displayName,
         subscriptionTier: 'free',
         subscriptionStatus: 'none',
+        role: ADMIN_EMAILS.includes(authenticatedUser.email || '') ? 'admin' : 'user',
         favorites: [],
         watchLater: [],
         recentlyWatched: [],

@@ -748,21 +748,22 @@ export default function Admin() {
       const premiumUsers = items.filter(u => u.subscriptionTier && u.subscriptionTier !== 'free' && u.subscriptionStatus === 'active');
       setPremiumUsersCount(premiumUsers.length);
       
-      setSubscribers(items.filter(u => u.subscriptionTier !== 'free' || u.mobileNumber));
+      // SHOW ALL USERS to ensure admin can see everyone and confirm DB connection
+      setSubscribers(items);
     } catch (error) {
-      console.error(error);
+      console.error("Fetch Subscribers Error:", error);
     }
   };
 
   const handleDeleteUser = async (id: string, name: string) => {
-    if (!confirm(`Are you sure you want to delete user ${name}? This action will remove them from both the database and Authentication (login access). This cannot be undone.`)) return;
+    if (!window.confirm(`Are you sure you want to delete user ${name}? This action will remove them from both the database and Authentication (login access). This cannot be undone.`)) return;
     
+    const toastId = toast.loading(`Deleting user ${name}...`);
     try {
       // 1. Delete from Firebase Auth (via server-side Admin SDK)
       const currentUser = auth.currentUser;
       if (!currentUser) throw new Error("No authenticated admin user found");
       
-      console.log("Attempting to delete user. Admin logged in as:", currentUser.email);
       const idToken = await currentUser.getIdToken();
       const response = await fetch('/admin/api/v1/delete-user', {
         method: 'POST',
@@ -773,25 +774,23 @@ export default function Admin() {
       });
 
       if (!response.ok) {
-        let errorMessage = "Failed to delete user from Authentication";
+        let errorMessage = "Failed to sync deletion with Auth server";
         const contentType = response.headers.get("content-type");
-        if (contentType && contentType.indexOf("application/json") !== -1) {
+        if (contentType?.includes("application/json")) {
           const errorData = await response.json();
           errorMessage = errorData.error || errorMessage;
-        } else {
-          errorMessage = `Server Error: ${response.status} ${response.statusText}`;
         }
         throw new Error(errorMessage);
       }
 
-      // 2. Delete from Firestore
+      // 2. Local Cleanup (Already should be handled by server, but we do it here too for redundancy)
       await deleteDoc(doc(db, 'users', id));
       
-      toast.success("User deleted successfully from both Auth and Database!");
+      toast.success("User removed successfully.", { id: toastId });
       fetchSubscribers();
     } catch (error) {
-      console.error(error);
-      toast.error("Failed to delete user. Error: " + (error as Error).message);
+      console.error("Delete user error:", error);
+      toast.error("Failed to delete user: " + (error as Error).message, { id: toastId });
       handleFirestoreError(error, OperationType.DELETE, `users/${id}`);
     }
   };
@@ -850,25 +849,25 @@ export default function Admin() {
           viewCount: Math.floor(Math.random() * 100)
         };
         await addDoc(collection(db, 'content'), payload);
-      }
-      toast.success("Content saved successfully!");
-      setIsAdding(false);
-      setEditingId(null);
-      fetchContent();
-      // Completely reset form
-      setForm({ 
-        title: '', 
-        description: '', 
-        category: 'football', 
-        type: 'replay', 
-        videoUrl: '', 
-        thumbnailUrl: '',
-        isPremium: false, 
-        status: 'scheduled', 
-        tags: [],
-        viewCount: 0
-      });
-      setTagsInput('');
+    }
+    toast.success("Content saved successfully!");
+    // setIsAdding(false); // USER REQUEST: Keep modal open for next content
+    setEditingId(null);
+    fetchContent();
+    // Reset form for next entry
+    setForm({ 
+      title: '', 
+      description: '', 
+      category: 'football', 
+      type: 'replay', 
+      videoUrl: '', 
+      thumbnailUrl: '',
+      isPremium: false, 
+      status: 'scheduled', 
+      tags: [],
+      viewCount: 0
+    });
+    setTagsInput('');
     } catch (error) {
       console.error("Content Save Error:", error);
       toast.error("Failed to save content. " + (error instanceof Error ? error.message : ""));
@@ -948,31 +947,36 @@ export default function Admin() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this content?')) return;
+    if (!window.confirm('Are you sure you want to delete this content item? This action is permanent.')) return;
+    
+    const toastId = toast.loading("Deleting content...");
     setLoading(true);
     try {
       await deleteDoc(doc(db, 'content', id));
       await fetchContent();
-      toast.success("Content deleted successfully!");
+      toast.success("Content removed successfully from library.", { id: toastId });
     } catch (error) {
       console.error("Delete error:", error);
-      toast.error("Failed to delete content.");
+      toast.error("Failed to delete content. Check your permissions.", { id: toastId });
       handleFirestoreError(error, OperationType.DELETE, `content/${id}`);
     } finally {
+      setLoading(true); // Keep loading state until fetch finishes
+      await fetchContent();
       setLoading(false);
     }
   };
 
   const handleSliderDelete = async (id: string) => {
     if (!window.confirm('Are you sure you want to delete this slide?')) return;
+    const tId = toast.loading("Deleting slide...");
     setLoading(true);
     try {
       await deleteDoc(doc(db, 'slider', id));
       await fetchSlider();
-      toast.success("Slide deleted successfully!");
+      toast.success("Slide deleted successfully!", { id: tId });
     } catch (error) {
       console.error("Slider delete error:", error);
-      toast.error("Failed to delete slide.");
+      toast.error("Failed to delete slide.", { id: tId });
       handleFirestoreError(error, OperationType.DELETE, `slider/${id}`);
     } finally {
       setLoading(false);
@@ -1019,13 +1023,14 @@ export default function Admin() {
   };
 
   const handleSectionDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this section?')) return;
+    if (!window.confirm('Are you sure you want to delete this section?')) return;
+    const tId = toast.loading("Deleting section...");
     try {
       await deleteDoc(doc(db, 'sections', id));
-      toast.success("Section deleted successfully!");
-      fetchSections();
+      await fetchSections();
+      toast.success("Section deleted successfully!", { id: tId });
     } catch (error) {
-      toast.error("Failed to delete section.");
+      toast.error("Failed to delete section.", { id: tId });
       handleFirestoreError(error, OperationType.DELETE, `sections/${id}`);
     }
   };
@@ -1117,18 +1122,29 @@ export default function Admin() {
               <div className="flex flex-wrap gap-4">
                 <button 
                   onClick={async () => {
-                    if (confirm("DANGER: This will delete ALL media permanently from the library. Continue?")) {
+                    const pass = window.prompt("DANGER: Type 'RESET' to delete ALL site data (Content, Library, Sections, Sliders). This is permanent.");
+                    if (pass?.toUpperCase() === 'RESET') {
                       setIsResetting(true);
+                      const tId = toast.loading("Performing full system reset...");
                       try {
-                        const q = query(collection(db, 'content'));
-                        const snap = await getDocs(q);
-                        const promises = snap.docs.map(d => deleteDoc(doc(db, 'content', d.id)));
-                        await Promise.all(promises);
+                        const collections = ['content', 'library', 'sections', 'slider', 'library_folders'];
+                        for (const colName of collections) {
+                          const q = query(collection(db, colName));
+                          const snap = await getDocs(q);
+                          const promises = snap.docs.map(d => deleteDoc(doc(db, colName, d.id)));
+                          await Promise.all(promises);
+                        }
+                        
                         await fetchContent();
-                        toast.success("Successfully removed all media from your site.");
+                        await fetchSections();
+                        await fetchSlider();
+                        await fetchMediaItems();
+                        
+                        toast.success("System completely wiped. You can start fresh now.", { id: tId });
+                        window.location.reload();
                       } catch (err: any) {
-                        console.error("Delete all error:", err);
-                        toast.error("Failed to delete all media. " + err.message);
+                        console.error("Reset error:", err);
+                        toast.error("Wipe failed: " + err.message, { id: tId });
                       } finally {
                         setIsResetting(false);
                       }
@@ -1138,8 +1154,24 @@ export default function Admin() {
                   className="px-6 py-3 bg-red-600/10 border border-red-500/20 text-red-500 rounded-2xl text-xs font-black uppercase italic hover:bg-red-600 hover:text-white transition-all disabled:opacity-50 flex items-center gap-2"
                 >
                   <Trash2 className="w-4 h-4" />
-                  {isResetting ? "Deleting..." : "Remove All Media From Site"}
+                  {isResetting ? "Wiping..." : "Full System Reset (Clear All Data)"}
                 </button>
+
+                <div className="flex-grow glass-card px-6 py-3 border border-white/5 bg-white/5 rounded-2xl flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                    <div>
+                      <p className="text-[8px] font-black uppercase text-text-muted">Connected Project / DB</p>
+                      <p className="text-[10px] font-mono text-white/60 truncate max-w-[200px]">
+                        {(db as any)._databaseId?.projectId || 'SportsBox-1'} | {(db as any)._databaseId?.databaseId || '(default)'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[8px] font-black uppercase text-text-muted">Environment</p>
+                    <p className="text-[10px] font-bold text-brand uppercase">{window.location.hostname.includes('ais-') ? 'Development (AI Studio)' : 'Published (Production)'}</p>
+                  </div>
+                </div>
               </div>
 
               {liveItems.length > 0 ? (
@@ -1347,20 +1379,20 @@ export default function Admin() {
                           </div>
                         </td>
                         <td className="px-6 py-4 text-right">
-                          <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <div className="flex items-center justify-end gap-1">
                             <button 
                               onClick={() => setPreviewContent({ 
                                 url: transformGDriveUrl(item.videoUrl, 'video'), 
                                 title: item.title, 
                                 isLive: item.status === 'live' 
                               })} 
-                              className="p-2 hover:text-brand transition-colors"
+                              className="p-2 hover:text-brand transition-colors text-text-muted"
                               title="Preview Video"
                             >
                               <Eye className="w-4 h-4" />
                             </button>
-                            <button onClick={() => handleEdit(item)} className="p-2 hover:text-brand transition-colors"><Edit2 className="w-4 h-4" /></button>
-                            <button onClick={() => handleDelete(item.id)} className="p-2 hover:text-red-500 transition-colors"><Trash2 className="w-4 h-4" /></button>
+                            <button onClick={() => handleEdit(item)} className="p-2 hover:text-brand transition-colors text-text-muted" title="Edit Item"><Edit2 className="w-4 h-4" /></button>
+                            <button onClick={() => handleDelete(item.id)} className="p-2 hover:text-red-500 transition-colors text-red-500/80" title="Delete Item"><Trash2 className="w-4 h-4" /></button>
                           </div>
                         </td>
                       </tr>
@@ -1404,15 +1436,11 @@ export default function Admin() {
                         </div>
                       </button>
 
-                      {['cricket', 'football', 'basketball', 'tennis', 'f1', 'boxing', 'golf', 'esports', 'others'].map((cat) => {
+                      {['cricket', 'football', 'basketball', 'tennis', 'others'].map((cat) => {
                         const Icon = cat === 'football' ? Dribbble : 
                                      cat === 'cricket' ? Trophy : 
                                      cat === 'basketball' ? CircleDot : 
-                                     cat === 'tennis' ? Disc : 
-                                     cat === 'f1' ? Flag : 
-                                     cat === 'boxing' ? Zap : 
-                                     cat === 'golf' ? Target : 
-                                     cat === 'esports' ? Gamepad2 : Activity;
+                                     cat === 'tennis' ? Disc : Activity;
                         return (
                           <button
                             key={cat}
@@ -2722,10 +2750,6 @@ export default function Admin() {
                       <option value="cricket">Cricket</option>
                       <option value="basketball">Basketball</option>
                       <option value="tennis">Tennis</option>
-                      <option value="f1">F1</option>
-                      <option value="boxing">Boxing</option>
-                      <option value="golf">Golf</option>
-                      <option value="esports">Esports</option>
                       <option value="others">Others</option>
                     </select>
                   </div>

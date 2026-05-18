@@ -15,11 +15,14 @@ import DataDeletion from './pages/DataDeletion';
 import { ThemeProvider } from './lib/ThemeContext';
 import { AuthProvider } from './hooks/useAuth';
 
+import { Toaster } from 'sonner';
+
 function App() {
   return (
     <AuthProvider>
       <ThemeProvider>
         <Router>
+          <Toaster position="top-center" richColors />
           <ScrollToTop />
           <Layout>
             <Routes>

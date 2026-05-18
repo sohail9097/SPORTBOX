@@ -7,6 +7,7 @@ import { db, handleFirestoreError, OperationType, signInWithGoogle, auth } from 
 import { doc, updateDoc, setDoc, collection, query, orderBy, getDocs } from 'firebase/firestore';
 import { SubscriptionPlan } from '../types';
 import LoadingScreen from '../components/LoadingScreen';
+import { toast } from 'sonner';
 
 const IconMap: Record<string, any> = {
   Zap,
@@ -38,12 +39,12 @@ export default function Plans() {
     }
 
     if (phone.length !== 10) {
-      alert("Please enter a valid 10-digit mobile number.");
+      toast.error("Please enter a valid 10-digit mobile number.");
       return;
     }
 
     if (!displayName || displayName.trim().length < 3) {
-      alert("Please enter your full name.");
+      toast.error("Please enter your full name.");
       return;
     }
 
@@ -68,7 +69,7 @@ export default function Plans() {
       setStep('success');
     } catch (error: any) {
       handleFirestoreError(error, OperationType.UPDATE, `users/${user.uid}`);
-      alert("Subscription failed. Please try again.");
+      toast.error("Subscription failed. Please try again.");
     } finally {
       setIsProcessing(false);
     }

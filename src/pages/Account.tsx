@@ -10,6 +10,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { SportsContent } from '../types';
 import ContentCard from '../components/ContentCard';
 import LoadingScreen from '../components/LoadingScreen';
+import { toast } from 'sonner';
 
 export default function Account() {
   const navigate = useNavigate();
@@ -87,12 +88,12 @@ export default function Account() {
   const handleUpdateProfile = async () => {
     // Basic validation
     if (!displayName || displayName.trim().length < 3) {
-      alert("Please enter your name (min 3 characters).");
+      toast.error("Please enter your name (min 3 characters).");
       return;
     }
 
     if (!mobileNumber || mobileNumber.trim().length < 10) {
-      alert("Please enter a valid mobile number (min 10 digits).");
+      toast.error("Please enter a valid mobile number (min 10 digits).");
       return;
     }
 
@@ -104,11 +105,12 @@ export default function Account() {
         displayName: displayName,
         mobileNumber: mobileNumber
       });
+      toast.success("Profile Updated!");
       setVerificationSuccess(true);
       setTimeout(() => setVerificationSuccess(false), 3000);
     } catch (error: any) {
       console.error("Update Error:", error);
-      alert("Error updating profile.");
+      toast.error("Error updating profile.");
     } finally {
       setLoading(false);
     }

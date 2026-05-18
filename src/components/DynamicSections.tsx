@@ -40,11 +40,15 @@ export default function DynamicSections({ page }: DynamicSectionsProps) {
 
     const fetchContentForSections = async (list: ContentSection[]) => {
       const data: Record<string, SportsContent[]> = {};
+      
+      // Filter out sections that are already loaded if needed, but for real-time we want to ensure freshness
       for (const section of list) {
-        if (section.contentIds.length === 0) continue;
+        if (!section.contentIds || section.contentIds.length === 0) {
+          data[section.id] = [];
+          continue;
+        }
         
         try {
-          // Fetch all IDs for this section in parallel
           const results = await Promise.all(
             section.contentIds.map(id => 
               getDoc(doc(db, 'content', id)).then(s => 
@@ -57,7 +61,7 @@ export default function DynamicSections({ page }: DynamicSectionsProps) {
           console.warn(`[Dynamic] Error fetching content for section ${section.id}:`, e);
         }
       }
-      setSectionData(prev => ({ ...prev, ...data }));
+      setSectionData(data); // Replace entirely to avoid stale leftovers from deleted sections
     };
 
     return () => unsubscribeSections();

@@ -9,6 +9,7 @@ import { motion } from 'motion/react';
 import { cn, formatDate, transformGDriveUrl } from '../lib/utils';
 import StadiumPlayer from '../components/StadiumPlayer';
 import ReactMarkdown from 'react-markdown';
+import { toast } from 'sonner';
 
 import LoadingScreen from '../components/LoadingScreen';
 
@@ -186,7 +187,7 @@ export default function Watch() {
         await navigator.share(shareData);
       } else {
         await navigator.clipboard.writeText(window.location.href);
-        alert('Link copied to clipboard!');
+        toast.success('Link copied to clipboard!');
       }
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {

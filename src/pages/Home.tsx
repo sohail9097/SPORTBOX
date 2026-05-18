@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { db } from '../lib/firebase';
-import { collection, query, orderBy, limit, getDocs, where, doc, onSnapshot } from 'firebase/firestore';
-import { SportsContent, VideoPromoSettings } from '../types';
+import { collection, query, orderBy, limit, getDocs, where, doc, onSnapshot, getDoc } from 'firebase/firestore';
+import { SportsContent, VideoPromoSettings, ContentSection } from '../types';
 import ContentCard from '../components/ContentCard';
 import DynamicSections from '../components/DynamicSections';
 import HeroSlider from '../components/HeroSlider';
@@ -56,23 +56,47 @@ export default function Home() {
     );
 
     let unsubTrending: (() => void) | null = null;
-    getDocs(manualTrendingQuery).then((snap) => {
-      if (snap.empty) {
+    const unsubSection = onSnapshot(manualTrendingQuery, async (snap) => {
+      let contentIds: string[] = [];
+      if (!snap.empty) {
+        const sectionDoc = snap.docs[0].data() as ContentSection;
+        contentIds = sectionDoc.contentIds || [];
+      }
+
+      if (contentIds.length > 0) {
+        try {
+          const results = await Promise.all(
+            contentIds.map(id => getDoc(doc(db, 'content', id)).then(s => 
+              s.exists() ? ({ ...s.data(), id: s.id } as SportsContent) : null
+            ))
+          );
+          setTrending(results.filter((i): i is SportsContent => i !== null));
+        } catch (e) {
+          console.error("[Home] Error fetching manual trending:", e);
+        }
+      } else {
+        if (unsubTrending) unsubTrending();
         const trendingQuery = query(
           collection(db, 'content'), 
-          orderBy('viewCount', 'desc'), 
-          limit(6)
+          orderBy('createdAt', 'desc'), 
+          limit(12)
         );
         unsubTrending = onSnapshot(trendingQuery, (s) => {
-          setTrending(s.docs.map(d => ({ id: d.id, ...d.data() } as SportsContent)));
+          const items = s.docs.map(d => ({ id: d.id, ...d.data() } as SportsContent));
+          setTrending(items.sort((a, b) => (b.viewCount || 0) - (a.viewCount || 0)).slice(0, 6));
+        }, (err) => {
+          console.error("[Home] Trending fallback sync error:", err);
         });
       }
+    }, (err) => {
+       console.error("[Home] Section sync error:", err);
     });
 
     return () => {
       clearTimeout(timer);
       unsubPromo();
       unsubLive();
+      unsubSection();
       if (unsubTrending) unsubTrending();
     };
   }, []);

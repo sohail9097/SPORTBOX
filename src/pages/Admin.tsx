@@ -9,6 +9,7 @@ import { cn, formatDate, transformGDriveUrl } from '../lib/utils';
 import { useAuth } from '../hooks/useAuth';
 import MediaManager from '../components/MediaManager';
 import StadiumPlayer from '../components/StadiumPlayer';
+import { toast } from 'sonner';
 
 import LoadingScreen from '../components/LoadingScreen';
 
@@ -234,11 +235,11 @@ export default function Admin() {
         }
       }
 
-      alert("Successfully added 80 dummy items across all categories!");
+      toast.success("Successfully added 80 dummy items across all categories!");
       window.location.reload();
     } catch (err) {
       console.error(err);
-      alert("Failed to add bulk content.");
+      toast.error("Failed to add bulk content.");
     } finally {
       setIsBulkLoading(false);
     }
@@ -300,21 +301,24 @@ export default function Admin() {
 
       // Automatically create sections if they are missing
       const sectionsSnap = await getDocs(collection(db, 'sections'));
-      if (sectionsSnap.empty) {
-        const defaultSections = [
-          { title: 'Trending Hub', page: 'home', contentIds: createdIds, type: 'normal', order: 1, isActive: true },
-          { title: 'Tournament Replays', page: 'home', contentIds: [createdIds[1]], type: 'top10', order: 2, isActive: true }
-        ];
-        for (const sec of defaultSections) {
+      const existingSections = sectionsSnap.docs.map(d => d.data().title);
+      
+      const defaultSections = [
+        { title: 'Trending Hub', page: 'home', contentIds: createdIds, type: 'normal', order: 1, isActive: true },
+        { title: 'Tournament Replays', page: 'home', contentIds: [createdIds[1]], type: 'top10', order: 2, isActive: true }
+      ];
+
+      for (const sec of defaultSections) {
+        if (!existingSections.includes(sec.title)) {
           await addDoc(collection(db, 'sections'), sec);
         }
       }
 
-      alert("Sample library restored! Sections and content are now visible on the home page.");
+      toast.success("Sample library restored! Sections and content are now visible on the home page.");
       window.location.reload();
     } catch (err) {
       console.error(err);
-      alert("Failed to restore content.");
+      toast.error("Failed to restore content.");
     } finally {
       setIsInitializing(false);
     }
@@ -362,11 +366,11 @@ export default function Admin() {
         });
       }
 
-      alert("Sample sections and settings initialized. Now add some content in the Content tab!");
+      toast.success("Sample sections and settings initialized. Now add some content in the Content tab!");
       window.location.reload();
     } catch (err) {
       console.error(err);
-      alert("Failed to initialize sample data. Check console for details.");
+      toast.error("Failed to initialize sample data. Check console for details.");
     } finally {
       setIsInitializing(false);
     }
@@ -438,10 +442,10 @@ export default function Admin() {
       
       await Promise.all(promises);
       await fetchContent();
-      alert("All impressions have been reset to zero successfully!");
+      toast.success("All impressions have been reset to zero successfully!");
     } catch (error) {
       console.error(error);
-      alert("Failed to reset impressions.");
+      toast.error("Failed to reset impressions.");
     } finally {
       setIsResetting(false);
     }
@@ -493,7 +497,7 @@ export default function Admin() {
       for (const plan of defaultPlans) {
         await setDoc(doc(db, 'subscription_plans', plan.id), plan);
       }
-      alert("Subscription plans initialized.");
+      toast.success("Subscription plans initialized.");
     } catch (err) {
       console.error("Init plans error:", err);
     }
@@ -548,7 +552,7 @@ export default function Admin() {
       for (const sample of samples) {
         await addDoc(collection(db, 'content'), sample);
       }
-      alert("Sample content added successfully!");
+      toast.success("Sample content added successfully!");
     } catch (err) {
       console.error("Init content error:", err);
     } finally {
@@ -564,10 +568,10 @@ export default function Admin() {
     try {
       const docRef = doc(db, 'settings', 'playerConfig');
       await setDoc(docRef, playerConfig);
-      alert("Player configuration updated!");
+      toast.success("Player configuration updated!");
     } catch (error) {
       console.error("Player Config Save Error:", error);
-      alert("Failed to update player configuration. " + (error instanceof Error ? error.message : ""));
+      toast.error("Failed to update player configuration. " + (error instanceof Error ? error.message : ""));
       handleFirestoreError(error, OperationType.UPDATE, 'settings/playerConfig');
     } finally {
       setIsSaving(false);
@@ -676,7 +680,7 @@ export default function Admin() {
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
-    alert("URL copied to clipboard!");
+    toast.success("URL copied to clipboard!");
   };
 
   const [previewContent, setPreviewContent] = useState<{url: string, title: string, isLive: boolean} | null>(null);
@@ -691,10 +695,10 @@ export default function Admin() {
       const docRef = doc(db, 'settings', 'videoPromo');
       await setDoc(docRef, finalPromo);
       setVideoPromo(finalPromo);
-      alert("Video Promo Banner updated successfully!");
+      toast.success("Video Promo Banner updated successfully!");
     } catch (error) {
       console.error("Video Promo Update Error:", error);
-      alert("Failed to update banner. " + (error instanceof Error ? error.message : ""));
+      toast.error("Failed to update banner. " + (error instanceof Error ? error.message : ""));
       handleFirestoreError(error, OperationType.UPDATE, 'settings/videoPromo');
     } finally {
       setIsSaving(false);
@@ -718,10 +722,10 @@ export default function Admin() {
         }
       });
       setSiteConfig(finalConfig);
-      alert("Settings updated successfully! Links were optimized for display.");
+      toast.success("Settings updated successfully! Links were optimized for display.");
     } catch (error) {
       console.error("Config Update Error:", error);
-      alert("Failed to update general settings. " + (error instanceof Error ? error.message : ""));
+      toast.error("Failed to update general settings. " + (error instanceof Error ? error.message : ""));
       handleFirestoreError(error, OperationType.UPDATE, 'settings/siteConfig');
     } finally {
       setIsSaving(false);
@@ -777,11 +781,11 @@ export default function Admin() {
       // 2. Delete from Firestore
       await deleteDoc(doc(db, 'users', id));
       
-      alert("User deleted successfully from both Auth and Database!");
+      toast.success("User deleted successfully from both Auth and Database!");
       fetchSubscribers();
     } catch (error) {
       console.error(error);
-      alert("Failed to delete user. Error: " + (error as Error).message);
+      toast.error("Failed to delete user. Error: " + (error as Error).message);
       handleFirestoreError(error, OperationType.DELETE, `users/${id}`);
     }
   };
@@ -841,7 +845,7 @@ export default function Admin() {
         };
         await addDoc(collection(db, 'content'), payload);
       }
-      alert("Content saved successfully!");
+      toast.success("Content saved successfully!");
       setIsAdding(false);
       setEditingId(null);
       fetchContent();
@@ -849,7 +853,7 @@ export default function Admin() {
       setTagsInput('');
     } catch (error) {
       console.error("Content Save Error:", error);
-      alert("Failed to save content. " + (error instanceof Error ? error.message : ""));
+      toast.error("Failed to save content. " + (error instanceof Error ? error.message : ""));
       handleFirestoreError(error, editingId ? OperationType.UPDATE : OperationType.CREATE, 'content');
     }
   };
@@ -857,7 +861,7 @@ export default function Admin() {
   const handleSectionSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!sectionForm.contentIds || sectionForm.contentIds.length === 0) {
-      alert("Please select at least one piece of content for this section.");
+      toast.error("Please select at least one piece of content for this section.");
       return;
     }
     
@@ -875,11 +879,11 @@ export default function Admin() {
       setIsAddingSection(false);
       setEditingSectionId(null);
       await fetchSections();
-      alert("Section saved successfully!");
+      toast.success("Section saved successfully!");
       setSectionForm({ title: '', page: 'home', contentIds: [], type: 'normal', order: 0, isActive: true, aspectRatio: 'landscape' });
     } catch (error) {
       console.error("Section save error:", error);
-      alert("Failed to save section. " + (error instanceof Error ? error.message : ""));
+      toast.error("Failed to save section. " + (error instanceof Error ? error.message : ""));
       handleFirestoreError(error, editingSectionId ? OperationType.UPDATE : OperationType.CREATE, 'sections');
     }
   };
@@ -903,11 +907,11 @@ export default function Admin() {
       setIsAddingSlider(false);
       setEditingSliderId(null);
       fetchSlider();
-      alert("Slide saved successfully!");
+      toast.success("Slide saved successfully!");
       setSliderForm({ title: '', description: '', imageUrl: '', videoUrl: '', actionUrl: '', isLive: false, order: 0, isActive: true, animationType: 'fade', page: 'home' });
     } catch (error) {
       console.error("Slider save error:", error);
-      alert("Failed to save slide. " + (error instanceof Error ? error.message : ""));
+      toast.error("Failed to save slide. " + (error instanceof Error ? error.message : ""));
       handleFirestoreError(error, editingSliderId ? OperationType.UPDATE : OperationType.CREATE, 'slider');
     }
   };
@@ -931,10 +935,10 @@ export default function Admin() {
     try {
       await deleteDoc(doc(db, 'content', id));
       await fetchContent();
-      alert("Content deleted successfully!");
+      toast.success("Content deleted successfully!");
     } catch (error) {
       console.error("Delete error:", error);
-      alert("Failed to delete content.");
+      toast.error("Failed to delete content.");
       handleFirestoreError(error, OperationType.DELETE, `content/${id}`);
     } finally {
       setLoading(false);
@@ -947,10 +951,10 @@ export default function Admin() {
     try {
       await deleteDoc(doc(db, 'slider', id));
       await fetchSlider();
-      alert("Slide deleted successfully!");
+      toast.success("Slide deleted successfully!");
     } catch (error) {
       console.error("Slider delete error:", error);
-      alert("Failed to delete slide.");
+      toast.error("Failed to delete slide.");
       handleFirestoreError(error, OperationType.DELETE, `slider/${id}`);
     } finally {
       setLoading(false);
@@ -975,10 +979,10 @@ export default function Admin() {
       
       setIsAddingPlan(false);
       setEditingPlanId(null);
-      alert("Plan saved successfully!");
+      toast.success("Plan saved successfully!");
     } catch (error) {
       console.error("Plan save error:", error);
-      alert("Failed to save plan. Check console for details.");
+      toast.error("Failed to save plan. Check console for details.");
       handleFirestoreError(error, editingPlanId ? OperationType.UPDATE : OperationType.CREATE, 'subscription_plans');
     } finally {
       setLoading(false);
@@ -1195,10 +1199,10 @@ export default function Admin() {
                           createdAt: new Date().toISOString(),
                           viewCount: 0
                         });
-                        alert("Video 'test1234' added successfully to Football!");
+                        toast.success("Video 'test1234' added successfully to Football!");
                         fetchContent();
                       } catch (err) {
-                        alert("Error adding video. Check console.");
+                        toast.error("Error adding video. Check console.");
                       }
                     }}
                     className="flex items-center gap-4 p-4 bg-surface hover:bg-brand/10 border border-white/5 rounded-2xl transition-all group"
@@ -1664,10 +1668,10 @@ export default function Admin() {
                                 const docRef = doc(db, 'content', item.id);
                                 await updateDoc(docRef, { status: 'ended' });
                                 await fetchContent();
-                                alert("Stream ended successfully.");
+                                toast.success("Stream ended successfully.");
                               } catch (err) {
                                 console.error(err);
-                                alert("Failed to stop stream.");
+                                toast.error("Failed to stop stream.");
                               } finally {
                                 setLoading(false);
                               }
@@ -1685,10 +1689,10 @@ export default function Admin() {
                                 const docRef = doc(db, 'content', item.id);
                                 await updateDoc(docRef, { status: 'live' });
                                 await fetchContent();
-                                alert("Stream is now LIVE!");
+                                toast.success("Stream is now LIVE!");
                               } catch (err) {
                                 console.error(err);
-                                alert("Failed to start stream.");
+                                toast.error("Failed to start stream.");
                               } finally {
                                 setLoading(false);
                               }
@@ -2311,7 +2315,7 @@ export default function Admin() {
                           <button 
                             onClick={() => {
                               navigator.clipboard.writeText(`https://console.firebase.google.com/project/${auth.app.options.projectId}/settings/general`);
-                              alert("Link copied. Open this in an Incognito window!");
+                              toast.success("Link copied. Open this in an Incognito window!");
                             }}
                             className="px-4 bg-white/5 hover:bg-white/10 rounded-xl border border-white/5 text-[8px] font-black uppercase italic text-text-muted"
                           >
@@ -2333,7 +2337,7 @@ export default function Admin() {
                           <button 
                             onClick={() => {
                               navigator.clipboard.writeText(`https://console.cloud.google.com/apis/credentials/consent?project=${auth.app.options.projectId}`);
-                              alert("Most important link copied. Open this in Incognito!");
+                              toast.success("Most important link copied. Open this in Incognito!");
                             }}
                             className="px-4 bg-blue-500/10 hover:bg-blue-500/20 rounded-xl border border-blue-500/20 text-[8px] font-black uppercase italic text-blue-400"
                           >
@@ -2356,7 +2360,7 @@ export default function Admin() {
                           <button 
                             onClick={() => {
                               navigator.clipboard.writeText(`https://console.cloud.google.com/apis/credentials?project=${auth.app.options.projectId}`);
-                              alert("Credentials link copied.");
+                              toast.success("Credentials link copied.");
                             }}
                             className="px-4 bg-white/5 hover:bg-white/10 rounded-xl border border-white/5 text-[8px] font-black uppercase italic text-text-muted"
                           >
@@ -2422,10 +2426,10 @@ export default function Admin() {
                         // Refresh content list to show 0 likes
                         const updatedContentSnap = await getDocs(collection(db, 'content'));
                         setContent(updatedContentSnap.docs.map(d => ({ id: d.id, ...d.data() } as SportsContent)));
-                        alert('All likes have been reset to zero.');
+                        toast.success('All likes have been reset to zero.');
                       } catch (err) {
                         console.error(err);
-                        alert('Failed to reset likes.');
+                        toast.error('Failed to reset likes.');
                       } finally {
                         setLikesLoading(false);
                       }

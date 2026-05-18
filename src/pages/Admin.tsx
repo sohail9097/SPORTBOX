@@ -393,8 +393,9 @@ export default function Admin() {
           }
           const contentType = res.headers.get("content-type");
           const isFallback = res.headers.get("X-SPA-Fallback") === "true";
+          const hasMatchedRouter = res.headers.get("X-API-Router-Matched") === "true";
           if (!contentType || !contentType.includes("application/json") || isFallback) {
-             throw new Error(`Health check returned non-JSON/Fallback. Type: ${contentType}, Fallback: ${isFallback}`);
+             throw new Error(`Health check returned non-JSON/Fallback. Type: ${contentType}, Fallback: ${isFallback}, RouterMatched: ${hasMatchedRouter}`);
           }
           return res.json();
         })
@@ -764,6 +765,8 @@ export default function Admin() {
         
         const contentType = res.headers.get("content-type");
         const isFallback = res.headers.get("X-SPA-Fallback") === "true";
+        const hasMatchedRouter = res.headers.get("X-API-Router-Matched") === "true";
+        const hasDetectedAPI = res.headers.get("X-API-Request-Detected") === "true";
         
         // If we get HTML instead of JSON for an API call, it's a routing error
         if ((!contentType || !contentType.includes("application/json") || isFallback) && res.ok) {
@@ -778,9 +781,13 @@ export default function Admin() {
             status: res.status,
             contentType,
             isFallback,
+            hasMatchedRouter,
+            hasDetectedAPI,
             snippet: text.substring(0, 200)
           });
-          throw new Error(`Connection Error: The backend returned HTML (SPA Fallback) instead of JSON. Path: ${url}. Status: ${res.status}. Header matched: ${res.headers.get('X-API-Matched')}`);
+          
+          let debugInfo = `Status: ${res.status}, RouterMatched: ${hasMatchedRouter}, DetectedAPI: ${hasDetectedAPI}, Fallback: ${isFallback}`;
+          throw new Error(`Connectivity Error: The backend returned HTML instead of JSON. Path: ${url}. Info: ${debugInfo}. Check server logs.`);
         }
         
         return res;

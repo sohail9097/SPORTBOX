@@ -76,39 +76,46 @@ async function startServer() {
   
   // Debug logger for all incoming requests - EARLY in the chain
   app.use((req, res, next) => {
-    console.log(`[Request Log] ${new Date().toISOString()} - ${req.method} ${req.url}`);
+    const timestamp = new Date().toISOString();
+    console.log(`[Request Log] ${timestamp} - ${req.method} ${req.url}`);
+    
+    // Diagnostic headers for the client
+    res.setHeader('X-Server-Timestamp', timestamp);
+    res.setHeader('X-Request-URL', req.url);
+    
+    if (req.url.startsWith('/api')) {
+      res.setHeader('X-API-Request-Detected', 'true');
+    }
     next();
   });
 
-  // 1. DEDICATED API ROUTES (FLATTENED FOR RELIABILITY)
-  
-  // Middleware to add diagnostic headers to all API responses
-  app.use('/api', (req, res, next) => {
-    res.setHeader('X-API-Path', req.path);
-    res.setHeader('X-API-Matched', 'false');
+  // 1. DEDICATED API ROUTES (MOUNTED BEFORE ANYTHING ELSE)
+  const api = express.Router();
+
+  // Middleware within the router to guarantee header setting
+  api.use((req, res, next) => {
+    res.setHeader('X-API-Router-Matched', 'true');
     next();
   });
 
-  // Health check API
-  app.get('/api/health', (req, res) => {
-    res.setHeader('X-API-Matched', 'true');
+  // API Health check
+  api.get('/health', (req, res) => {
     res.json({ 
       status: 'ok', 
+      api: 'v1',
       env: process.env.NODE_ENV,
       adminInitialized: admin.apps.length > 0 
     });
   });
 
-  app.get('/api/admin/health', (req, res) => {
-    res.setHeader('X-API-Matched', 'true');
+  api.get('/admin/health', (req, res) => {
     res.json({ status: 'admin-ok', initialized: admin.apps.length > 0 });
   });
 
   // List all users from Auth and Merge with Firestore
-  app.get('/api/admin/list-users', async (req, res) => {
-    res.setHeader('X-API-Matched', 'true');
+  api.get('/admin/list-users', async (req, res) => {
+    console.log(`[API Router] Handling /admin/list-users`);
     try {
-      console.log(`[Admin API] GET /api/admin/list-users - Request received at ${new Date().toISOString()}`);
       const authHeader = req.headers.authorization;
       if (!authHeader?.startsWith('Bearer ')) {
         return res.status(401).json({ error: 'Unauthorized: No token provided' });
@@ -134,30 +141,21 @@ async function startServer() {
       // 2. Get all users from Firestore
       let firestoreData: Record<string, any> = {};
       try {
-        const configPath = path.join(process.cwd(), 'firebase-applet-config.json');
-        const firebaseConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+        const firebaseConfig = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'firebase-applet-config.json'), 'utf8'));
         const dbId = firebaseConfig.firestoreDatabaseId && firebaseConfig.firestoreDatabaseId !== '(default)'
           ? firebaseConfig.firestoreDatabaseId
           : undefined;
-          
         const db = admin.firestore(dbId);
         const snapshot = await db.collection('users').get();
-        snapshot.forEach(doc => {
-          firestoreData[doc.id] = doc.data();
-        });
+        snapshot.forEach(doc => { firestoreData[doc.id] = doc.data(); });
       } catch (fsError: any) {
         console.warn("Firestore fetch failed:", fsError.message);
       }
 
-      const allUids = new Set([
-        ...authUsers.map(u => u.uid),
-        ...Object.keys(firestoreData)
-      ]);
-
+      const allUids = new Set([...authUsers.map(u => u.uid), ...Object.keys(firestoreData)]);
       const mergedUsers = Array.from(allUids).map(uid => {
         const authUser = authUsers.find(u => u.uid === uid);
         const profile = firestoreData[uid] || {};
-        
         return {
           id: uid,
           uid: uid,
@@ -166,22 +164,18 @@ async function startServer() {
           photoURL: authUser?.photoURL || profile.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(authUser?.email || profile.email || 'U')}&background=random`,
           createdAt: authUser?.metadata.creationTime || profile.createdAt || null,
           lastSignInTime: authUser?.metadata.lastSignInTime || profile.lastSignInTime || null,
-          mobileNumber: profile.mobileNumber || '',
-          subscriptionTier: profile.subscriptionTier || 'free',
-          subscriptionStatus: profile.subscriptionStatus || 'none',
           ...profile
         };
       });
 
       res.json({ users: mergedUsers });
     } catch (error) {
-      console.error('[Admin API] Error in list-users:', error);
+      console.error('[Admin API] Error:', error);
       res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
     }
   });
 
-  app.post('/api/admin/delete-user', async (req, res) => {
-    res.setHeader('X-API-Matched', 'true');
+  api.post('/admin/delete-user', async (req, res) => {
     try {
       const { uid, idToken } = req.body;
       if (!uid || !idToken) return res.status(400).json({ error: 'Missing uid or idToken' });
@@ -189,35 +183,27 @@ async function startServer() {
       const decodedToken = await admin.auth().verifyIdToken(idToken);
       const email = decodedToken.email?.toLowerCase() || '';
       const adminEmails = ['sohailgaji9097@gmail.com', 'tavish@dreamcatchers.tv'];
-      
-      if (!adminEmails.includes(email)) {
-        return res.status(403).json({ error: `Unauthorized` });
-      }
+      if (!adminEmails.includes(email)) return res.status(403).json({ error: `Unauthorized` });
 
       await admin.auth().deleteUser(uid);
-      const configPath = path.join(process.cwd(), 'firebase-applet-config.json');
-      const firebaseConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-      const dbId = firebaseConfig.firestoreDatabaseId && firebaseConfig.firestoreDatabaseId !== '(default)'
-        ? firebaseConfig.firestoreDatabaseId
-        : undefined;
+      const firebaseConfig = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'firebase-applet-config.json'), 'utf8'));
+      const dbId = firebaseConfig.firestoreDatabaseId && firebaseConfig.firestoreDatabaseId !== '(default)' ? firebaseConfig.firestoreDatabaseId : undefined;
       const db = admin.firestore(dbId);
       await db.collection('users').doc(uid).delete();
-      
       res.json({ success: true });
     } catch (error) {
       res.status(500).json({ error: 'Internal server error' });
     }
   });
 
-  // Catch-all for API routes
-  app.all('/api/*', (req, res) => {
-    console.warn(`[API 404] Missing endpoint hit: ${req.method} ${req.url}`);
-    res.status(404).json({ 
-      error: 'API endpoint not found',
-      path: req.url,
-      method: req.method
-    });
+  // Catch-all for API routes - MUST be JSON
+  api.all('*', (req, res) => {
+    console.warn(`[API 404] ${req.method} ${req.originalUrl}`);
+    res.status(404).json({ error: 'API endpoint not found', path: req.originalUrl });
   });
+
+  // MOUNT THE API ROUTER
+  app.use('/api', api);
 
 
   // 2. VITE / STATIC / SPA FALLBACK (MOVE TO AFTER API ROUTES)
@@ -238,6 +224,17 @@ async function startServer() {
       app.get('*', (req, res) => {
         // Log where the fallthrough is happening
         console.log(`[Static Fallthrough] Serving index.html for: ${req.url}`);
+        
+        // Anti-masking for API calls
+        if (req.url.startsWith('/api/') || req.path.startsWith('/api/')) {
+          return res.status(404).json({
+            error: "API route not found",
+            url: req.url,
+            path: req.path,
+            reason: "Request reached the SPA fallback route instead of an API handler."
+          });
+        }
+
         res.setHeader('X-SPA-Fallback', 'true');
         res.sendFile(path.join(distPath, 'index.html'));
       });

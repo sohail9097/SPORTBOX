@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { db } from '../lib/firebase';
-import { collection, query, where, orderBy, getDocs } from 'firebase/firestore';
+import { collection, query, where, orderBy, getDocs, onSnapshot } from 'firebase/firestore';
 import { SliderElement, Category } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { Play, ChevronLeft, ChevronRight, X, Info, Calendar, Plus } from 'lucide-react';
@@ -23,29 +23,28 @@ export default function HeroSlider({ page = 'home' }: HeroSliderProps) {
   const autoPlayRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    fetchSlides();
-  }, [page]);
-
-  const fetchSlides = async () => {
+    // Faster fetching with onSnapshot
     setLoading(true);
-    try {
-      const q = query(
-        collection(db, 'slider'),
-        where('isActive', '==', true),
-        orderBy('order', 'asc')
-      );
-      const querySnapshot = await getDocs(q);
-      const items = querySnapshot.docs
+    const q = query(
+      collection(db, 'slider'),
+      where('isActive', '==', true),
+      orderBy('order', 'asc')
+    );
+
+    const unsubscribe = onSnapshot(q, (snap) => {
+      const items = snap.docs
         .map(doc => ({ ...doc.data(), id: doc.id } as SliderElement))
         .filter(slide => (slide.page || 'home') === page);
       
       setSlides(items);
-    } catch (error) {
-      console.error('Error fetching slides:', error);
-    } finally {
       setLoading(false);
-    }
-  };
+    }, (error) => {
+      console.error('Slider sync error:', error);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [page]);
 
   const nextSlide = () => {
     setCurrentIndex((prev) => (prev + 1) % slides.length);

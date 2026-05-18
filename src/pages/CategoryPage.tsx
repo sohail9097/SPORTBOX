@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { db } from '../lib/firebase';
-import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
+import { collection, query, where, getDocs, orderBy, limit, onSnapshot } from 'firebase/firestore';
 import { SportsContent, Category } from '../types';
 import ContentCard from '../components/ContentCard';
 import DynamicSections from '../components/DynamicSections';
@@ -29,49 +29,44 @@ export default function CategoryPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (category) {
-      fetchCategoryData();
-    }
-  }, [category]);
-
-  const fetchCategoryData = async () => {
-    setLoading(true);
-    try {
-      // 1. Fetch All Assets
-      const allQuery = query(
-        collection(db, 'content'),
-        where('category', '==', category),
-        orderBy('createdAt', 'desc')
-      );
-      
-      // 2. Fetch Live for this category
-      const liveQuery = query(
-        collection(db, 'content'),
-        where('category', '==', category),
-        where('type', '==', 'live'),
-        where('status', '==', 'live'),
-        limit(4)
-      );
-
-      const [allSnap, liveSnap] = await Promise.all([
-        getDocs(allQuery),
-        getDocs(liveQuery)
-      ]);
-
-      setContent(allSnap.docs.map(d => ({ id: d.id, ...d.data() } as SportsContent)));
-      setLiveNow(liveSnap.docs.map(d => ({ id: d.id, ...d.data() } as SportsContent)));
-    } catch (error) {
-      console.error('Error fetching category data:', error);
-    } finally {
+    if (!category) return;
+    
+    // 1. Sync All Category Assets
+    const allQuery = query(
+      collection(db, 'content'),
+      where('category', '==', category),
+      orderBy('createdAt', 'desc')
+    );
+    const unsubAll = onSnapshot(allQuery, (snap) => {
+      setContent(snap.docs.map(d => ({ id: d.id, ...d.data() } as SportsContent)));
       setLoading(false);
-    }
-  };
+    }, (err) => {
+      console.error("All category sync error:", err);
+      setLoading(false);
+    });
+
+    // 2. Sync Live Category Content
+    const liveQuery = query(
+      collection(db, 'content'),
+      where('category', '==', category),
+      where('status', '==', 'live'),
+      limit(4)
+    );
+    const unsubLive = onSnapshot(liveQuery, (snap) => {
+      setLiveNow(snap.docs.map(d => ({ id: d.id, ...d.data() } as SportsContent)));
+    }, (err) => {
+      console.warn("Live category sync offline:", err.message);
+    });
+
+    return () => {
+      unsubAll();
+      unsubLive();
+    };
+  }, [category]);
 
   const categoryKey = category?.toLowerCase() || '';
   const categoryName = category ? category.charAt(0).toUpperCase() + category.slice(1) : 'Sports';
   const catInfo = CategoryLabelMap[categoryKey];
-
-  if (loading) return <LoadingScreen />;
 
   return (
     <div className="min-h-screen pb-20">
@@ -138,7 +133,7 @@ export default function CategoryPage() {
           <h2 className="text-xs font-black uppercase tracking-[0.3em] text-text-muted italic">All {categoryName} Assets</h2>
         </div>
 
-        {loading ? (
+        {loading && content.length === 0 ? (
           <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-1">
             {[...Array(8)].map((_, i) => (
               <div key={`skeleton-archive-${i}`} className="aspect-video bg-white/5 rounded-[2px] animate-pulse" />

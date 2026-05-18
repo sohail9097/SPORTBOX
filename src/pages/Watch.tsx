@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { doc, getDoc, updateDoc, increment, arrayUnion, arrayRemove, collection, query, where, limit, getDocs, setDoc, deleteDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, increment, arrayUnion, arrayRemove, collection, query, where, limit, getDocs, setDoc, deleteDoc, onSnapshot } from 'firebase/firestore';
 import { SportsContent, PlayerSettings } from '../types';
 import { useAuth } from '../hooks/useAuth';
 import { Play, Share2, Heart, MessageSquare, Crown, Info, ChevronRight, Activity, PlusCircle, CheckCircle2 } from 'lucide-react';
@@ -63,12 +63,52 @@ export default function Watch() {
     if (id) {
       window.scrollTo(0, 0);
       setIsPlaying(false);
-      fetchContent();
-      fetchPlayerConfig();
+      
+      // Concurrently setup listeners and metadata
+      const unsubContent = onSnapshot(doc(db, 'content', id), (snap) => {
+        if (snap.exists()) {
+          const contentData = { id: snap.id, ...snap.data() } as SportsContent;
+          setContent(contentData);
+          setLoading(false);
+          
+          // Related content depends on category
+          const q = query(
+            collection(db, 'content'),
+            where('category', '==', contentData.category),
+            limit(12)
+          );
+          getDocs(q).then(relatedSnap => {
+            const related = relatedSnap.docs
+              .map(d => ({ id: d.id, ...d.data() } as SportsContent))
+              .filter(item => item.id !== id);
+            
+            const grouped: { [key: string]: SportsContent[] } = {};
+            related.forEach(item => {
+              const tag = item.tags?.[0] || 'More Feed';
+              if (!grouped[tag]) grouped[tag] = [];
+              grouped[tag].push(item);
+            });
+            setSections(grouped);
+          });
+        }
+      }, (err) => {
+        console.error("Content sync error:", err);
+        setLoading(false);
+      });
+
+      const unsubPlayer = onSnapshot(doc(db, 'settings', 'playerConfig'), (snap) => {
+        if (snap.exists()) setPlayerConfig(snap.data() as PlayerSettings);
+      });
+
       // Increment view count
       updateDoc(doc(db, 'content', id), {
         viewCount: increment(1)
       }).catch(err => console.error('Failed to update views', err));
+
+      return () => {
+        unsubContent();
+        unsubPlayer();
+      };
     }
   }, [id]);
 
@@ -146,59 +186,10 @@ export default function Watch() {
     }
   };
 
-  const fetchPlayerConfig = async () => {
-    try {
-      const snap = await getDoc(doc(db, 'settings', 'playerConfig'));
-      if (snap.exists()) {
-        setPlayerConfig(snap.data() as PlayerSettings);
-      }
-    } catch (error) {
-      console.error("Error fetching player config:", error);
-    }
-  };
+  // Removing redundant fetch functions - now using onSnapshot in useEffect
 
-  const fetchContent = async () => {
-    try {
-      const snap = await getDoc(doc(db, 'content', id!));
-      if (snap.exists()) {
-        const contentData = { id: snap.id, ...snap.data() } as SportsContent;
-        setContent(contentData);
-        
-        // Fetch related content
-        const q = query(
-          collection(db, 'content'),
-          where('category', '==', contentData.category),
-          limit(40)
-        );
-        const relatedSnap = await getDocs(q);
-        const related = relatedSnap.docs
-          .map(doc => ({ id: doc.id, ...doc.data() } as SportsContent))
-          .filter(item => item.id !== id);
-        
-        // Group by tags
-        const grouped: { [key: string]: SportsContent[] } = {};
-        
-        related.forEach(item => {
-          if (item.tags && item.tags.length > 0) {
-            const tag = item.tags[0]; // Use first tag as section name
-            if (!grouped[tag]) grouped[tag] = [];
-            grouped[tag].push(item);
-          } else {
-            if (!grouped['More Feed']) grouped['More Feed'] = [];
-            grouped['More Feed'].push(item);
-          }
-        });
-        
-        setSections(grouped);
-      }
-    } catch (error) {
-      handleFirestoreError(error, OperationType.GET, `content/${id}`);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (loading || authLoading) return <LoadingScreen />;
+  if (authLoading) return <LoadingScreen />;
+  if (loading && !content) return <LoadingScreen />;
   if (!content) return <div className="h-screen flex flex-col items-center justify-center">Content not found. <Link to="/" className="text-brand mt-4">Back Home</Link></div>;
 
   const isLocked = (!profile || profile.subscriptionTier === 'free') && !isAdmin;

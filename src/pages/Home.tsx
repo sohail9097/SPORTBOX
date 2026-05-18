@@ -18,7 +18,7 @@ export default function Home() {
   const [videoPromo, setVideoPromo] = useState<VideoPromoSettings | null>(null);
 
   useEffect(() => {
-    // Parallelize promo sync and other data fetching
+    // 1. Video Promo sync
     const unsubPromo = onSnapshot(doc(db, 'settings', 'videoPromo'), (snap) => {
       if (snap.exists()) {
         setVideoPromo(snap.data() as VideoPromoSettings);
@@ -27,55 +27,53 @@ export default function Home() {
       console.warn("[Home] Promo sync offline:", err.message);
     });
 
-    const fetchData = async () => {
-      try {
-        const liveQuery = query(
+    // 2. Live Content sync
+    const liveQuery = query(
+      collection(db, 'content'), 
+      where('type', '==', 'live'),
+      where('status', '==', 'live'),
+      limit(6)
+    );
+    const unsubLive = onSnapshot(liveQuery, (snap) => {
+      setLiveNow(snap.docs.map(d => ({ id: d.id, ...d.data() } as SportsContent)));
+      setLoading(false);
+    }, (err) => {
+      console.error("[Home] Live sync error:", err);
+      setLoading(false);
+    });
+
+    // 3. Trending Replays logic
+    const manualTrendingQuery = query(
+      collection(db, 'sections'), 
+      where('page', '==', 'home'), 
+      where('title', '==', 'Trending Replays'),
+      where('isActive', '==', true)
+    );
+
+    let unsubTrending: (() => void) | null = null;
+    getDocs(manualTrendingQuery).then((snap) => {
+      if (snap.empty) {
+        const trendingQuery = query(
           collection(db, 'content'), 
-          where('type', '==', 'live'),
-          where('status', '==', 'live'),
+          orderBy('viewCount', 'desc'), 
           limit(6)
         );
-
-        const manualTrendingQuery = query(
-          collection(db, 'sections'), 
-          where('page', '==', 'home'), 
-          where('title', '==', 'Trending Replays'),
-          where('isActive', '==', true)
-        );
-
-        const [liveSnap, manualTrendingSnap] = await Promise.all([
-          getDocs(liveQuery),
-          getDocs(manualTrendingQuery)
-        ]);
-
-        setLiveNow(liveSnap.docs.map(d => ({ id: d.id, ...d.data() } as SportsContent)));
-
-        if (manualTrendingSnap.empty) {
-          const trendingQuery = query(
-            collection(db, 'content'), 
-            orderBy('viewCount', 'desc'), 
-            limit(6)
-          );
-          const trendingSnap = await getDocs(trendingQuery);
-          setTrending(trendingSnap.docs.map(d => ({ id: d.id, ...d.data() } as SportsContent)));
-        } else {
-          setTrending([]);
-        }
-      } catch (error) {
-        console.error(error);
-      } finally {
-        setLoading(false);
+        unsubTrending = onSnapshot(trendingQuery, (s) => {
+          setTrending(s.docs.map(d => ({ id: d.id, ...d.data() } as SportsContent)));
+        });
       }
-    };
+    });
 
-    fetchData();
-    return () => unsubPromo();
+    return () => {
+      unsubPromo();
+      unsubLive();
+      if (unsubTrending) unsubTrending();
+    };
   }, []);
 
   // Use skeletons or partial loading instead of total block if possible
-  // For now, keeping the screen but reducing the block duration via faster queries
-  if (loading) return <LoadingScreen />;
-
+  // Removing hard loading block for faster perceived speed
+  
   return (
     <div className="pb-20 text-text-base">
       {/* Hero Slider Section */}

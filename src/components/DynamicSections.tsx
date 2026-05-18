@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { db } from '../lib/firebase';
-import { collection, query, where, orderBy, getDocs, doc, getDoc } from 'firebase/firestore';
+import { collection, query, where, orderBy, getDocs, doc, getDoc, onSnapshot } from 'firebase/firestore';
 import { ContentSection, SportsContent, Category } from '../types';
 import ContentCard from './ContentCard';
 import { ChevronRight, Layers, Trophy } from 'lucide-react';
@@ -19,49 +19,48 @@ export default function DynamicSections({ page }: DynamicSectionsProps) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchSectionsAndContent = async () => {
-      setLoading(true);
-      try {
-        // Fetch all sections and filter/sort in memory to avoid needing composite indexes
-        const q = query(collection(db, 'sections'));
-        const querySnapshot = await getDocs(q);
-        const sectionsList = querySnapshot.docs
-          .map(doc => ({ ...doc.data(), id: doc.id } as ContentSection))
-          .filter(s => s.page === page && s.isActive)
-          .sort((a, b) => a.order - b.order);
+    setLoading(true);
+    // 1. Sync sections
+    const q = query(collection(db, 'sections'));
+    const unsubscribeSections = onSnapshot(q, (snap) => {
+      const sectionsList = snap.docs
+        .map(doc => ({ ...doc.data(), id: doc.id } as ContentSection))
+        .filter(s => s.page === page && s.isActive)
+        .sort((a, b) => a.order - b.order);
+      
+      setSections(sectionsList);
+      setLoading(false);
+
+      // 2. Fetch content for each section
+      fetchContentForSections(sectionsList);
+    }, (err) => {
+      console.error("[Dynamic] Sections sync error:", err);
+      setLoading(false);
+    });
+
+    const fetchContentForSections = async (list: ContentSection[]) => {
+      const data: Record<string, SportsContent[]> = {};
+      for (const section of list) {
+        if (section.contentIds.length === 0) continue;
         
-        setSections(sectionsList);
-
-        // 2. Fetch content for each section
-        const data: Record<string, SportsContent[]> = {};
-        
-        for (const section of sectionsList) {
-          if (section.contentIds.length === 0) continue;
-
-          // Note: In a production environment with many items, 
-          // we might want to handle this with a more complex query or denormalization.
-          // For now, we fetch the individual documents associated with the section.
-          const contentPromises = section.contentIds.map(async (contentId) => {
-            const contentDoc = await getDoc(doc(db, 'content', contentId));
-            if (contentDoc.exists()) {
-              return { ...contentDoc.data(), id: contentDoc.id } as SportsContent;
-            }
-            return null;
-          });
-
-          const results = await Promise.all(contentPromises);
-          data[section.id] = results.filter((item): item is SportsContent => item !== null);
+        try {
+          // Fetch all IDs for this section in parallel
+          const results = await Promise.all(
+            section.contentIds.map(id => 
+              getDoc(doc(db, 'content', id)).then(s => 
+                s.exists() ? ({ ...s.data(), id: s.id } as SportsContent) : null
+              )
+            )
+          );
+          data[section.id] = results.filter((i): i is SportsContent => i !== null);
+        } catch (e) {
+          console.warn(`[Dynamic] Error fetching content for section ${section.id}:`, e);
         }
-        
-        setSectionData(data);
-      } catch (error) {
-        console.error('Error fetching dynamic sections:', error);
-      } finally {
-        setLoading(false);
       }
+      setSectionData(prev => ({ ...prev, ...data }));
     };
 
-    fetchSectionsAndContent();
+    return () => unsubscribeSections();
   }, [page]);
 
   if (loading) {

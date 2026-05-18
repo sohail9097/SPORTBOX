@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { db } from '../lib/firebase';
-import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
+import { collection, query, where, getDocs, orderBy, onSnapshot } from 'firebase/firestore';
 import { SportsContent } from '../types';
 import ContentCard from '../components/ContentCard';
 import LoadingScreen from '../components/LoadingScreen';
@@ -13,28 +13,25 @@ export default function Live() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchLiveContent();
+    const q = query(
+      collection(db, 'content'),
+      where('status', '==', 'live'),
+      orderBy('createdAt', 'desc')
+    );
+    
+    const unsubscribe = onSnapshot(q, (snap) => {
+      setContent(snap.docs.map(d => ({ id: d.id, ...d.data() } as SportsContent)));
+      setLoading(false);
+    }, (error) => {
+      console.error('Error fetching live content:', error);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
   }, []);
 
-  const fetchLiveContent = async () => {
-    setLoading(true);
-    try {
-      const q = query(
-        collection(db, 'content'),
-        where('status', '==', 'live'),
-        orderBy('createdAt', 'desc')
-      );
-      const snap = await getDocs(q);
-      setContent(snap.docs.map(d => ({ id: d.id, ...d.data() } as SportsContent)));
-    } catch (error) {
-      console.error('Error fetching live content:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (loading) return <LoadingScreen />;
-
+  // Removing fetchLiveContent manual function
+  
   return (
     <div className="min-h-screen pb-20 pt-12">
       <div className="max-w-[1600px] mx-auto px-4">
@@ -65,7 +62,7 @@ export default function Live() {
           </motion.p>
         </header>
 
-        {loading ? (
+        {loading && content.length === 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-1.5">
             {[...Array(4)].map((_, i) => (
               <div key={`skeleton-live-${i}`} className="aspect-video bg-surface rounded-sm animate-pulse" />

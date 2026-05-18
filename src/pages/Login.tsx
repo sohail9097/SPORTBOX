@@ -12,7 +12,7 @@ import {
   signInWithRedirect,
   getRedirectResult,
 } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, onSnapshot } from 'firebase/firestore';
 import { cn } from '../lib/utils';
 import BrandLogo from '../components/BrandLogo';
 import { SiteConfig } from '../types';

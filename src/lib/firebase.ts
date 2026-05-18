@@ -1,25 +1,28 @@
 import { initializeApp } from 'firebase/app';
 import { getAnalytics, isSupported } from 'firebase/analytics';
 import { getAuth, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
-import { getFirestore, doc, getDocFromServer, initializeFirestore } from 'firebase/firestore';
+import { 
+  getFirestore, 
+  doc, 
+  initializeFirestore, 
+  persistentLocalCache 
+} from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import firebaseConfig from '../../firebase-applet-config.json';
 
 const app = initializeApp(firebaseConfig);
 
-// Simplified database initialization
+// Improved database initialization with local persistent cache
 let dbInstance;
 try {
   const dbId = firebaseConfig.firestoreDatabaseId || '(default)';
   console.log(`[Firebase] Initializing Firestore for Project: ${firebaseConfig.projectId}, Database ID: ${dbId}`);
   
-  // Use initializeFirestore with optimized settings for container environments
   dbInstance = initializeFirestore(app, {
-    experimentalForceLongPolling: true,
+    localCache: persistentLocalCache({})
   }, firebaseConfig.firestoreDatabaseId || undefined);
-
 } catch (e) {
-  console.error("[Firebase] Failed to initialize Firestore:", e);
+  console.error("[Firebase] Failed to initialize Firestore with persistent cache:", e);
   dbInstance = getFirestore(app);
 }
 

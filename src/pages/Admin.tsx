@@ -744,7 +744,7 @@ export default function Admin() {
       if (!currentUser) return;
 
       const idToken = await currentUser.getIdToken();
-      const response = await fetch('/admin/api/v1/list-users', {
+      const response = await fetch('/api/admin/list-users', {
         headers: {
           'Authorization': `Bearer ${idToken}`
         }
@@ -753,12 +753,21 @@ export default function Admin() {
       if (!response.ok) {
         let errorMessage = "Failed to fetch users";
         try {
-          const errorData = await response.json();
-          errorMessage = errorData.error || errorMessage;
-          if (errorData.details?.auth) {
-            errorMessage += ` (Auth: ${errorData.details.auth})`;
+          const contentType = response.headers.get("content-type");
+          if (contentType && contentType.includes("application/json")) {
+            const errorData = await response.json();
+            errorMessage = errorData.error || errorMessage;
+            if (errorData.details?.auth) {
+              errorMessage += ` (Auth: ${errorData.details.auth})`;
+            }
+          } else {
+            const text = await response.text();
+            console.error("Non-JSON Error Response:", text.substring(0, 500));
+            errorMessage = `Server Error: ${response.status} ${response.statusText}. The server returned an HTML/text response instead of JSON.`;
           }
-        } catch (e) {}
+        } catch (e) {
+          console.error("Error parsing error response:", e);
+        }
         throw new Error(errorMessage);
       }
       
@@ -804,7 +813,7 @@ export default function Admin() {
       if (!currentUser) throw new Error("No authenticated admin user found");
       
       const idToken = await currentUser.getIdToken();
-      const response = await fetch('/admin/api/v1/delete-user', {
+      const response = await fetch('/api/admin/delete-user', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

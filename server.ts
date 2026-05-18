@@ -82,9 +82,18 @@ async function startServer() {
 
   const PORT = 3000;
 
+  // Health check API
+  app.get('/api/health', (req, res) => {
+    res.json({ 
+      status: 'ok', 
+      env: process.env.NODE_ENV,
+      adminInitialized: admin.apps.length > 0 
+    });
+  });
+
   // Dedicated Admin API Route Handler
-  app.all('/admin/api/v1/delete-user', async (req, res) => {
-    console.log(`[Admin API] Received ${req.method} request`);
+  app.all('/api/admin/delete-user', async (req, res) => {
+    console.log(`[Admin API] Received ${req.method} request for delete-user`);
     const firebaseConfig = JSON.parse(fs.readFileSync('./firebase-applet-config.json', 'utf8'));
     
     // Health check / Info endpoint
@@ -166,8 +175,9 @@ async function startServer() {
   });
 
   // List all users from Auth and Merge with Firestore
-  app.get('/admin/api/v1/list-users', async (req, res) => {
+  app.get('/api/admin/list-users', async (req, res) => {
     try {
+      console.log("[Admin API] GET /api/admin/list-users - Request started");
       const authHeader = req.headers.authorization;
       if (!authHeader?.startsWith('Bearer ')) {
         return res.status(401).json({ error: 'Unauthorized: No token provided' });
@@ -273,6 +283,15 @@ async function startServer() {
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }
+
+  // Global error handler to ensure JSON responses even for internal errors
+  app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+    console.error('[Global Error Handler]', err);
+    res.status(err.status || 500).json({
+      error: err.message || 'Internal Server Error',
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+    });
+  });
 
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running on http://localhost:${PORT}`);

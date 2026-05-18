@@ -125,18 +125,113 @@ async function startServer() {
         // Continue to Firestore even if Auth fails (maybe already deleted)
       }
 
-      // 3. Delete from Firestore
-      console.log(`[Admin API] Deleting from Firestore: ${uid}`);
       const dbId = firebaseConfig.firestoreDatabaseId && firebaseConfig.firestoreDatabaseId !== '(default)'
         ? firebaseConfig.firestoreDatabaseId
         : undefined;
-      const db = admin.firestore(dbId);
-      await db.collection('users').doc(uid).delete();
+
+      // 3. Delete from Firestore (OPTIONAL)
+      try {
+        console.log(`[Admin API] Deleting from Firestore: ${uid} (db: ${dbId || '(default)'})`);
+        const db = admin.firestore(dbId);
+        await db.collection('users').doc(uid).delete();
+      } catch (fsError: any) {
+        console.warn(`[Admin API] Firestore deletion failed: ${fsError.message}`);
+      }
       
       return res.json({ success: true, message: 'User deletion process completed.' });
     } catch (error) {
       console.error('[Admin API] Error:', error);
       return res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
+    }
+  });
+
+  // List all users from Auth and Merge with Firestore with robust error handling
+  app.get('/admin/api/v1/list-users', async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader?.startsWith('Bearer ')) {
+        return res.status(401).json({ error: 'Unauthorized: No token provided' });
+      }
+
+      const idToken = authHeader.split('Bearer ')[1];
+      const decodedToken = await admin.auth().verifyIdToken(idToken);
+      
+      const adminEmails = ['sohailgaji9097@gmail.com', 'tavish@dreamcatchers.tv'];
+      if (!adminEmails.includes(decodedToken.email?.toLowerCase() || '')) {
+        console.error(`[Admin API] Unauthorized access attempt by ${decodedToken.email}`);
+        return res.status(403).json({ error: 'Forbidden: Admins only' });
+      }
+
+      console.log("[Admin API] Fetching all users...");
+      const firebaseConfig = JSON.parse(fs.readFileSync('./firebase-applet-config.json', 'utf8'));
+      
+      // 1. Get all users from Auth (MUST WORK)
+      let authUsers: admin.auth.UserRecord[] = [];
+      try {
+        const listUsersResult = await admin.auth().listUsers(1000);
+        authUsers = listUsersResult.users;
+        console.log(`[Admin API] Found ${authUsers.length} users in Firebase Authentication.`);
+      } catch (authErr: any) {
+        console.error("[Admin API] Auth listUsers failed:", authErr.message);
+        return res.status(500).json({ error: "Failed to fetch users from Authentication: " + authErr.message });
+      }
+
+      // 2. Get all users from Firestore (OPTIONAL)
+      let firestoreData: Record<string, any> = {};
+      try {
+        const db = admin.firestore();
+        console.log(`[Admin API] Attempting Firestore fetch (Project: ${admin.app().options.projectId})`);
+        
+        // Debug: list one collection just to see if it works
+        const collections = await db.listCollections();
+        console.log(`[Admin API] Collections found: ${collections.map(c => c.id).join(', ')}`);
+
+        const snapshot = await db.collection('users').get();
+        snapshot.forEach(doc => {
+          firestoreData[doc.id] = doc.data();
+        });
+        console.log(`[Admin API] Successfully merged data for ${Object.keys(firestoreData).length} Firestore profiles.`);
+      } catch (fsError: any) {
+        console.warn(`[Admin API] Firestore fetch failed (Code ${fsError.code}): ${fsError.message}`);
+        
+        // Try fallback with explicit databaseId if config says so
+        if (firebaseConfig.firestoreDatabaseId && firebaseConfig.firestoreDatabaseId !== '(default)') {
+          try {
+             const db = admin.firestore(firebaseConfig.firestoreDatabaseId);
+             const snapshot = await db.collection('users').get();
+             snapshot.forEach(doc => {
+               firestoreData[doc.id] = doc.data();
+             });
+             console.log(`[Admin API] Resolved via Database ID: ${firebaseConfig.firestoreDatabaseId}`);
+          } catch (retryErr) {
+             console.warn(`[Admin API] Failover Firestore retry failed too.`);
+          }
+        }
+      }
+
+      // 3. Merge and return
+      const mergedUsers = authUsers.map(authUser => {
+        const profile = firestoreData[authUser.uid] || {};
+        return {
+          id: authUser.uid,
+          uid: authUser.uid,
+          email: authUser.email,
+          displayName: authUser.displayName || profile.displayName || authUser.email?.split('@')[0] || 'Unknown User',
+          photoURL: authUser.photoURL || profile.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(authUser.email || 'U')}&background=random`,
+          createdAt: authUser.metadata.creationTime,
+          lastSignInTime: authUser.metadata.lastSignInTime,
+          mobileNumber: profile.mobileNumber || '',
+          subscriptionTier: profile.subscriptionTier || 'free',
+          subscriptionStatus: profile.subscriptionStatus || 'none',
+          role: profile.role || 'user',
+          ...profile
+        };
+      });
+
+      res.json(mergedUsers);
+    } catch (error) {
+      console.error('[Admin API] Critical Error in list-users:', error);
+      res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown internal error' });
     }
   });
 

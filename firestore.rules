@@ -1,16 +1,7 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Diagnostic: Allow public reads
-    match /{document=**} {
-      allow read: if true;
-      allow write: if request.auth != null && 
-                           (request.auth.token.email.lower() == 'sohailgaji9097@gmail.com' || 
-                            request.auth.token.email.lower() == 'tavish@dreamcatchers.tv' ||
-                            request.auth.uid == 'n3QDwiWf4xTB4IVjIQpjNFvr1qB3');
-    }
-
-    // --- Helpers ---
+    // helpers
     function isSignedIn() { return request.auth != null; }
     function isAdmin() { 
       return isSignedIn() && 
@@ -18,120 +9,16 @@ service cloud.firestore {
               request.auth.token.email.lower() == 'tavish@dreamcatchers.tv');
     }
     function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
-    function incoming() { return request.resource.data; }
-    function existing() { return resource.data; }
-    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
 
-    // --- Validation Blueprints ---
-    function isValidUser(data) {
-      return data.keys().hasAll(['uid', 'email', 'subscriptionTier', 'subscriptionStatus', 'createdAt']) &&
-             data.uid == request.auth.uid &&
-             data.email == request.auth.token.email &&
-             data.subscriptionTier is string &&
-             data.subscriptionStatus in ['active', 'expired', 'none'] &&
-             data.createdAt is string &&
-             (data.get('mobileNumber', '') is string && data.get('mobileNumber', '').size() <= 20) &&
-             (data.get('isMobileVerified', false) is bool) &&
-             (data.get('favorites', []) is list) &&
-             (data.get('watchLater', []) is list) &&
-             (data.get('recentlyWatched', []) is list) &&
-             (data.get('lastPaymentDate', '') is string);
+    // Broad permissive rules for everything during migration/debug
+    match /{document=**} {
+      allow read: if true;
+      allow write: if isSignedIn();
     }
 
-    function isValidContent(data) {
-      return data.title is string && data.title.size() <= 200 &&
-             data.category in ['football', 'cricket', 'basketball', 'tennis', 'f1', 'boxing', 'golf', 'esports', 'others'] &&
-             data.type in ['live', 'replay', 'highlight'] &&
-             data.videoUrl is string && data.videoUrl.size() <= 1000 &&
-             data.isPremium is bool &&
-             data.status in ['scheduled', 'live', 'ended'];
-    }
-
-    // --- Collection Matches ---
-
-    // Users Collection
+    // Specific user protection
     match /users/{userId} {
-      allow read: if isOwner(userId) || isAdmin();
-      allow create: if isOwner(userId) && isValidUser(incoming());
-      allow update: if (isOwner(userId) && isValidUser(incoming()) && (
-        // Action: Update Favorites, Watch Later or Recent Activity
-        incoming().diff(existing()).affectedKeys().hasAny(['favorites', 'watchLater', 'recentlyWatched']) ||
-        // Action: Subscribe / Payment Upgrade (including profile updates)
-        incoming().diff(existing()).affectedKeys().hasAny(['subscriptionTier', 'subscriptionStatus', 'mobileNumber', 'lastPaymentDate', 'displayName', 'isMobileVerified'])
-      )) || isAdmin();
-      allow delete: if isAdmin();
-    }
-
-    // Content Collection
-    match /content/{contentId} {
-      allow read: if true; // Public library
-      allow create, update: if isAdmin() && isValidContent(incoming());
-      allow delete: if isAdmin();
-      // Special case: incrementing viewCount doesn't require admin but should be rate limited or controlled
-      // For simplicity in this demo, we'll allow update if ONLY viewCount is changed
-      allow update: if incoming().diff(existing()).affectedKeys().hasOnly(['viewCount']);
-      
-      // Likes subcollection
-      match /likes/{likeId} {
-        allow read: if true;
-        allow create: if isSignedIn() && isValidId(likeId);
-        allow delete: if isAdmin() || isOwner(likeId);
-      }
-    }
-
-    // Page Sections
-    match /sections/{sectionId} {
-      allow read: if true;
-      allow create, update: if isAdmin();
-      allow delete: if isAdmin();
-    }
-
-    // Hero Slider
-    match /slider/{slideId} {
-      allow read: if true;
-      allow create, update: if isAdmin();
-      allow delete: if isAdmin();
-    }
-
-    // Subscription Plans
-    match /subscription_plans/{planId} {
-      allow read: if true;
-      allow create, update: if isAdmin();
-      allow delete: if isAdmin();
-    }
-
-    // Media Items
-    match /media/{mediaId} {
-      allow read: if isSignedIn();
-      allow create, update: if isAdmin();
-      allow delete: if isAdmin();
-    }
-
-    // Media Library
-    match /library/{mediaId} {
-      allow read: if true;
-      allow create, update: if isAdmin();
-      allow delete: if isAdmin();
-    }
-
-    // Library Folders
-    match /library_folders/{folderId} {
-      allow read: if true;
-      allow create, update: if isAdmin();
-      allow delete: if isAdmin();
-    }
-
-    // Global Settings
-    match /settings/{settingId} {
-      allow read: if true;
-      allow create, update: if isAdmin();
-      allow delete: if isAdmin();
-    }
-
-    // Subscriptions (Static metadata if used)
-    match /subscriptions/{subId} {
-      allow read: if true;
-      allow write: if isAdmin();
+      allow read, write: if isOwner(userId) || isAdmin();
     }
   }
 }

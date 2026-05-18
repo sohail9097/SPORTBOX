@@ -740,15 +740,23 @@ export default function Admin() {
 
   const fetchSubscribers = async () => {
     try {
-      const q = query(collection(db, 'users'), orderBy('createdAt', 'desc'));
-      const querySnapshot = await getDocs(q);
-      const items = querySnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as any));
+      const currentUser = auth.currentUser;
+      if (!currentUser) return;
+
+      const idToken = await currentUser.getIdToken();
+      const response = await fetch('/admin/api/v1/list-users', {
+        headers: {
+          'Authorization': `Bearer ${idToken}`
+        }
+      });
+
+      if (!response.ok) throw new Error("Failed to fetch users");
       
+      const items = await response.json();
       setAllUsersCount(items.length);
-      const premiumUsers = items.filter(u => u.subscriptionTier && u.subscriptionTier !== 'free' && u.subscriptionStatus === 'active');
+      const premiumUsers = items.filter((u: any) => u.subscriptionTier && u.subscriptionTier !== 'free' && u.subscriptionStatus === 'active');
       setPremiumUsersCount(premiumUsers.length);
       
-      // SHOW ALL USERS to ensure admin can see everyone and confirm DB connection
       setSubscribers(items);
     } catch (error) {
       console.error("Fetch Subscribers Error:", error);

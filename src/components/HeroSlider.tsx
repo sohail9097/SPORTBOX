@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { db } from '../lib/firebase';
-import { collection, query, where, orderBy, getDocs, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, orderBy, getDocs, onSnapshot, limit } from 'firebase/firestore';
 import { SliderElement, Category } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { Play, ChevronLeft, ChevronRight, X, Info, Calendar, Plus } from 'lucide-react';
@@ -28,13 +28,14 @@ export default function HeroSlider({ page = 'home' }: HeroSliderProps) {
     const q = query(
       collection(db, 'slider'),
       where('isActive', '==', true),
-      orderBy('order', 'asc')
+      limit(20)
     );
 
     const unsubscribe = onSnapshot(q, (snap) => {
       const items = snap.docs
         .map(doc => ({ ...doc.data(), id: doc.id } as SliderElement))
-        .filter(slide => (slide.page || 'home') === page);
+        .filter(slide => (slide.page || 'home') === page)
+        .sort((a, b) => (a.order || 0) - (b.order || 0));
       
       setSlides(items);
       setLoading(false);

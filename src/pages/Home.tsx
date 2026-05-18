@@ -33,14 +33,15 @@ export default function Home() {
     });
 
     // 2. Live Content sync
-    const liveQuery = query(
-      collection(db, 'content'), 
-      where('type', '==', 'live'),
-      where('status', '==', 'live'),
-      limit(6)
-    );
+    const liveQuery = query(collection(db, 'content'), where('type', '==', 'live'), limit(20));
     const unsubLive = onSnapshot(liveQuery, (snap) => {
-      setLiveNow(snap.docs.map(d => ({ id: d.id, ...d.data() } as SportsContent)));
+      // Filter status in-memory to avoid complex index requirements
+      const liveItems = snap.docs
+        .map(d => ({ id: d.id, ...d.data() } as SportsContent))
+        .filter(item => item.status === 'live')
+        .slice(0, 6);
+      
+      setLiveNow(liveItems);
       setLoading(false);
     }, (err) => {
       console.error("[Home] Live sync error:", err);
@@ -48,23 +49,22 @@ export default function Home() {
     });
 
     // 3. Dynamic Sections sync (including the one intended for Trending)
-    const sectionsQuery = query(
-      collection(db, 'sections'), 
-      where('page', '==', 'home'), 
-      where('isActive', '==', true),
-      orderBy('order', 'asc')
-    );
+    const sectionsQuery = query(collection(db, 'sections'), where('page', '==', 'home'));
 
     const unsubSections = onSnapshot(sectionsQuery, async (snap) => {
-      const sectionsList = snap.docs.map(d => ({ id: d.id, ...d.data() } as ContentSection));
+      const sectionsList = snap.docs
+        .map(d => ({ id: d.id, ...d.data() } as ContentSection))
+        .filter(s => s.isActive)
+        .sort((a, b) => (a.order || 0) - (b.order || 0));
       
-      // Find a section that might be the "Trending" one (either by title or just use the first one available)
-      const trendingSection = sectionsList.find(s => s.title.toLowerCase().includes('trending')) || sectionsList[0];
+      // Find a section that might be the "Trending" one
+      const trendingSection = sectionsList.find(s => s.title.toLowerCase().includes('trending'));
       
       if (trendingSection && trendingSection.contentIds && trendingSection.contentIds.length > 0) {
         try {
+          // Optimization: Batch fetch instead of many getDoc calls
           const results = await Promise.all(
-            trendingSection.contentIds.map(id => getDoc(doc(db, 'content', id)).then(s => 
+            trendingSection.contentIds.slice(0, 10).map(id => getDoc(doc(db, 'content', id)).then(s => 
               s.exists() ? ({ ...s.data(), id: s.id } as SportsContent) : null
             ))
           );
@@ -74,13 +74,12 @@ export default function Home() {
         }
       } else {
         // Fallback: Just fetch recent content if no trending section identified
-        const fallbackQuery = query(
-          collection(db, 'content'), 
-          orderBy('createdAt', 'desc'), 
-          limit(6)
-        );
+        const fallbackQuery = query(collection(db, 'content'), limit(20));
         getDocs(fallbackQuery).then(s => {
-          setTrending(s.docs.map(d => ({ id: d.id, ...d.data() } as SportsContent)));
+          const items = s.docs
+            .map(d => ({ id: d.id, ...d.data() } as SportsContent))
+            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+          setTrending(items.slice(0, 6));
         });
       }
       

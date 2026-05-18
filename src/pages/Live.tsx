@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { db } from '../lib/firebase';
-import { collection, query, where, getDocs, orderBy, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, getDocs, orderBy, onSnapshot, limit } from 'firebase/firestore';
 import { SportsContent } from '../types';
 import ContentCard from '../components/ContentCard';
 import LoadingScreen from '../components/LoadingScreen';
@@ -16,11 +16,15 @@ export default function Live() {
     const q = query(
       collection(db, 'content'),
       where('status', '==', 'live'),
-      orderBy('createdAt', 'desc')
+      limit(50)
     );
     
     const unsubscribe = onSnapshot(q, (snap) => {
-      setContent(snap.docs.map(d => ({ id: d.id, ...d.data() } as SportsContent)));
+      const items = snap.docs
+        .map(d => ({ id: d.id, ...d.data() } as SportsContent))
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      
+      setContent(items);
       setLoading(false);
     }, (error) => {
       console.error('Error fetching live content:', error);

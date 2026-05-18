@@ -21,12 +21,12 @@ export default function DynamicSections({ page }: DynamicSectionsProps) {
   useEffect(() => {
     setLoading(true);
     // 1. Sync sections
-    const q = query(collection(db, 'sections'));
+    const q = query(collection(db, 'sections'), where('page', '==', page));
     const unsubscribeSections = onSnapshot(q, (snap) => {
       const sectionsList = snap.docs
         .map(doc => ({ ...doc.data(), id: doc.id } as ContentSection))
-        .filter(s => s.page === page && s.isActive)
-        .sort((a, b) => a.order - b.order);
+        .filter(s => s.isActive)
+        .sort((a, b) => (a.order || 0) - (b.order || 0));
       
       setSections(sectionsList);
       setLoading(false);

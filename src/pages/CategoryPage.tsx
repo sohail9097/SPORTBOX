@@ -35,10 +35,14 @@ export default function CategoryPage() {
     const allQuery = query(
       collection(db, 'content'),
       where('category', '==', category),
-      orderBy('createdAt', 'desc')
+      limit(100)
     );
     const unsubAll = onSnapshot(allQuery, (snap) => {
-      setContent(snap.docs.map(d => ({ id: d.id, ...d.data() } as SportsContent)));
+      const items = snap.docs
+        .map(d => ({ id: d.id, ...d.data() } as SportsContent))
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      
+      setContent(items);
       setLoading(false);
     }, (err) => {
       console.error("All category sync error:", err);
@@ -49,11 +53,15 @@ export default function CategoryPage() {
     const liveQuery = query(
       collection(db, 'content'),
       where('category', '==', category),
-      where('status', '==', 'live'),
-      limit(4)
+      limit(20)
     );
     const unsubLive = onSnapshot(liveQuery, (snap) => {
-      setLiveNow(snap.docs.map(d => ({ id: d.id, ...d.data() } as SportsContent)));
+      const items = snap.docs
+        .map(d => ({ id: d.id, ...d.data() } as SportsContent))
+        .filter(item => item.status === 'live')
+        .slice(0, 4);
+      
+      setLiveNow(items);
     }, (err) => {
       console.warn("Live category sync offline:", err.message);
     });

@@ -1070,7 +1070,13 @@ export default function Admin() {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                <StatsCard label="Total Media" value={content.length} icon={Film} color="text-red-600" />
+                <StatsCard 
+                  label="Total Media" 
+                  value={content.length} 
+                  icon={Film} 
+                  color="text-red-600" 
+                  subtitle={auth?.app?.options?.projectId ? `ID: ${auth.app.options.projectId}` : "Local Environment"}
+                />
                 <StatsCard 
                   label="Broadcasting" 
                   value={liveItems.length > 0 ? liveItems.length : "None"} 
@@ -3173,12 +3179,13 @@ function SidebarLink({ icon: Icon, label, active, onClick }: { icon: any, label:
   );
 }
 
-function StatsCard({ label, value, icon: Icon, color }: { label: string, value: any, icon: any, color: string }) {
+function StatsCard({ label, value, icon: Icon, color, subtitle }: { label: string, value: any, icon: any, color: string, subtitle?: string }) {
   return (
     <div className="glass-card p-8 flex items-start justify-between bg-surface/30">
       <div>
         <div className="text-[10px] font-black uppercase tracking-[0.2em] text-text-muted mb-2">{label}</div>
         <div className="text-4xl font-black uppercase italic tracking-tighter">{value}</div>
+        {subtitle && <div className="text-[8px] font-bold text-white/20 mt-2 uppercase tracking-widest">{subtitle}</div>}
       </div>
       <div className={cn("p-3 rounded-2xl", color)}>
         <Icon className="w-6 h-6" />

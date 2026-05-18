@@ -750,16 +750,39 @@ export default function Admin() {
         }
       });
 
-      if (!response.ok) throw new Error("Failed to fetch users");
+      if (!response.ok) {
+        let errorMessage = "Failed to fetch users";
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorMessage;
+          if (errorData.details?.auth) {
+            errorMessage += ` (Auth: ${errorData.details.auth})`;
+          }
+        } catch (e) {}
+        throw new Error(errorMessage);
+      }
       
-      const items = await response.json();
+      const data = await response.json();
+      const items = Array.isArray(data) ? data : (data.users || []);
+      const diag = Array.isArray(data) ? null : data.diag;
+
+      if (diag) {
+        console.log("[Admin Debug] Backend Diagnosis:", diag);
+        if (diag.authError) {
+          toast.error(`Auth System Error: ${diag.authError}`, { duration: 6000 });
+        }
+        if (diag.firestoreError) {
+          toast.warning(`Firestore Sync Error: ${diag.firestoreError}`);
+        }
+      }
+
       setAllUsersCount(items.length);
       const premiumUsers = items.filter((u: any) => u.subscriptionTier && u.subscriptionTier !== 'free' && u.subscriptionStatus === 'active');
       setPremiumUsersCount(premiumUsers.length);
-      
       setSubscribers(items);
     } catch (error) {
       console.error("Fetch Subscribers Error:", error);
+      toast.error(error instanceof Error ? error.message : "Failed to load subscribers. Check your Firebase API settings.");
     }
   };
 
@@ -1407,6 +1430,11 @@ export default function Admin() {
                     ))}
                   </tbody>
                 </table>
+                {subscribers.length === 0 && (
+                  <div className="py-20 text-center border-t border-border">
+                    <p className="text-text-muted font-black uppercase italic tracking-widest">No active subscribers found.</p>
+                  </div>
+                )}
               </div>
             </motion.div>
           )}

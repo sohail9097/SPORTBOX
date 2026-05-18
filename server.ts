@@ -11,25 +11,50 @@ let adminApp: admin.app.App;
 try {
   const firebaseConfig = JSON.parse(fs.readFileSync('./firebase-applet-config.json', 'utf8'));
   const rootFiles = fs.readdirSync('./');
-  const serviceAccountFile = rootFiles.find(f => 
-    (f.startsWith('gen-lang-client') || f.startsWith('firebase-adminsdk')) && f.endsWith('.json')
-  );
+  
+  let serviceAccount: any = null;
 
-  if (serviceAccountFile) {
-    const serviceAccountPath = path.join('./', serviceAccountFile);
-    const serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, 'utf8'));
-    
+  // 1. Try to load from Environment Variable first (Good for Production/Vercel)
+  if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+    try {
+      serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+      console.log(`[Admin Init] Initializing with service account from Environment Variable.`);
+    } catch (e) {
+      console.error(`[Admin Init] Failed to parse FIREBASE_SERVICE_ACCOUNT env var:`, e);
+    }
+  }
+
+  // 2. Try to find a local file
+  if (!serviceAccount) {
+    const serviceAccountFile = rootFiles.find(f => 
+      (f.startsWith('gen-lang-client') || f.startsWith('firebase-adminsdk')) && f.endsWith('.json')
+    );
+
+    if (serviceAccountFile) {
+      const serviceAccountPath = path.join('./', serviceAccountFile);
+      console.log(`[Admin Init] Found local service account: ${serviceAccountFile}`);
+      serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, 'utf8'));
+    }
+  }
+
+  if (serviceAccount) {
     if (!admin.apps.length) {
       adminApp = admin.initializeApp({
         credential: admin.credential.cert(serviceAccount),
         projectId: firebaseConfig.projectId
       });
+      console.log(`[Admin Init] Firebase Admin initialized with Service Account.`);
+    } else {
+      adminApp = admin.app();
     }
   } else {
+    console.warn("[Admin Init] No service account found. Falling back to ADC (Application Default Credentials).");
     if (!admin.apps.length) {
       adminApp = admin.initializeApp({
         projectId: firebaseConfig.projectId
       });
+    } else {
+      adminApp = admin.app();
     }
   }
 } catch (error) {
@@ -159,39 +184,64 @@ async function startServer() {
 
       console.log("[Admin API] Fetching all users...");
       
-      // 1. Get all users from Auth
+      // 1. Get all users from Auth (with fallback)
       let authUsers: admin.auth.UserRecord[] = [];
+      let authError: string | null = null;
       try {
         const listUsersResult = await admin.auth().listUsers(1000);
         authUsers = listUsersResult.users;
+        console.log(`[Admin API] Auth: Found ${authUsers.length} users.`);
       } catch (authErr: any) {
         console.error("[Admin API] Auth listUsers failed:", authErr.message);
-        return res.status(500).json({ error: "Failed to fetch users from Authentication: " + authErr.message });
+        authError = authErr.message;
       }
 
       // 2. Get all users from Firestore
       let firestoreData: Record<string, any> = {};
+      let firestoreError: string | null = null;
       try {
         const db = admin.firestore();
         const snapshot = await db.collection('users').get();
         snapshot.forEach(doc => {
           firestoreData[doc.id] = doc.data();
         });
+        console.log(`[Admin API] Firestore: Found ${Object.keys(firestoreData).length} profiles.`);
       } catch (fsError: any) {
         console.warn(`[Admin API] Firestore fetch failed: ${fsError.message}`);
+        firestoreError = fsError.message;
       }
 
-      // 3. Merge and return
-      const mergedUsers = authUsers.map(authUser => {
-        const profile = firestoreData[authUser.uid] || {};
+      // 3. Fail if both sources failed
+      if (authError && Object.keys(firestoreData).length === 0) {
+        return res.status(500).json({ 
+          error: "Failed to fetch any user data.",
+          details: { auth: authError, firestore: firestoreError },
+          diagnostic: {
+            projectId: admin.app().options.projectId,
+            initialized: admin.apps.length > 0,
+            hasServiceAccount: !!process.env.FIREBASE_SERVICE_ACCOUNT
+          }
+        });
+      }
+
+      // 4. Merge
+      const allUids = new Set([
+        ...authUsers.map(u => u.uid),
+        ...Object.keys(firestoreData)
+      ]);
+
+      const mergedUsers = Array.from(allUids).map(uid => {
+        const authUser = authUsers.find(u => u.uid === uid);
+        const profile = firestoreData[uid] || {};
+        
         return {
-          id: authUser.uid,
-          uid: authUser.uid,
-          email: authUser.email,
-          displayName: authUser.displayName || profile.displayName || authUser.email?.split('@')[0] || 'Unknown User',
-          photoURL: authUser.photoURL || profile.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(authUser.email || 'U')}&background=random`,
-          createdAt: authUser.metadata.creationTime,
-          lastSignInTime: authUser.metadata.lastSignInTime,
+          id: uid,
+          uid: uid,
+          email: authUser?.email || profile.email || 'No Email',
+          displayName: authUser?.displayName || profile.displayName || (authUser?.email || profile.email)?.split('@')[0] || 'Unknown User',
+          photoURL: authUser?.photoURL || profile.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(authUser?.email || profile.email || 'U')}&background=random`,
+          createdAt: authUser?.metadata.creationTime || profile.createdAt || null,
+          lastSignInTime: authUser?.metadata.lastSignInTime || profile.lastSignInTime || null,
           mobileNumber: profile.mobileNumber || '',
           subscriptionTier: profile.subscriptionTier || 'free',
           subscriptionStatus: profile.subscriptionStatus || 'none',
@@ -200,7 +250,17 @@ async function startServer() {
         };
       });
 
-      res.json(mergedUsers);
+      console.log(`[Admin API] Returning ${mergedUsers.length} merged users.`);
+      res.json({
+        users: mergedUsers,
+        diag: {
+          authCount: authUsers.length,
+          firestoreCount: Object.keys(firestoreData).length,
+          projectId: admin.app().options.projectId,
+          authError,
+          firestoreError
+        }
+      });
     } catch (error) {
       console.error('[Admin API] Critical Error in list-users:', error);
       res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown internal error' });

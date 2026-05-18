@@ -18,6 +18,11 @@ export default function Home() {
   const [videoPromo, setVideoPromo] = useState<VideoPromoSettings | null>(null);
 
   useEffect(() => {
+    // Safety timeout: stop loading after 2.5 seconds regardless of sync state
+    const timer = setTimeout(() => {
+      setLoading(false);
+    }, 2500);
+
     // 1. Video Promo sync
     const unsubPromo = onSnapshot(doc(db, 'settings', 'videoPromo'), (snap) => {
       if (snap.exists()) {
@@ -65,6 +70,7 @@ export default function Home() {
     });
 
     return () => {
+      clearTimeout(timer);
       unsubPromo();
       unsubLive();
       if (unsubTrending) unsubTrending();
@@ -73,7 +79,7 @@ export default function Home() {
 
   // Use skeletons or partial loading instead of total block if possible
   // Restore loading screen for initial load as requested
-  if (loading && liveNow.length === 0 && trending.length === 0) return <LoadingScreen />;
+  if (loading && liveNow.length === 0) return <LoadingScreen />;
   
   return (
     <div className="pb-20 text-text-base">

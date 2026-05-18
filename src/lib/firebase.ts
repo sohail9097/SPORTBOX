@@ -19,8 +19,7 @@ try {
   console.log(`[Firebase] Initializing Firestore for Project: ${firebaseConfig.projectId}, Database ID: ${dbId}`);
   
   dbInstance = initializeFirestore(app, {
-    localCache: persistentLocalCache({}),
-    experimentalForceLongPolling: true,
+    localCache: persistentLocalCache({})
   }, firebaseConfig.firestoreDatabaseId || undefined);
 } catch (e) {
   console.error("[Firebase] Failed to initialize Firestore with persistent cache:", e);
@@ -112,16 +111,3 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
 
   throw new Error(JSON.stringify(errInfo));
 }
-
-// Connection test - simplified
-async function testConnection() {
-  try {
-    const testDoc = doc(db, 'settings', 'siteConfig');
-    // Using onSnapshot instead of getDocFromServer to avoid "offline" errors on startup
-    // This just verifies we can define a reference
-    console.log("[Firebase] Reference created for siteConfig");
-  } catch (error) {
-    console.error("[Firebase] Initial setup check failed:", error);
-  }
-}
-testConnection();

@@ -208,6 +208,21 @@ export default function Login() {
           )}
 
           <div className="space-y-6">
+            <div className="bg-white/5 border border-white/10 p-4 rounded-2xl flex flex-col items-center gap-3 mb-2">
+              <div className="flex items-center gap-2 mb-1">
+                <ShieldCheck className="w-3 h-3 text-brand" />
+                <span className="text-[9px] font-black uppercase tracking-widest text-text-muted">Security Check</span>
+              </div>
+              <div className="scale-90 origin-center">
+                <ReCAPTCHA
+                  ref={recaptchaRef}
+                  sitekey={RECAPTCHA_SITE_KEY}
+                  onChange={handleRecaptchaChange}
+                  theme="dark"
+                />
+              </div>
+            </div>
+
             <AnimatePresence mode="wait">
               {authMode === 'social' ? (
                 <motion.div 
@@ -348,21 +363,6 @@ export default function Login() {
                 </motion.form>
               )}
             </AnimatePresence>
-
-            <div className="bg-white/5 border border-white/10 p-4 rounded-2xl flex flex-col items-center gap-3">
-              <div className="flex items-center gap-2 mb-1">
-                <ShieldCheck className="w-3 h-3 text-brand" />
-                <span className="text-[9px] font-black uppercase tracking-widest text-text-muted">Security Check</span>
-              </div>
-              <div className="scale-90 origin-center">
-                <ReCAPTCHA
-                  ref={recaptchaRef}
-                  sitekey={RECAPTCHA_SITE_KEY}
-                  onChange={handleRecaptchaChange}
-                  theme="dark"
-                />
-              </div>
-            </div>
 
             <p className="text-[10px] text-center text-text-muted font-bold uppercase tracking-[0.2em]">
               By continuing, you agree to our <Link to="#" className="text-brand hover:underline">Terms of Play</Link>

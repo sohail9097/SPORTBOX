@@ -76,10 +76,14 @@ async function startServer() {
   app.use(express.json());
   
   // 1. DEDICATED API ROUTES
-  const api = express.Router();
+  // Diagnostic middleware
+  app.use('/api', (req, res, next) => {
+    console.log(`[API Request] ${req.method} ${req.url}`);
+    next();
+  });
 
   // API Health check
-  api.get('/health', (req, res) => {
+  app.get('/api/health', (req, res) => {
     res.json({ 
       status: 'ok',
       env: process.env.NODE_ENV,
@@ -88,12 +92,12 @@ async function startServer() {
   });
 
   // Admin API Routes
-  api.get('/admin/health', (req, res) => {
+  app.get('/api/admin/health', (req, res) => {
     res.json({ status: 'admin-ok', initialized: admin.apps.length > 0 });
   });
 
   // List all users from Auth and Merge with Firestore
-  api.get('/admin/list-users', async (req, res) => {
+  app.get('/api/admin/list-users', async (req, res) => {
     try {
       const authHeader = req.headers.authorization;
       if (!authHeader?.startsWith('Bearer ')) {
@@ -149,7 +153,7 @@ async function startServer() {
     }
   });
 
-  api.post('/admin/delete-user', async (req, res) => {
+  app.post('/api/admin/delete-user', async (req, res) => {
     try {
       const { uid, idToken } = req.body;
       if (!uid || !idToken) return res.status(400).json({ error: 'Missing parameters' });
@@ -170,8 +174,10 @@ async function startServer() {
     }
   });
 
-  // MOUNT THE API ROUTER
-  app.use('/api', api);
+  // Specific 404 for API to prevent falling into SPA fallback
+  app.all('/api/*', (req, res) => {
+    res.status(404).json({ error: 'API route not found', url: req.url });
+  });
 
 
   // 2. VITE / STATIC / SPA FALLBACK (MOVE TO AFTER API ROUTES)

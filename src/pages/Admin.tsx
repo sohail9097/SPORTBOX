@@ -386,7 +386,15 @@ export default function Admin() {
     if (isAdmin) {
       // Admin API Health Check
       fetch('/api/admin/health')
-        .then(res => res.json())
+        .then(async res => {
+          const contentType = res.headers.get("content-type");
+          if (!contentType || !contentType.includes("application/json")) {
+            const text = await res.text();
+            console.warn("[Admin API Health] Invalid response:", text.substring(0, 50));
+            throw new Error("Invalid response");
+          }
+          return res.json();
+        })
         .then(data => console.log("[Admin API Health]", data))
         .catch(err => console.warn("[Admin API Health Error]", err.message));
 
@@ -749,6 +757,13 @@ export default function Admin() {
           'Authorization': `Bearer ${idToken}`
         }
       });
+
+      const contentType = response.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        const text = await response.text();
+        console.error("[Admin API] Expected JSON but got:", contentType, "Snippet:", text.substring(0, 100));
+        throw new Error("Connection failed: The server returned HTML instead of JSON. This often happens if the API route is missing or misconfigured.");
+      }
 
       if (!response.ok) {
         let errorMessage = "Failed to fetch users";

@@ -386,9 +386,22 @@ export default function Admin() {
     if (isAdmin) {
       // Admin API Health Check
       fetch('/api/admin/health')
-        .then(res => res.json())
+        .then(async res => {
+          if (!res.ok) {
+            const text = await res.text();
+            throw new Error(`Health check failed: ${res.status}. ${text.substring(0, 100)}`);
+          }
+          const contentType = res.headers.get("content-type");
+          if (!contentType || !contentType.includes("application/json")) {
+             throw new Error(`Health check returned non-JSON: ${contentType}`);
+          }
+          return res.json();
+        })
         .then(data => console.log("[Admin API Health]", data))
-        .catch(err => console.error("[Admin API Health Error]", err));
+        .catch(err => {
+          console.warn("[Admin API Health Error]", err.message);
+          // Don't show toast for health check to avoid annoying user, just log it
+        });
 
       fetchContent();
       fetchSections();
@@ -771,6 +784,13 @@ export default function Admin() {
         throw new Error(errorMessage);
       }
       
+      const contentType = response.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        const text = await response.text();
+        console.error("API returned non-JSON despite 200 OK:", text.substring(0, 200));
+        throw new Error("Server returned an invalid response format (HTML instead of JSON). This usually means a routing error occurred.");
+      }
+
       const data = await response.json();
       
       // Handle both old array format and new object format

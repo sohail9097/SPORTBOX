@@ -74,13 +74,24 @@ async function startServer() {
   // Parse JSON bodies
   app.use(express.json());
   
-  // Debug logger for all incoming requests
+  // Debug logger for all incoming requests - EARLY in the chain
   app.use((req, res, next) => {
-    console.log(`[Request Log] ${new Date().toISOString()} - ${req.method} ${req.url}`);
+    console.log(`[Request Log] ${new Date().toISOString()} - ${req.method} ${req.originalUrl}`);
     next();
   });
 
   const PORT = 3000;
+
+  // 1. DEDICATED API ROUTES (MOVE TO THE TOP)
+  
+  // Health check API
+  app.get('/api/health', (req, res) => {
+    res.json({ 
+      status: 'ok', 
+      env: process.env.NODE_ENV,
+      adminInitialized: admin.apps.length > 0 
+    });
+  });
 
   // Dedicated Admin Router
   const adminRouter = express.Router();
@@ -125,12 +136,18 @@ async function startServer() {
       let firestoreData: Record<string, any> = {};
       let firestoreError: string | null = null;
       try {
-        const db = admin.firestore();
+        // Correctly handle non-default databases
+        const firebaseConfig = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'firebase-applet-config.json'), 'utf8'));
+        const dbId = firebaseConfig.firestoreDatabaseId && firebaseConfig.firestoreDatabaseId !== '(default)'
+          ? firebaseConfig.firestoreDatabaseId
+          : undefined;
+          
+        const db = admin.firestore(dbId);
         const snapshot = await db.collection('users').get();
         snapshot.forEach(doc => {
           firestoreData[doc.id] = doc.data();
         });
-        console.log(`[Admin API] Firestore: Found ${Object.keys(firestoreData).length} profiles.`);
+        console.log(`[Admin API] Firestore: Found ${Object.keys(firestoreData).length} profiles in ${dbId || '(default)'} database.`);
       } catch (fsError: any) {
         console.warn(`[Admin API] Firestore fetch failed: ${fsError.message}`);
         firestoreError = fsError.message;
@@ -170,7 +187,7 @@ async function startServer() {
           projectId: admin.app().options.projectId,
           authError,
           firestoreError,
-          hasServiceAccount: !!process.env.FIREBASE_SERVICE_ACCOUNT || fs.readdirSync('./').some(f => (f.startsWith('gen-lang-client') || f.startsWith('firebase-adminsdk')) && f.endsWith('.json'))
+          hasServiceAccount: !!process.env.FIREBASE_SERVICE_ACCOUNT || fs.readdirSync(process.cwd()).some(f => (f.startsWith('gen-lang-client') || f.startsWith('firebase-adminsdk')) && f.endsWith('.json'))
         }
       });
     } catch (error) {
@@ -221,28 +238,20 @@ async function startServer() {
     }
   });
 
-  // Health check API
-  app.get('/api/health', (req, res) => {
-    res.json({ 
-      status: 'ok', 
-      env: process.env.NODE_ENV,
-      adminInitialized: admin.apps.length > 0 
-    });
-  });
-
-  // Mount Admin Router - ATTACHED DIRECTLY TO /api/admin
+  // Mount Admin Router
   app.use('/api/admin', adminRouter);
 
   // Catch-all for missing API routes - MUST return JSON
-  app.use('/api/*', (req, res) => {
-    console.warn(`[API 404] Missing endpoint: ${req.method} ${req.originalUrl}`);
+  // Using app.all and a non-greedy prefix to ensure it catches all /api/ sub-paths
+  app.all('/api/*', (req, res) => {
+    console.warn(`[API 404] Missing endpoint: ${req.method} ${req.url}`);
     res.status(404).json({ 
-      error: `API endpoint not found: ${req.method} ${req.originalUrl}`,
-      tip: "Check if the base path /api/admin matches your request."
+      error: `API endpoint not found: ${req.method} ${req.url}`,
+      tip: "Check if the route matches /api/admin/*"
     });
   });
 
-  // Vite/Static middleware
+  // 2. VITE / STATIC / SPA FALLBACK (MOVE TO AFTER API ROUTES)
   if (process.env.NODE_ENV !== 'production') {
     console.log("[Server] Running in Development mode (Vite)");
     const vite = await createViteServer({

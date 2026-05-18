@@ -855,7 +855,19 @@ export default function Admin() {
       setIsAdding(false);
       setEditingId(null);
       fetchContent();
-      setForm({ title: '', description: '', category: 'football', type: 'replay', videoUrl: '', isPremium: false, status: 'scheduled', tags: [] });
+      // Completely reset form
+      setForm({ 
+        title: '', 
+        description: '', 
+        category: 'football', 
+        type: 'replay', 
+        videoUrl: '', 
+        thumbnailUrl: '',
+        isPremium: false, 
+        status: 'scheduled', 
+        tags: [],
+        viewCount: 0
+      });
       setTagsInput('');
     } catch (error) {
       console.error("Content Save Error:", error);
@@ -1075,7 +1087,6 @@ export default function Admin() {
                   value={content.length} 
                   icon={Film} 
                   color="text-red-600" 
-                  subtitle={auth?.app?.options?.projectId ? `ID: ${auth.app.options.projectId}` : "Local Environment"}
                 />
                 <StatsCard 
                   label="Broadcasting" 
@@ -1105,36 +1116,29 @@ export default function Admin() {
 
               <div className="flex flex-wrap gap-4">
                 <button 
-                  onClick={resetAllViews}
+                  onClick={async () => {
+                    if (confirm("DANGER: This will delete ALL media permanently from the library. Continue?")) {
+                      setIsResetting(true);
+                      try {
+                        const q = query(collection(db, 'content'));
+                        const snap = await getDocs(q);
+                        const promises = snap.docs.map(d => deleteDoc(doc(db, 'content', d.id)));
+                        await Promise.all(promises);
+                        await fetchContent();
+                        toast.success("Successfully removed all media from your site.");
+                      } catch (err: any) {
+                        console.error("Delete all error:", err);
+                        toast.error("Failed to delete all media. " + err.message);
+                      } finally {
+                        setIsResetting(false);
+                      }
+                    }
+                  }}
                   disabled={isResetting}
                   className="px-6 py-3 bg-red-600/10 border border-red-500/20 text-red-500 rounded-2xl text-xs font-black uppercase italic hover:bg-red-600 hover:text-white transition-all disabled:opacity-50 flex items-center gap-2"
                 >
                   <Trash2 className="w-4 h-4" />
-                  {isResetting ? "Resetting Views..." : "Reset All Views (Zero Impressions)"}
-                </button>
-                <button 
-                  onClick={restoreSampleContent}
-                  disabled={isInitializing}
-                  className="px-6 py-3 bg-brand/10 border border-brand/20 text-brand rounded-2xl text-xs font-black uppercase italic hover:bg-brand hover:text-white transition-all disabled:opacity-50 flex items-center gap-2"
-                >
-                  <Trophy className="w-4 h-4" />
-                  {isInitializing ? "Restoring..." : "Emergency Content Restore"}
-                </button>
-                <button 
-                  onClick={initializeSampleData}
-                  disabled={isInitializing}
-                  className="px-6 py-3 bg-brand/10 border border-brand/20 text-brand rounded-2xl text-xs font-black uppercase italic hover:bg-brand hover:text-white transition-all disabled:opacity-50 flex items-center gap-2"
-                >
-                  <Layers className="w-4 h-4" />
-                  {isInitializing ? "Initializing..." : "Restore Missing Sections & Settings"}
-                </button>
-                <button 
-                  onClick={generateBulkDummyContent}
-                  disabled={isBulkLoading}
-                  className="px-6 py-3 bg-blue-600/10 border border-blue-500/20 text-blue-400 rounded-2xl text-xs font-black uppercase italic hover:bg-blue-600 hover:text-white transition-all disabled:opacity-50 flex items-center gap-2"
-                >
-                  <Plus className="w-4 h-4" />
-                  {isBulkLoading ? "Generating 80+ Items..." : "Bulk Generate All Sports Content"}
+                  {isResetting ? "Deleting..." : "Remove All Media From Site"}
                 </button>
               </div>
 

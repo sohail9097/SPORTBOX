@@ -172,16 +172,18 @@ export default function Home() {
       )}
 
       {/* Trending Section */}
-      <section key="home-trending-section" className="max-w-[1600px] mx-auto px-4 mt-2 md:mt-4">
-        <SectionHeader title="Trending Replays" icon={TrendingUp} />
-        <div className="flex md:grid md:grid-cols-4 lg:grid-cols-6 gap-1 md:gap-1 overflow-x-auto md:overflow-visible pb-4 md:pb-0 hide-scrollbar snap-x">
-          {trending.map((item, i) => (
-            <div key={`home-trending-${item.id}`} className="flex-shrink-0 w-[115px] md:w-auto snap-start">
-              <ContentCard key={`home-trending-${item.id}`} content={item} index={i} />
-            </div>
-          ))}
-        </div>
-      </section>
+      {trending.length > 0 && (
+        <section key="home-trending-section" className="max-w-[1600px] mx-auto px-4 mt-2 md:mt-4">
+          <SectionHeader title="Trending Replays" icon={TrendingUp} />
+          <div className="flex md:grid md:grid-cols-4 lg:grid-cols-6 gap-1 md:gap-1 overflow-x-auto md:overflow-visible pb-4 md:pb-0 hide-scrollbar snap-x">
+            {trending.map((item, i) => (
+              <div key={`home-trending-${item.id}`} className="flex-shrink-0 w-[115px] md:w-auto snap-start">
+                <ContentCard key={`home-trending-${item.id}`} content={item} index={i} />
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 }

@@ -41,6 +41,8 @@ export default function StadiumPlayer({ url, poster, isLive, useIframe: initialU
   });
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  const [isChangingState, setIsChangingState] = useState(false);
+
   useEffect(() => {
     const fetchConfig = async () => {
       try {
@@ -48,8 +50,11 @@ export default function StadiumPlayer({ url, poster, isLive, useIframe: initialU
         if (snap.exists()) {
           setConfig(snap.data() as PlayerSettings);
         }
-      } catch (err) {
-        console.error("Player config error:", err);
+      } catch (err: any) {
+        // Only log if it's not a common offline error
+        if (!err.message?.includes('offline')) {
+          console.warn("Player config could not be fetched (offline or permission issue):", err.message);
+        }
       }
     };
     fetchConfig();
@@ -89,7 +94,8 @@ export default function StadiumPlayer({ url, poster, isLive, useIframe: initialU
       setHasError(false);
     });
     player.on('error', () => {
-      console.error("Player error detected");
+      const error = player.error();
+      console.warn("Player technical issue:", error ? error.message : "Source not supported");
       setHasError(true);
     });
     player.on('volumechange', () => {
@@ -107,11 +113,23 @@ export default function StadiumPlayer({ url, poster, isLive, useIframe: initialU
     };
   }, [url, config]);
 
-  const togglePlay = () => {
-    if (playerRef.current.paused()) {
-      playerRef.current.play();
-    } else {
-      playerRef.current.pause();
+  const togglePlay = async () => {
+    if (!playerRef.current || isChangingState) return;
+    
+    setIsChangingState(true);
+    try {
+      if (playerRef.current.paused()) {
+        const playPromise = playerRef.current.play();
+        if (playPromise !== undefined) {
+          await playPromise;
+        }
+      } else {
+        playerRef.current.pause();
+      }
+    } catch (err) {
+      console.warn("Playback interaction handled:", err);
+    } finally {
+      setIsChangingState(false);
     }
   };
 

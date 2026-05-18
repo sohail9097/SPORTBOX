@@ -40,11 +40,10 @@ service cloud.firestore {
 
     function isValidContent(data) {
       return data.title is string && data.title.size() <= 200 &&
-             data.category in ['football', 'cricket', 'basketball', 'tennis', 'others'] &&
+             data.category in ['football', 'cricket', 'basketball', 'tennis', 'f1', 'boxing', 'golf', 'esports', 'others'] &&
              data.type in ['live', 'replay', 'highlight'] &&
              data.videoUrl is string && data.videoUrl.size() <= 1000 &&
              data.isPremium is bool &&
-             (data.get('tags', []) is list) &&
              data.status in ['scheduled', 'live', 'ended'];
     }
 

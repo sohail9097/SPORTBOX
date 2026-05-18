@@ -19,14 +19,29 @@ export default function VideoPromoBanner({ title, description, videoUrl, embedCo
   const isInView = useInView(containerRef, { amount: 0.3 });
 
   // Autoplay Logic for Direct MP4
+  const playPromiseRef = useRef<Promise<void> | null>(null);
+
   useEffect(() => {
-    if (videoRef.current && videoUrl) {
-      if (isInView) {
-        videoRef.current.play().catch(e => console.log("Autoplay blocked", e));
-      } else {
-        videoRef.current.pause();
+    const video = videoRef.current;
+    if (!video || !videoUrl) return;
+
+    const handlePlay = async () => {
+      try {
+        if (isInView) {
+          playPromiseRef.current = video.play();
+          await playPromiseRef.current;
+        } else {
+          if (playPromiseRef.current) {
+            await playPromiseRef.current;
+          }
+          video.pause();
+        }
+      } catch (e) {
+        console.log("Autoplay interaction handled:", e);
       }
-    }
+    };
+
+    handlePlay();
   }, [isInView, videoUrl]);
 
   // Function to process embed code to add autoplay/mute if it's a URL-based iframe

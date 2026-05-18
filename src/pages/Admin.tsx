@@ -758,7 +758,22 @@ export default function Admin() {
       if (!currentUser) return;
 
       const idToken = await currentUser.getIdToken();
-      const response = await fetch(`/api/admin/list-users?v=${Date.now()}`, {
+      // Helper for fetching with retries
+      const fetchWithRetry = async (url: string, options: any, retries = 2): Promise<Response> => {
+        try {
+          const res = await fetch(url, options);
+          return res;
+        } catch (err) {
+          if (retries > 0) {
+            console.log(`[Admin] Fetch failed, retrying... (${retries} left)`);
+            await new Promise(r => setTimeout(r, 1000));
+            return fetchWithRetry(url, options, retries - 1);
+          }
+          throw err;
+        }
+      };
+
+      const response = await fetchWithRetry(`/api/admin/list-users?v=${Date.now()}`, {
         headers: {
           'Authorization': `Bearer ${idToken}`
         }
@@ -777,7 +792,7 @@ export default function Admin() {
           } else {
             const text = await response.text();
             console.error("Non-JSON Error Response:", text.substring(0, 500));
-            errorMessage = `Server Error: ${response.status} ${response.statusText}. The server returned an HTML/text response instead of JSON.`;
+            errorMessage = `Communication Error (${response.status}): The server returned an invalid response. Please try refreshing the page or check the server status.`;
           }
         } catch (e) {
           console.error("Error parsing error response:", e);
@@ -788,10 +803,13 @@ export default function Admin() {
       const contentType = response.headers.get("content-type");
       const isFallback = response.headers.get("X-SPA-Fallback") === "true";
       
+      // If we got HTML (fallback) instead of JSON for an API call, it's a routing error
       if (!contentType || !contentType.includes("application/json") || isFallback) {
         const text = await response.text();
-        console.error("API returned non-JSON despite 200 OK. Fallback header:", isFallback, "Content:", text.substring(0, 200));
-        throw new Error(`Server returned HTML instead of JSON. ${isFallback ? "Request hit the SPA fallback route." : "Unknown routing error."} Check if /api routes are working.`);
+        console.error("API returned non-JSON despite 200 OK. Fallback header:", isFallback, "Content:", text.substring(0, 100));
+        
+        // This is the most common error - the API route is caught by the React App's wildcard route
+        throw new Error("System Error: API Routing Failure. The application could not reach the administrative backend. Please contact support or ensure your /api routes are correctly configured.");
       }
 
       const data = await response.json();

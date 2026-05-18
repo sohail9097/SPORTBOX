@@ -76,17 +76,13 @@ async function startServer() {
   
   // Debug logger for all incoming requests - EARLY in the chain
   app.use((req, res, next) => {
-    console.log(`[Request Log] ${new Date().toISOString()} - ${req.method} ${req.originalUrl}`);
+    console.log(`[Request Log] ${new Date().toISOString()} - ${req.method} ${req.url}`);
     next();
   });
 
-  const PORT = 3000;
-
-  // 1. DEDICATED API ROUTES
-  const apiRouter = express.Router();
-
+  // 1. DEDICATED API ROUTES (MOVE TO THE VERY TOP)
   // API Health check
-  apiRouter.get('/health', (req, res) => {
+  app.get('/api/health', (req, res) => {
     res.json({ 
       status: 'ok', 
       api: 'root',
@@ -95,18 +91,16 @@ async function startServer() {
     });
   });
 
-  // Admin Sub-Router
-  const adminRouter = express.Router();
-
-  adminRouter.get('/health', (req, res) => {
+  // Admin API Routes - Mounted directly for maximum reliability
+  app.get('/api/admin/health', (req, res) => {
     console.log("[Admin API] /health checked");
     res.json({ status: 'admin-ok', initialized: admin.apps.length > 0 });
   });
 
   // List all users from Auth and Merge with Firestore
-  adminRouter.get('/list-users', async (req, res) => {
+  app.get('/api/admin/list-users', async (req, res) => {
     try {
-      console.log("[Admin API] GET /list-users - Request received");
+      console.log(`[Admin API] GET /api/admin/list-users - Request received at ${new Date().toISOString()}`);
       const authHeader = req.headers.authorization;
       if (!authHeader?.startsWith('Bearer ')) {
         console.warn("[Admin API] Missing Authorization header");
@@ -201,8 +195,8 @@ async function startServer() {
     }
   });
 
-  adminRouter.post('/delete-user', async (req, res) => {
-    console.log(`[Admin API] POST /delete-user received`);
+  app.post('/api/admin/delete-user', async (req, res) => {
+    console.log(`[Admin API] POST /api/admin/delete-user received`);
     const configPath = path.join(process.cwd(), 'firebase-applet-config.json');
     const firebaseConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
     
@@ -244,18 +238,14 @@ async function startServer() {
     }
   });
 
-  // Mount Admin Router under /api/admin
-  apiRouter.use('/admin', adminRouter);
-
-  // Mount entire apiRouter under /api
-  app.use('/api', apiRouter);
+  const PORT = 3000;
 
   // Catch-all for missing API routes - MUST return JSON
   app.all('/api/*', (req, res) => {
-    console.warn(`[API 404] Missing endpoint: ${req.method} ${req.url}`);
+    console.warn(`[API 404] Missing endpoint hit: ${req.method} ${req.url}`);
     res.status(404).json({ 
       error: `API endpoint not found: ${req.method} ${req.url}`,
-      tip: "Check your query paths. Available: /api/health, /api/admin/list-users, etc."
+      tip: "Verify that the path /api/admin/list-users or similar exists in server.ts"
     });
   });
 

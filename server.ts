@@ -9,53 +9,58 @@ import cors from 'cors';
 // Initialize Firebase Admin
 let adminApp: admin.app.App;
 try {
-  const firebaseConfig = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'firebase-applet-config.json'), 'utf8'));
-  const rootFiles = fs.readdirSync(process.cwd());
-  
-  let serviceAccount: any = null;
+  const configPath = path.resolve(process.cwd(), 'firebase-applet-config.json');
+  if (fs.existsSync(configPath)) {
+    const firebaseConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    const rootFiles = fs.readdirSync(process.cwd());
+    
+    let serviceAccount: any = null;
 
-  // 1. Try to load from Environment Variable first (Good for Production/Vercel)
-  if (process.env.FIREBASE_SERVICE_ACCOUNT) {
-    try {
-      serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
-      console.log(`[Admin Init] Initializing with service account from Environment Variable.`);
-    } catch (e) {
-      console.error(`[Admin Init] Failed to parse FIREBASE_SERVICE_ACCOUNT env var:`, e);
+    // 1. Try to load from Environment Variable first (Highly Recommended for Production/Vercel)
+    if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+      try {
+        serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+        console.log(`[Admin Init] Initializing with service account from Environment Variable.`);
+      } catch (e) {
+        console.error(`[Admin Init] Failed to parse FIREBASE_SERVICE_ACCOUNT env var:`, e);
+      }
     }
-  }
 
-  // 2. Try to find a local file
-  if (!serviceAccount) {
-    const serviceAccountFile = rootFiles.find(f => 
-      (f.startsWith('gen-lang-client') || f.startsWith('firebase-adminsdk')) && f.endsWith('.json')
-    );
+    // 2. Try to find a local file
+    if (!serviceAccount) {
+      const serviceAccountFile = rootFiles.find(f => 
+        (f.startsWith('gen-lang-client') || f.startsWith('firebase-adminsdk')) && f.endsWith('.json')
+      );
 
-    if (serviceAccountFile) {
-      const serviceAccountPath = path.join(process.cwd(), serviceAccountFile);
-      console.log(`[Admin Init] Found local service account: ${serviceAccountFile}`);
-      serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, 'utf8'));
+      if (serviceAccountFile) {
+        const serviceAccountPath = path.resolve(process.cwd(), serviceAccountFile);
+        console.log(`[Admin Init] Found local service account: ${serviceAccountFile}`);
+        serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, 'utf8'));
+      }
     }
-  }
 
-  if (serviceAccount) {
-    if (!admin.apps.length) {
-      adminApp = admin.initializeApp({
-        credential: admin.credential.cert(serviceAccount),
-        projectId: firebaseConfig.projectId
-      });
-      console.log(`[Admin Init] Firebase Admin initialized with Service Account.`);
+    if (serviceAccount) {
+      if (!admin.apps.length) {
+        adminApp = admin.initializeApp({
+          credential: admin.credential.cert(serviceAccount),
+          projectId: firebaseConfig.projectId
+        });
+        console.log(`[Admin Init] Firebase Admin initialized with Service Account.`);
+      } else {
+        adminApp = admin.app();
+      }
     } else {
-      adminApp = admin.app();
+      console.warn("[Admin Init] No service account found. Falling back to ADC (Application Default Credentials).");
+      if (!admin.apps.length) {
+        adminApp = admin.initializeApp({
+          projectId: firebaseConfig.projectId
+        });
+      } else {
+        adminApp = admin.app();
+      }
     }
   } else {
-    console.warn("[Admin Init] No service account found. Falling back to ADC (Application Default Credentials).");
-    if (!admin.apps.length) {
-      adminApp = admin.initializeApp({
-        projectId: firebaseConfig.projectId
-      });
-    } else {
-      adminApp = admin.app();
-    }
+    console.warn(`[Admin Init] firebase-applet-config.json not found at ${configPath}. Administrator features may be limited.`);
   }
 } catch (error) {
   console.error("[Admin Init] Error:", error);
@@ -64,9 +69,10 @@ try {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+export const app = express();
+
 async function startServer() {
   console.log(`[Server Initialization] Starting... NODE_ENV=${process.env.NODE_ENV}`);
-  const app = express();
   const PORT = 3000;
   
   // Enable CORS for all routes
@@ -250,9 +256,28 @@ async function startServer() {
     });
   });
 
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+  return app;
+}
+
+// Separate the initialization from the exporting
+let isInitialized = false;
+export async function ensureInitialized() {
+  if (isInitialized) return app;
+  await startServer();
+  isInitialized = true;
+  return app;
+}
+
+// Start the server if this file is run directly
+const isVercel = process.env.VERCEL === '1';
+
+if (!isVercel) {
+  ensureInitialized().then((app) => {
+    const PORT = 3000;
+    app.listen(PORT, '0.0.0.0', () => {
+      console.log(`Server running on http://localhost:${PORT}`);
+    });
   });
 }
 
-startServer();
+export default app;

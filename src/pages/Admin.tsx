@@ -13,6 +13,66 @@ import { toast } from 'sonner';
 
 import LoadingScreen from '../components/LoadingScreen';
 
+function ApiStatusIndicator() {
+  const [status, setStatus] = useState<{ loading: boolean; ok: boolean; message: string; details?: string }>({
+    loading: true,
+    ok: false,
+    message: 'Checking connection...'
+  });
+
+  useEffect(() => {
+    const checkApi = async () => {
+      try {
+        const res = await fetch('/api/ping');
+        const contentType = res.headers.get("content-type");
+        
+        if (res.ok && contentType?.includes("application/json")) {
+          const data = await res.json();
+          setStatus({ loading: false, ok: true, message: 'Backend Connected', details: `Latency: ${Date.now() - new Date(data.timestamp).getTime()}ms` });
+        } else {
+          const text = await res.text();
+          setStatus({ 
+            loading: false, 
+            ok: false, 
+            message: 'Backend Offline', 
+            details: text.startsWith('<!doctype') ? 'Server returned HTML (Config Error)' : 'Invalid Response' 
+          });
+        }
+      } catch (err: any) {
+        setStatus({ loading: false, ok: false, message: 'Connection Failed', details: err.message });
+      }
+    };
+    checkApi();
+  }, []);
+
+  if (status.loading) return (
+    <div className="flex items-center gap-2 px-3 py-1.5 bg-white/5 rounded-full border border-white/5">
+      <div className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse" />
+      <span className="text-[10px] font-black uppercase text-text-muted">API: Initializing...</span>
+    </div>
+  );
+
+  return (
+    <div className={cn(
+      "flex items-center gap-3 px-4 py-2 rounded-2xl border transition-all",
+      status.ok ? "bg-green-500/5 border-green-500/20" : "bg-red-500/5 border-red-500/20"
+    )}>
+      <div className={cn(
+        "w-2.5 h-2.5 rounded-full",
+        status.ok ? "bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]" : "bg-red-500 animate-pulse"
+      )} />
+      <div>
+        <p className={cn("text-[10px] font-black uppercase tracking-tight", status.ok ? "text-green-500" : "text-red-500")}>
+          {status.message}
+        </p>
+        <p className="text-[8px] font-mono text-text-muted">
+          {status.details}
+        </p>
+      </div>
+    </div>
+  );
+}
+
 export default function Admin() {
   const { user, isAdmin, loading: authLoading } = useAuth();
   const navigate = useNavigate();
@@ -1122,9 +1182,12 @@ export default function Admin() {
         <AnimatePresence mode="wait">
           {activeTab === 'dashboard' && (
             <motion.div key="dashboard" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} className="space-y-12">
-               <div className="space-y-2">
-                <h1 className="text-5xl font-black uppercase italic tracking-tighter">Command Center</h1>
-                <p className="text-text-muted font-medium">Real-time statistics and quick actions for SportsBox.</p>
+               <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                 <div className="space-y-2">
+                  <h1 className="text-5xl font-black uppercase italic tracking-tighter">Command Center</h1>
+                  <p className="text-text-muted font-medium">Real-time statistics and quick actions for SportsBox.</p>
+                </div>
+                <ApiStatusIndicator />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-4 gap-6">

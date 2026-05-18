@@ -23,6 +23,8 @@ export default function Home() {
       if (snap.exists()) {
         setVideoPromo(snap.data() as VideoPromoSettings);
       }
+    }, (err) => {
+      console.warn("[Home] Promo sync offline:", err.message);
     });
 
     const fetchData = async () => {

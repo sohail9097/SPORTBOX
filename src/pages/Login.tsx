@@ -34,17 +34,15 @@ export default function Login() {
   const RECAPTCHA_SITE_KEY = "6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI";
 
   useEffect(() => {
-    const fetchConfig = async () => {
-      try {
-        const snap = await getDoc(doc(db, 'settings', 'siteConfig'));
-        if (snap.exists()) {
-          setSiteConfig(snap.data());
-        }
-      } catch (err) {
-        console.error("Config fetch error:", err);
+    // Use onSnapshot for more resilient config fetching
+    const unsub = onSnapshot(doc(db, 'settings', 'siteConfig'), (snap) => {
+      if (snap.exists()) {
+        setSiteConfig(snap.data() as SiteConfig);
       }
-    };
-    fetchConfig();
+    }, (err) => {
+      console.warn("[Login] Config fetch offline:", err.message);
+    });
+    return () => unsub();
   }, [navigate]);
 
   const handleRecaptchaChange = (token: string | null) => {

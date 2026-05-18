@@ -390,12 +390,37 @@ export default function Admin() {
       fetchSections();
       fetchSlider();
       fetchSubscribers();
-      fetchSiteConfig();
-      fetchVideoPromo();
       fetchMediaItems();
       fetchFolders();
-      fetchPlayerConfig();
-      fetchSubscriptionPlans();
+      
+      // Use onSnapshot for live settings updates
+      const unsubConfig = onSnapshot(doc(db, 'settings', 'siteConfig'), (snap) => {
+        if (snap.exists()) setSiteConfig(snap.data() as SiteConfig);
+      }, (err) => console.warn("[Admin] Config sync offline:", err.message));
+
+      const unsubPromo = onSnapshot(doc(db, 'settings', 'videoPromo'), (snap) => {
+        if (snap.exists()) setVideoPromo(prev => ({ ...prev, ...snap.data() }));
+      }, (err) => console.warn("[Admin] Promo sync offline:", err.message));
+
+      const unsubPlayer = onSnapshot(doc(db, 'settings', 'playerConfig'), (snap) => {
+        if (snap.exists()) setPlayerConfig(prev => ({ ...prev, ...snap.data() }));
+      }, (err) => console.warn("[Admin] Player sync offline:", err.message));
+
+      const unsubPlans = onSnapshot(query(collection(db, 'subscription_plans'), orderBy('order', 'asc')), (snap) => {
+        if (!snap.empty) {
+          setSubscriptionPlans(snap.docs.map(d => ({ id: d.id, ...d.data() } as SubscriptionPlan)));
+        } else if (isAdmin) {
+          // If empty, suggest initializing
+          console.warn("[Admin] No subscription plans found. Use 'Initialize' if this is a new setup.");
+        }
+      }, (err) => console.warn("[Admin] Plans sync offline:", err.message));
+
+      return () => {
+        unsubConfig();
+        unsubPromo();
+        unsubPlayer();
+        unsubPlans();
+      };
     }
   }, [isAdmin]);
 
@@ -422,80 +447,59 @@ export default function Admin() {
     }
   };
 
-  const fetchSubscriptionPlans = async () => {
+  const initializeSubscriptionPlans = async () => {
     try {
       const q = query(collection(db, 'subscription_plans'), orderBy('order', 'asc'));
       const snap = await getDocs(q);
-      if (snap.empty) {
-        // Initialize default plans if none exist in Firestore
-        const defaultPlans = [
-          {
-            id: 'basic',
-            name: 'Basic Plan',
-            price: 49,
-            description: 'Essential access for every sports fan.',
-            features: ['Live Matches (SD)', 'Match Highlights', 'Ad Supported', 'Single Screen'],
-            icon: 'Zap',
-            popular: false,
-            order: 1,
-            color: 'from-slate-800 to-slate-900 border-white/5'
-          },
-          {
-            id: 'medium',
-            name: 'Medium Plan',
-            price: 199,
-            description: 'The sweet spot for high-quality entertainment.',
-            features: ['Live Matches (HD)', 'No Ads', 'Multi-Device Support', 'Exclusive Interviews'],
-            icon: 'Activity',
-            popular: true,
-            order: 2,
-            color: 'from-red-600 to-red-900 border-red-500/50 shadow-red-600/10'
-          },
-          {
-            id: 'pro',
-            name: 'Pro Plan',
-            price: 499,
-            description: 'The ultimate VIP stadium experience.',
-            features: ['Live Matches (4K)', 'Multi-Angle Views', 'Priority Support', 'No Ads Forever', '5 Screens'],
-            icon: 'Crown',
-            popular: false,
-            order: 3,
-            color: 'from-slate-900 to-black border-brand-alt/50 shadow-brand-alt/10'
-          }
-        ];
-        
-        for (const plan of defaultPlans) {
-          await setDoc(doc(db, 'subscription_plans', plan.id), plan);
+      if (!snap.empty) return;
+
+      // Initialize default plans if none exist in Firestore
+      const defaultPlans = [
+        {
+          id: 'basic',
+          name: 'Basic Plan',
+          price: 49,
+          description: 'Essential access for every sports fan.',
+          features: ['Live Matches (SD)', 'Match Highlights', 'Ad Supported', 'Single Screen'],
+          icon: 'Zap',
+          popular: false,
+          order: 1,
+          color: 'from-slate-800 to-slate-900 border-white/5'
+        },
+        {
+          id: 'medium',
+          name: 'Medium Plan',
+          price: 199,
+          description: 'The sweet spot for high-quality entertainment.',
+          features: ['Live Matches (HD)', 'No Ads', 'Multi-Device Support', 'Exclusive Interviews'],
+          icon: 'Activity',
+          popular: true,
+          order: 2,
+          color: 'from-red-600 to-red-900 border-red-500/50 shadow-red-600/10'
+        },
+        {
+          id: 'pro',
+          name: 'Pro Plan',
+          price: 499,
+          description: 'The ultimate VIP stadium experience.',
+          features: ['Live Matches (4K)', 'Multi-Angle Views', 'Priority Support', 'No Ads Forever', '5 Screens'],
+          icon: 'Crown',
+          popular: false,
+          order: 3,
+          color: 'from-slate-900 to-black border-brand-alt/50 shadow-brand-alt/10'
         }
-        setSubscriptionPlans(defaultPlans as SubscriptionPlan[]);
-      } else {
-        setSubscriptionPlans(snap.docs.map(d => ({ id: d.id, ...d.data() } as SubscriptionPlan)));
+      ];
+      
+      for (const plan of defaultPlans) {
+        await setDoc(doc(db, 'subscription_plans', plan.id), plan);
       }
+      alert("Subscription plans initialized.");
     } catch (err) {
-      console.error("Fetch plans error:", err);
+      console.error("Init plans error:", err);
     }
   };
 
-  const fetchPlayerConfig = async () => {
-    try {
-      const docRef = doc(db, 'settings', 'playerConfig');
-      const snap = await getDoc(docRef);
-      if (snap.exists()) {
-        const data = snap.data();
-        setPlayerConfig({
-          useCustomPlayer: data.useCustomPlayer ?? true,
-          autoplay: data.autoplay ?? true,
-          muted: data.muted ?? false,
-          loop: data.loop ?? false,
-          showControls: data.showControls ?? true,
-          primaryColor: data.primaryColor || '#ff0000',
-          playbackRates: data.playbackRates || [0.5, 1, 1.5, 2]
-        });
-      }
-    } catch (err) {
-      console.error("Player config fetch error:", err);
-    }
-  };
+  // fetchPlayerConfig, fetchVideoPromo, fetchSiteConfig are handled by onSnapshot in useEffect
 
   const handlePlayerConfigUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -618,29 +622,6 @@ export default function Admin() {
     alert("URL copied to clipboard!");
   };
 
-  const fetchVideoPromo = async () => {
-    try {
-      const docRef = doc(db, 'settings', 'videoPromo');
-      const docSnap = await getDoc(docRef);
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        setVideoPromo(prev => ({ 
-          ...prev, 
-          ...data,
-          title: data.title || prev.title,
-          description: data.description || prev.description,
-          videoUrl: data.videoUrl || '',
-          embedCode: data.embedCode || '',
-          buttonText: data.buttonText || prev.buttonText,
-          buttonUrl: data.buttonUrl || prev.buttonUrl,
-          backgroundColor: data.backgroundColor || prev.backgroundColor
-        }));
-      }
-    } catch (error) {
-      console.error("Video promo fetch error:", error);
-    }
-  };
-
   const [previewContent, setPreviewContent] = useState<{url: string, title: string, isLive: boolean} | null>(null);
 
   const handleVideoPromoUpdate = async (e: React.FormEvent) => {
@@ -660,22 +641,6 @@ export default function Admin() {
       handleFirestoreError(error, OperationType.UPDATE, 'settings/videoPromo');
     } finally {
       setIsSaving(false);
-    }
-  };
-
-  const fetchSiteConfig = async () => {
-    try {
-      const docRef = doc(db, 'settings', 'siteConfig');
-      const docSnap = await getDoc(docRef);
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        setSiteConfig({
-          founderImageUrl: data.founderImageUrl || '',
-          logoUrl: data.logoUrl || ''
-        });
-      }
-    } catch (error) {
-      console.error("Config fetch error:", error);
     }
   };
 
@@ -953,7 +918,6 @@ export default function Admin() {
       
       setIsAddingPlan(false);
       setEditingPlanId(null);
-      await fetchSubscriptionPlans();
       alert("Plan saved successfully!");
     } catch (error) {
       console.error("Plan save error:", error);
@@ -968,7 +932,6 @@ export default function Admin() {
     if (!confirm('Are you sure you want to delete this plan?')) return;
     try {
       await deleteDoc(doc(db, 'subscription_plans', id));
-      fetchSubscriptionPlans();
     } catch (error) {
       handleFirestoreError(error, OperationType.DELETE, `subscription_plans/${id}`);
     }

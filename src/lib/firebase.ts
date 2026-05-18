@@ -100,10 +100,10 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
 
   console.error('Firestore Error: ', errInfo);
 
-  // If it's an offline error, don't throw an alert-triggering error if possible
-  if (errMessage.includes('offline')) {
-    console.warn("[Firebase] SDK is reporting offline mode. Operations will queue.");
-    return; // Don't throw for offline warnings
+  // If it's an offline error, don't throw an alert-triggering error
+  if (errMessage.includes('offline') || errMessage.includes('connection')) {
+    console.warn(`[Firebase] Sync warning (${operationType}): ${errMessage}`);
+    return;
   }
 
   throw new Error(JSON.stringify(errInfo));

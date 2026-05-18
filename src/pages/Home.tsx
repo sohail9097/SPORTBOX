@@ -18,7 +18,7 @@ export default function Home() {
   const [videoPromo, setVideoPromo] = useState<VideoPromoSettings | null>(null);
 
   useEffect(() => {
-    // Fetch video promo settings
+    // Parallelize promo sync and other data fetching
     const unsubPromo = onSnapshot(doc(db, 'settings', 'videoPromo'), (snap) => {
       if (snap.exists()) {
         setVideoPromo(snap.data() as VideoPromoSettings);
@@ -34,20 +34,19 @@ export default function Home() {
           limit(6)
         );
 
-        const [liveSnap] = await Promise.all([
-          getDocs(liveQuery)
-        ]);
-
-        setLiveNow(liveSnap.docs.map(d => ({ id: d.id, ...d.data() } as SportsContent)));
-
-        // Check for manual "Trending Replays" section to avoid duplication
         const manualTrendingQuery = query(
           collection(db, 'sections'), 
           where('page', '==', 'home'), 
           where('title', '==', 'Trending Replays'),
           where('isActive', '==', true)
         );
-        const manualTrendingSnap = await getDocs(manualTrendingQuery);
+
+        const [liveSnap, manualTrendingSnap] = await Promise.all([
+          getDocs(liveQuery),
+          getDocs(manualTrendingQuery)
+        ]);
+
+        setLiveNow(liveSnap.docs.map(d => ({ id: d.id, ...d.data() } as SportsContent)));
 
         if (manualTrendingSnap.empty) {
           const trendingQuery = query(
@@ -58,7 +57,7 @@ export default function Home() {
           const trendingSnap = await getDocs(trendingQuery);
           setTrending(trendingSnap.docs.map(d => ({ id: d.id, ...d.data() } as SportsContent)));
         } else {
-          setTrending([]); // Let DynamicSections handle it
+          setTrending([]);
         }
       } catch (error) {
         console.error(error);
@@ -71,6 +70,8 @@ export default function Home() {
     return () => unsubPromo();
   }, []);
 
+  // Use skeletons or partial loading instead of total block if possible
+  // For now, keeping the screen but reducing the block duration via faster queries
   if (loading) return <LoadingScreen />;
 
   return (

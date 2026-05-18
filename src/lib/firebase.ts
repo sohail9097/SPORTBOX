@@ -12,9 +12,12 @@ let dbInstance;
 try {
   const dbId = firebaseConfig.firestoreDatabaseId || '(default)';
   console.log(`[Firebase] Initializing Firestore for Project: ${firebaseConfig.projectId}, Database ID: ${dbId}`);
-  dbInstance = firebaseConfig.firestoreDatabaseId 
-    ? getFirestore(app, firebaseConfig.firestoreDatabaseId)
-    : getFirestore(app);
+  
+  // Use initializeFirestore with optimized settings for container environments
+  dbInstance = initializeFirestore(app, {
+    experimentalForceLongPolling: true,
+  }, firebaseConfig.firestoreDatabaseId || undefined);
+
 } catch (e) {
   console.error("[Firebase] Failed to initialize Firestore:", e);
   dbInstance = getFirestore(app);

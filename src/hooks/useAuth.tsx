@@ -34,13 +34,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (user) {
         const userDocRef = doc(db, 'users', user.uid);
         
-        // Use a timeout for the initial load to prevent hanging on "offline" errors
+        // Determistic auth state is sets as soon as user is found
+        // Loading continues for profile but UI can start showing header
+        
         const authTimeout = setTimeout(() => {
           if (loading) {
-            console.warn("[Auth] Profile fetch timed out, likely offline or connection issue.");
+            console.warn("[Auth] Profile fetch timed out, showing app with limited profile info.");
             setLoading(false);
           }
-        }, 5000);
+        }, 3000); // Reduced to 3s for better perceived speed
 
         // Use onSnapshot for real-time profile updates
         unsubscribeProfile = onSnapshot(userDocRef, (doc) => {
@@ -48,14 +50,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (doc.exists()) {
             setProfile(doc.data());
           } else {
-            // Profile doesn't exist yet, handle initialization
             initializeProfile(user);
           }
           setLoading(false);
         }, (error) => {
           clearTimeout(authTimeout);
           console.error("[Auth] Firestore sync error:", error);
-          // Don't throw here to avoid crashing the whole app, just log and continue
           setLoading(false);
         });
       } else {

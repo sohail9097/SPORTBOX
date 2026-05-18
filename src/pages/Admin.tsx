@@ -762,7 +762,7 @@ export default function Admin() {
       if (!contentType || !contentType.includes("application/json")) {
         const text = await response.text();
         console.error("[Admin API] Expected JSON but got:", contentType, "Snippet:", text.substring(0, 100));
-        throw new Error("Connection failed: The server returned HTML instead of JSON. This often happens if the API route is missing or misconfigured.");
+        throw new Error(`Connectivity Error: The server returned HTML instead of JSON. Snippet: "${text.substring(0, 40)}...". Please refresh the page.`);
       }
 
       if (!response.ok) {

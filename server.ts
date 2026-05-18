@@ -74,16 +74,24 @@ async function startServer() {
   
   // Parse JSON bodies
   app.use(express.json());
+
+  // ROOT LOGGER - Catch every single request
+  app.use((req, res, next) => {
+    console.log(`[ROOT] ${req.method} ${req.url} | Path: ${req.path}`);
+    next();
+  });
   
   // 1. DEDICATED API ROUTES
-  // Diagnostic middleware
-  app.use('/api', (req, res, next) => {
-    console.log(`[API Request] ${req.method} ${req.url}`);
+  const apiRouter = express.Router();
+
+  // Diagnostic logger inside the router
+  apiRouter.use((req, res, next) => {
+    console.log(`[API Router] Incoming Path: ${req.path} | Original URL: ${req.originalUrl}`);
     next();
   });
 
   // API Health check
-  app.get('/api/health', (req, res) => {
+  apiRouter.get('/health', (req, res) => {
     res.json({ 
       status: 'ok',
       env: process.env.NODE_ENV,
@@ -91,16 +99,23 @@ async function startServer() {
     });
   });
 
+  // UN-AUTHENTICATED PING
+  apiRouter.get('/ping', (req, res) => {
+    res.json({ pong: true, timestamp: new Date().toISOString() });
+  });
+
   // Admin API Routes
-  app.get('/api/admin/health', (req, res) => {
+  apiRouter.get('/admin/health', (req, res) => {
     res.json({ status: 'admin-ok', initialized: admin.apps.length > 0 });
   });
 
   // List all users from Auth and Merge with Firestore
-  app.get('/api/admin/list-users', async (req, res) => {
+  apiRouter.get('/admin/list-users', async (req, res) => {
+    console.log(`[API] Admin: List Users called`);
     try {
       const authHeader = req.headers.authorization;
       if (!authHeader?.startsWith('Bearer ')) {
+        console.warn("[API] No bearer token provided");
         return res.status(401).json({ error: 'Unauthorized' });
       }
 
@@ -109,6 +124,7 @@ async function startServer() {
       
       const adminEmails = ['sohailgaji9097@gmail.com', 'tavish@dreamcatchers.tv'];
       if (!adminEmails.includes(decodedToken.email?.toLowerCase() || '')) {
+        console.warn(`[API] Unauthorized email target: ${decodedToken.email}`);
         return res.status(403).json({ error: 'Forbidden' });
       }
 
@@ -146,6 +162,7 @@ async function startServer() {
         };
       });
 
+      console.log(`[API] Returning ${mergedUsers.length} users`);
       res.json({ users: mergedUsers });
     } catch (error) {
       console.error('[Admin API] Error:', error);
@@ -153,7 +170,7 @@ async function startServer() {
     }
   });
 
-  app.post('/api/admin/delete-user', async (req, res) => {
+  apiRouter.post('/admin/delete-user', async (req, res) => {
     try {
       const { uid, idToken } = req.body;
       if (!uid || !idToken) return res.status(400).json({ error: 'Missing parameters' });
@@ -175,9 +192,13 @@ async function startServer() {
   });
 
   // Specific 404 for API to prevent falling into SPA fallback
-  app.all('/api/*', (req, res) => {
-    res.status(404).json({ error: 'API route not found', url: req.url });
+  apiRouter.all('*', (req, res) => {
+    console.warn(`[API 404] Not Match: ${req.method} ${req.originalUrl}`);
+    res.status(404).json({ error: 'API route not found', url: req.originalUrl });
   });
+
+  // Mount API router
+  app.use('/api', apiRouter);
 
 
   // 2. VITE / STATIC / SPA FALLBACK (MOVE TO AFTER API ROUTES)

@@ -81,6 +81,12 @@ async function startServer() {
   });
 
   // 1. DEDICATED API ROUTES (MOVE TO THE VERY TOP)
+  // Base API monitor
+  app.use('/api', (req, res, next) => {
+    console.log(`[API Router Diagnostic] Incoming: ${req.method} ${req.url}`);
+    next();
+  });
+
   // API Health check
   app.get('/api/health', (req, res) => {
     res.json({ 
@@ -91,16 +97,17 @@ async function startServer() {
     });
   });
 
-  // Admin API Routes - Mounted directly for maximum reliability
-  app.get('/api/admin/health', (req, res) => {
+  // Admin API Routes
+  const adminRouter = express.Router();
+
+  adminRouter.get('/health', (req, res) => {
     console.log("[Admin API] /health checked");
     res.json({ status: 'admin-ok', initialized: admin.apps.length > 0 });
   });
 
-  // List all users from Auth and Merge with Firestore
-  app.get('/api/admin/list-users', async (req, res) => {
+  adminRouter.get('/list-users', async (req, res) => {
     try {
-      console.log(`[Admin API] GET /api/admin/list-users - Request received at ${new Date().toISOString()}`);
+      console.log(`[Admin API] GET /list-users - Processing request at ${new Date().toISOString()}`);
       const authHeader = req.headers.authorization;
       if (!authHeader?.startsWith('Bearer ')) {
         console.warn("[Admin API] Missing Authorization header");
@@ -195,8 +202,8 @@ async function startServer() {
     }
   });
 
-  app.post('/api/admin/delete-user', async (req, res) => {
-    console.log(`[Admin API] POST /api/admin/delete-user received`);
+  adminRouter.post('/delete-user', async (req, res) => {
+    console.log(`[Admin API] POST /delete-user received`);
     const configPath = path.join(process.cwd(), 'firebase-applet-config.json');
     const firebaseConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
     
@@ -237,6 +244,9 @@ async function startServer() {
       res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
     }
   });
+
+  // Mount Admin Router
+  app.use('/api/admin', adminRouter);
 
   const PORT = 3000;
 

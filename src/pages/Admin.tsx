@@ -808,8 +808,8 @@ export default function Admin() {
         const text = await response.text();
         console.error("API returned non-JSON despite 200 OK. Fallback header:", isFallback, "Content:", text.substring(0, 100));
         
-        // This is the most common error - the API route is caught by the React App's wildcard route
-        throw new Error("System Error: API Routing Failure. The application could not reach the administrative backend. Please contact support or ensure your /api routes are correctly configured.");
+        // This is a more descriptive error for the user
+        throw new Error("Connection failed: The server returned an invalid data format (HTML instead of JSON). This typically indicates a system configuration issue or server maintenance. Please try again in 30 seconds.");
       }
 
       const data = await response.json();

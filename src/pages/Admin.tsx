@@ -763,16 +763,24 @@ export default function Admin() {
       }
       
       const data = await response.json();
+      
+      // Handle both old array format and new object format
       const items = Array.isArray(data) ? data : (data.users || []);
       const diag = Array.isArray(data) ? null : data.diag;
 
       if (diag) {
         console.log("[Admin Debug] Backend Diagnosis:", diag);
         if (diag.authError) {
-          toast.error(`Auth System Error: ${diag.authError}`, { duration: 6000 });
+          toast.error(`Auth System Error: ${diag.authError}`, { 
+            duration: 8000,
+            id: 'auth-error' 
+          });
         }
-        if (diag.firestoreError) {
-          toast.warning(`Firestore Sync Error: ${diag.firestoreError}`);
+        if (!diag.hasServiceAccount) {
+          toast.warning("Service Account is missing in Production. Users may not load.", {
+             duration: 10000,
+             id: 'sa-missing'
+          });
         }
       }
 

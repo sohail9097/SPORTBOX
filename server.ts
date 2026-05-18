@@ -211,20 +211,7 @@ async function startServer() {
         firestoreError = fsError.message;
       }
 
-      // 3. Fail if both sources failed
-      if (authError && Object.keys(firestoreData).length === 0) {
-        return res.status(500).json({ 
-          error: "Failed to fetch any user data.",
-          details: { auth: authError, firestore: firestoreError },
-          diagnostic: {
-            projectId: admin.app().options.projectId,
-            initialized: admin.apps.length > 0,
-            hasServiceAccount: !!process.env.FIREBASE_SERVICE_ACCOUNT
-          }
-        });
-      }
-
-      // 4. Merge
+      // 3. Merge data
       const allUids = new Set([
         ...authUsers.map(u => u.uid),
         ...Object.keys(firestoreData)
@@ -245,12 +232,13 @@ async function startServer() {
           mobileNumber: profile.mobileNumber || '',
           subscriptionTier: profile.subscriptionTier || 'free',
           subscriptionStatus: profile.subscriptionStatus || 'none',
-          role: profile.role || 'user',
           ...profile
         };
       });
 
       console.log(`[Admin API] Returning ${mergedUsers.length} merged users.`);
+      
+      // Always return a JSON object with a users array and diag info
       res.json({
         users: mergedUsers,
         diag: {
@@ -258,7 +246,8 @@ async function startServer() {
           firestoreCount: Object.keys(firestoreData).length,
           projectId: admin.app().options.projectId,
           authError,
-          firestoreError
+          firestoreError,
+          hasServiceAccount: !!process.env.FIREBASE_SERVICE_ACCOUNT || fs.readdirSync('./').some(f => (f.startsWith('gen-lang-client') || f.startsWith('firebase-adminsdk')) && f.endsWith('.json'))
         }
       });
     } catch (error) {

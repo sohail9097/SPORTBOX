@@ -9,8 +9,7 @@ import cors from 'cors';
 // Initialize Firebase Admin
 let adminApp: admin.app.App;
 try {
-  const firebaseConfigPath = './firebase-applet-config.json';
-  const firebaseConfig = JSON.parse(fs.readFileSync(firebaseConfigPath, 'utf8'));
+  const firebaseConfig = JSON.parse(fs.readFileSync('./firebase-applet-config.json', 'utf8'));
   const rootFiles = fs.readdirSync('./');
   const serviceAccountFile = rootFiles.find(f => 
     (f.startsWith('gen-lang-client') || f.startsWith('firebase-adminsdk')) && f.endsWith('.json')
@@ -18,7 +17,6 @@ try {
 
   if (serviceAccountFile) {
     const serviceAccountPath = path.join('./', serviceAccountFile);
-    console.log(`[Admin Init] Found service account: ${serviceAccountFile}`);
     const serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, 'utf8'));
     
     if (!admin.apps.length) {
@@ -26,19 +24,16 @@ try {
         credential: admin.credential.cert(serviceAccount),
         projectId: firebaseConfig.projectId
       });
-      console.log(`[Admin Init] Firebase Admin initialized with service account for project: ${firebaseConfig.projectId}`);
     }
   } else {
-    console.warn("[Admin Init] No service account JSON file found in root. Using ADC with explicit Project ID.");
     if (!admin.apps.length) {
       adminApp = admin.initializeApp({
         projectId: firebaseConfig.projectId
       });
-      console.log(`[Admin Init] Firebase Admin initialized with ADC for project: ${firebaseConfig.projectId}`);
     }
   }
 } catch (error) {
-  console.error("[Admin Init] ERROR during initialization:", error);
+  console.error("[Admin Init] Error:", error);
 }
 
 const __filename = fileURLToPath(import.meta.url);
@@ -145,7 +140,7 @@ async function startServer() {
     }
   });
 
-  // List all users from Auth and Merge with Firestore with robust error handling
+  // List all users from Auth and Merge with Firestore
   app.get('/admin/api/v1/list-users', async (req, res) => {
     try {
       const authHeader = req.headers.authorization;
@@ -163,50 +158,27 @@ async function startServer() {
       }
 
       console.log("[Admin API] Fetching all users...");
-      const firebaseConfig = JSON.parse(fs.readFileSync('./firebase-applet-config.json', 'utf8'));
       
-      // 1. Get all users from Auth (MUST WORK)
+      // 1. Get all users from Auth
       let authUsers: admin.auth.UserRecord[] = [];
       try {
         const listUsersResult = await admin.auth().listUsers(1000);
         authUsers = listUsersResult.users;
-        console.log(`[Admin API] Found ${authUsers.length} users in Firebase Authentication.`);
       } catch (authErr: any) {
         console.error("[Admin API] Auth listUsers failed:", authErr.message);
         return res.status(500).json({ error: "Failed to fetch users from Authentication: " + authErr.message });
       }
 
-      // 2. Get all users from Firestore (OPTIONAL)
+      // 2. Get all users from Firestore
       let firestoreData: Record<string, any> = {};
       try {
         const db = admin.firestore();
-        console.log(`[Admin API] Attempting Firestore fetch (Project: ${admin.app().options.projectId})`);
-        
-        // Debug: list one collection just to see if it works
-        const collections = await db.listCollections();
-        console.log(`[Admin API] Collections found: ${collections.map(c => c.id).join(', ')}`);
-
         const snapshot = await db.collection('users').get();
         snapshot.forEach(doc => {
           firestoreData[doc.id] = doc.data();
         });
-        console.log(`[Admin API] Successfully merged data for ${Object.keys(firestoreData).length} Firestore profiles.`);
       } catch (fsError: any) {
-        console.warn(`[Admin API] Firestore fetch failed (Code ${fsError.code}): ${fsError.message}`);
-        
-        // Try fallback with explicit databaseId if config says so
-        if (firebaseConfig.firestoreDatabaseId && firebaseConfig.firestoreDatabaseId !== '(default)') {
-          try {
-             const db = admin.firestore(firebaseConfig.firestoreDatabaseId);
-             const snapshot = await db.collection('users').get();
-             snapshot.forEach(doc => {
-               firestoreData[doc.id] = doc.data();
-             });
-             console.log(`[Admin API] Resolved via Database ID: ${firebaseConfig.firestoreDatabaseId}`);
-          } catch (retryErr) {
-             console.warn(`[Admin API] Failover Firestore retry failed too.`);
-          }
-        }
+        console.warn(`[Admin API] Firestore fetch failed: ${fsError.message}`);
       }
 
       // 3. Merge and return

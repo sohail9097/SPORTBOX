@@ -392,8 +392,9 @@ export default function Admin() {
             throw new Error(`Health check failed: ${res.status}. ${text.substring(0, 100)}`);
           }
           const contentType = res.headers.get("content-type");
-          if (!contentType || !contentType.includes("application/json")) {
-             throw new Error(`Health check returned non-JSON: ${contentType}`);
+          const isFallback = res.headers.get("X-SPA-Fallback") === "true";
+          if (!contentType || !contentType.includes("application/json") || isFallback) {
+             throw new Error(`Health check returned non-JSON/Fallback. Type: ${contentType}, Fallback: ${isFallback}`);
           }
           return res.json();
         })
@@ -757,7 +758,7 @@ export default function Admin() {
       if (!currentUser) return;
 
       const idToken = await currentUser.getIdToken();
-      const response = await fetch('/api/admin/list-users', {
+      const response = await fetch(`/api/admin/list-users?v=${Date.now()}`, {
         headers: {
           'Authorization': `Bearer ${idToken}`
         }
@@ -785,10 +786,12 @@ export default function Admin() {
       }
       
       const contentType = response.headers.get("content-type");
-      if (!contentType || !contentType.includes("application/json")) {
+      const isFallback = response.headers.get("X-SPA-Fallback") === "true";
+      
+      if (!contentType || !contentType.includes("application/json") || isFallback) {
         const text = await response.text();
-        console.error("API returned non-JSON despite 200 OK:", text.substring(0, 200));
-        throw new Error("Server returned an invalid response format (HTML instead of JSON). This usually means a routing error occurred.");
+        console.error("API returned non-JSON despite 200 OK. Fallback header:", isFallback, "Content:", text.substring(0, 200));
+        throw new Error(`Server returned HTML instead of JSON. ${isFallback ? "Request hit the SPA fallback route." : "Unknown routing error."} Check if /api routes are working.`);
       }
 
       const data = await response.json();

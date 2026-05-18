@@ -82,30 +82,34 @@ async function startServer() {
 
   const PORT = 3000;
 
-  // 1. DEDICATED API ROUTES (MOVE TO THE TOP)
-  
-  // Health check API
-  app.get('/api/health', (req, res) => {
+  // 1. DEDICATED API ROUTES
+  const apiRouter = express.Router();
+
+  // API Health check
+  apiRouter.get('/health', (req, res) => {
     res.json({ 
       status: 'ok', 
+      api: 'root',
       env: process.env.NODE_ENV,
       adminInitialized: admin.apps.length > 0 
     });
   });
 
-  // Dedicated Admin Router
+  // Admin Sub-Router
   const adminRouter = express.Router();
 
   adminRouter.get('/health', (req, res) => {
+    console.log("[Admin API] /health checked");
     res.json({ status: 'admin-ok', initialized: admin.apps.length > 0 });
   });
 
   // List all users from Auth and Merge with Firestore
   adminRouter.get('/list-users', async (req, res) => {
     try {
-      console.log("[Admin API] GET /api/admin/list-users - Request received");
+      console.log("[Admin API] GET /list-users - Request received");
       const authHeader = req.headers.authorization;
       if (!authHeader?.startsWith('Bearer ')) {
+        console.warn("[Admin API] Missing Authorization header");
         return res.status(401).json({ error: 'Unauthorized: No token provided' });
       }
 
@@ -120,7 +124,7 @@ async function startServer() {
 
       console.log("[Admin API] Fetching all users from Auth and Firestore...");
       
-      // 1. Get all users from Auth (with fallback to profiles only if auth fails)
+      // 1. Get all users from Auth
       let authUsers: admin.auth.UserRecord[] = [];
       let authError: string | null = null;
       try {
@@ -137,7 +141,8 @@ async function startServer() {
       let firestoreError: string | null = null;
       try {
         // Correctly handle non-default databases
-        const firebaseConfig = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'firebase-applet-config.json'), 'utf8'));
+        const configPath = path.join(process.cwd(), 'firebase-applet-config.json');
+        const firebaseConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
         const dbId = firebaseConfig.firestoreDatabaseId && firebaseConfig.firestoreDatabaseId !== '(default)'
           ? firebaseConfig.firestoreDatabaseId
           : undefined;
@@ -198,7 +203,8 @@ async function startServer() {
 
   adminRouter.post('/delete-user', async (req, res) => {
     console.log(`[Admin API] POST /delete-user received`);
-    const firebaseConfig = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'firebase-applet-config.json'), 'utf8'));
+    const configPath = path.join(process.cwd(), 'firebase-applet-config.json');
+    const firebaseConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
     
     // Check Firebase Admin Status
     if (admin.apps.length === 0) {
@@ -238,18 +244,21 @@ async function startServer() {
     }
   });
 
-  // Mount Admin Router
-  app.use('/api/admin', adminRouter);
+  // Mount Admin Router under /api/admin
+  apiRouter.use('/admin', adminRouter);
+
+  // Mount entire apiRouter under /api
+  app.use('/api', apiRouter);
 
   // Catch-all for missing API routes - MUST return JSON
-  // Using app.all and a non-greedy prefix to ensure it catches all /api/ sub-paths
   app.all('/api/*', (req, res) => {
     console.warn(`[API 404] Missing endpoint: ${req.method} ${req.url}`);
     res.status(404).json({ 
       error: `API endpoint not found: ${req.method} ${req.url}`,
-      tip: "Check if the route matches /api/admin/*"
+      tip: "Check your query paths. Available: /api/health, /api/admin/list-users, etc."
     });
   });
+
 
   // 2. VITE / STATIC / SPA FALLBACK (MOVE TO AFTER API ROUTES)
   if (process.env.NODE_ENV !== 'production') {
@@ -269,6 +278,7 @@ async function startServer() {
       app.get('*', (req, res) => {
         // Log where the fallthrough is happening
         console.log(`[Static Fallthrough] Serving index.html for: ${req.url}`);
+        res.setHeader('X-SPA-Fallback', 'true');
         res.sendFile(path.join(distPath, 'index.html'));
       });
     } else {

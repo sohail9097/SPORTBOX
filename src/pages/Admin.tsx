@@ -385,7 +385,7 @@ export default function Admin() {
   useEffect(() => {
     if (isAdmin) {
       // Admin API Health Check
-      fetch('/admin/api/v1/delete-user')
+      fetch('/api/admin/health')
         .then(res => res.json())
         .then(data => console.log("[Admin API Health]", data))
         .catch(err => console.error("[Admin API Health Error]", err));

@@ -65,7 +65,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 async function startServer() {
-  console.log(`[Server Initialization] Initializing Express app...`);
+  console.log(`[Server Initialization] Starting... NODE_ENV=${process.env.NODE_ENV}`);
   const app = express();
   
   // Enable CORS for all routes
@@ -82,102 +82,17 @@ async function startServer() {
 
   const PORT = 3000;
 
-  // Health check API
-  app.get('/api/health', (req, res) => {
-    res.json({ 
-      status: 'ok', 
-      env: process.env.NODE_ENV,
-      adminInitialized: admin.apps.length > 0 
-    });
-  });
+  // Dedicated Admin Router
+  const adminRouter = express.Router();
 
-  // Dedicated Admin API Route Handler
-  app.all('/api/admin/delete-user', async (req, res) => {
-    console.log(`[Admin API] Received ${req.method} request for delete-user`);
-    const firebaseConfig = JSON.parse(fs.readFileSync('./firebase-applet-config.json', 'utf8'));
-    
-    // Health check / Info endpoint
-    if (req.method === 'GET') {
-      return res.json({ 
-        status: 'online', 
-        initialized: admin.apps.length > 0,
-        projectId: firebaseConfig.projectId,
-        databaseId: firebaseConfig.firestoreDatabaseId || '(default)',
-        appName: admin.apps[0]?.name || 'none'
-      });
-    }
-
-    if (req.method !== 'POST') {
-      console.warn(`[Admin API] Method ${req.method} not allowed`);
-      return res.status(405).json({ error: 'Method Not Allowed. Use POST.' });
-    }
-
-    // Check Firebase Admin Status
-    if (admin.apps.length === 0) {
-      console.error('[Admin API] Firebase Admin NOT initialized');
-      return res.status(500).json({ error: 'Firebase Admin not initialized. Check server logs.' });
-    }
-
-    const { uid, idToken } = req.body;
-    
-    if (!uid || !idToken) {
-      console.warn('[Admin API] Missing UID or ID Token');
-      return res.status(400).json({ error: 'Missing uid or idToken' });
-    }
-
-    try {
-      // 1. Verify the Admin's ID Token
-      const decodedToken = await admin.auth().verifyIdToken(idToken);
-      const email = decodedToken.email?.toLowerCase() || '';
-      
-      // LOGS AS REQUESTED BY USER
-      console.log("User email:", email); 
-      console.log("Logged in email:", email);
-      console.log("Is email verified:", decodedToken.email_verified);
-      
-      // Hardcoded admin emails
-      const adminEmails = ['sohailgaji9097@gmail.com', 'tavish@dreamcatchers.tv'];
-      console.log("Allowed Admin Emails:", adminEmails);
-      
-      if (!adminEmails.includes(email)) {
-        console.warn(`[Admin API] Unauthorized: ${email}`);
-        return res.status(403).json({ error: `Unauthorized: ${email} is not an admin.` });
-      }
-
-      // 2. Delete the user from Firebase Auth
-      console.log(`[Admin API] Deleting from Auth: ${uid}`);
-      try {
-        await admin.auth().deleteUser(uid);
-        console.log(`[Admin API] Successfully deleted ${uid} from Auth`);
-      } catch (authErr: any) {
-        console.warn(`[Admin API] Auth deletion warning (user might already be gone): ${authErr.message}`);
-        // Continue to Firestore even if Auth fails (maybe already deleted)
-      }
-
-      const dbId = firebaseConfig.firestoreDatabaseId && firebaseConfig.firestoreDatabaseId !== '(default)'
-        ? firebaseConfig.firestoreDatabaseId
-        : undefined;
-
-      // 3. Delete from Firestore (OPTIONAL)
-      try {
-        console.log(`[Admin API] Deleting from Firestore: ${uid} (db: ${dbId || '(default)'})`);
-        const db = admin.firestore(dbId);
-        await db.collection('users').doc(uid).delete();
-      } catch (fsError: any) {
-        console.warn(`[Admin API] Firestore deletion failed: ${fsError.message}`);
-      }
-      
-      return res.json({ success: true, message: 'User deletion process completed.' });
-    } catch (error) {
-      console.error('[Admin API] Error:', error);
-      return res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
-    }
+  adminRouter.get('/health', (req, res) => {
+    res.json({ status: 'admin-ok', initialized: admin.apps.length > 0 });
   });
 
   // List all users from Auth and Merge with Firestore
-  app.get('/api/admin/list-users', async (req, res) => {
+  adminRouter.get('/list-users', async (req, res) => {
     try {
-      console.log("[Admin API] GET /api/admin/list-users - Request started");
+      console.log("[Admin API] GET /api/admin/list-users - Request received");
       const authHeader = req.headers.authorization;
       if (!authHeader?.startsWith('Bearer ')) {
         return res.status(401).json({ error: 'Unauthorized: No token provided' });
@@ -192,9 +107,9 @@ async function startServer() {
         return res.status(403).json({ error: 'Forbidden: Admins only' });
       }
 
-      console.log("[Admin API] Fetching all users...");
+      console.log("[Admin API] Fetching all users from Auth and Firestore...");
       
-      // 1. Get all users from Auth (with fallback)
+      // 1. Get all users from Auth (with fallback to profiles only if auth fails)
       let authUsers: admin.auth.UserRecord[] = [];
       let authError: string | null = null;
       try {
@@ -247,8 +162,6 @@ async function startServer() {
       });
 
       console.log(`[Admin API] Returning ${mergedUsers.length} merged users.`);
-      
-      // Always return a JSON object with a users array and diag info
       res.json({
         users: mergedUsers,
         diag: {
@@ -266,22 +179,95 @@ async function startServer() {
     }
   });
 
-  // Vite middleware for development
+  adminRouter.post('/delete-user', async (req, res) => {
+    console.log(`[Admin API] POST /delete-user received`);
+    const firebaseConfig = JSON.parse(fs.readFileSync('./firebase-applet-config.json', 'utf8'));
+    
+    // Check Firebase Admin Status
+    if (admin.apps.length === 0) {
+      console.error('[Admin API] Firebase Admin NOT initialized');
+      return res.status(500).json({ error: 'Firebase Admin not initialized. Check server logs.' });
+    }
+
+    const { uid, idToken } = req.body;
+    
+    if (!uid || !idToken) {
+      console.warn('[Admin API] Missing UID or ID Token');
+      return res.status(400).json({ error: 'Missing uid or idToken' });
+    }
+
+    try {
+      const decodedToken = await admin.auth().verifyIdToken(idToken);
+      const email = decodedToken.email?.toLowerCase() || '';
+      const adminEmails = ['sohailgaji9097@gmail.com', 'tavish@dreamcatchers.tv'];
+      
+      if (!adminEmails.includes(email)) {
+        return res.status(403).json({ error: `Unauthorized: ${email} is not an admin.` });
+      }
+
+      await admin.auth().deleteUser(uid);
+      
+      const dbId = firebaseConfig.firestoreDatabaseId && firebaseConfig.firestoreDatabaseId !== '(default)'
+        ? firebaseConfig.firestoreDatabaseId
+        : undefined;
+
+      const db = admin.firestore(dbId);
+      await db.collection('users').doc(uid).delete();
+      
+      res.json({ success: true, message: 'User deletion process completed.' });
+    } catch (error) {
+      console.error('[Admin API] Delete User Error:', error);
+      res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
+    }
+  });
+
+  // Health check API
+  app.get('/api/health', (req, res) => {
+    res.json({ 
+      status: 'ok', 
+      env: process.env.NODE_ENV,
+      adminInitialized: admin.apps.length > 0 
+    });
+  });
+
+  // Mount Admin Router - ATTACHED DIRECTLY TO /api/admin
+  app.use('/api/admin', adminRouter);
+
+  // Catch-all for missing API routes - MUST return JSON
+  app.use('/api/*', (req, res) => {
+    console.warn(`[API 404] Missing endpoint: ${req.method} ${req.originalUrl}`);
+    res.status(404).json({ 
+      error: `API endpoint not found: ${req.method} ${req.originalUrl}`,
+      tip: "Check if the base path /api/admin matches your request."
+    });
+  });
+
+  // Vite/Static middleware
   if (process.env.NODE_ENV !== 'production') {
+    console.log("[Server] Running in Development mode (Vite)");
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',
     });
     app.use(vite.middlewares);
   } else {
-    // Serve static files in production
+    console.log("[Server] Running in Production mode (Static)");
+    // Use process.cwd() to be safe in bundled environments
     const distPath = path.join(process.cwd(), 'dist');
-    app.use(express.static(distPath));
     
-    // Catch-all route to serve index.html for SPA routing
-    app.get('*', (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
-    });
+    if (fs.existsSync(distPath)) {
+      app.use(express.static(distPath));
+      app.get('*', (req, res) => {
+        // Log where the fallthrough is happening
+        console.log(`[Static Fallthrough] Serving index.html for: ${req.url}`);
+        res.sendFile(path.join(distPath, 'index.html'));
+      });
+    } else {
+      console.error(`[Error] dist/ directory not found at ${distPath}`);
+      app.get('*', (req, res) => {
+        res.status(500).send("Application not built. Please run 'npm run build' first.");
+      });
+    }
   }
 
   // Global error handler to ensure JSON responses even for internal errors

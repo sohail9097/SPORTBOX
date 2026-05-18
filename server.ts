@@ -67,6 +67,7 @@ const __dirname = path.dirname(__filename);
 async function startServer() {
   console.log(`[Server Initialization] Starting... NODE_ENV=${process.env.NODE_ENV}`);
   const app = express();
+  const PORT = 3000;
   
   // Enable CORS for all routes
   app.use(cors());
@@ -74,51 +75,29 @@ async function startServer() {
   // Parse JSON bodies
   app.use(express.json());
   
-  // Debug logger for all incoming requests - EARLY in the chain
-  app.use((req, res, next) => {
-    const timestamp = new Date().toISOString();
-    console.log(`[Request Log] ${timestamp} - ${req.method} ${req.url}`);
-    
-    // Diagnostic headers for the client
-    res.setHeader('X-Server-Timestamp', timestamp);
-    res.setHeader('X-Request-URL', req.url);
-    
-    if (req.url.startsWith('/api')) {
-      res.setHeader('X-API-Request-Detected', 'true');
-    }
-    next();
-  });
-
-  // 1. DEDICATED API ROUTES (MOUNTED BEFORE ANYTHING ELSE)
+  // 1. DEDICATED API ROUTES
   const api = express.Router();
-
-  // Middleware within the router to guarantee header setting
-  api.use((req, res, next) => {
-    res.setHeader('X-API-Router-Matched', 'true');
-    next();
-  });
 
   // API Health check
   api.get('/health', (req, res) => {
     res.json({ 
-      status: 'ok', 
-      api: 'v1',
+      status: 'ok',
       env: process.env.NODE_ENV,
       adminInitialized: admin.apps.length > 0 
     });
   });
 
+  // Admin API Routes
   api.get('/admin/health', (req, res) => {
     res.json({ status: 'admin-ok', initialized: admin.apps.length > 0 });
   });
 
   // List all users from Auth and Merge with Firestore
   api.get('/admin/list-users', async (req, res) => {
-    console.log(`[API Router] Handling /admin/list-users`);
     try {
       const authHeader = req.headers.authorization;
       if (!authHeader?.startsWith('Bearer ')) {
-        return res.status(401).json({ error: 'Unauthorized: No token provided' });
+        return res.status(401).json({ error: 'Unauthorized' });
       }
 
       const idToken = authHeader.split('Bearer ')[1];
@@ -126,17 +105,12 @@ async function startServer() {
       
       const adminEmails = ['sohailgaji9097@gmail.com', 'tavish@dreamcatchers.tv'];
       if (!adminEmails.includes(decodedToken.email?.toLowerCase() || '')) {
-        return res.status(403).json({ error: 'Forbidden: Admins only' });
+        return res.status(403).json({ error: 'Forbidden' });
       }
 
       // 1. Get all users from Auth
-      let authUsers: admin.auth.UserRecord[] = [];
-      try {
-        const listUsersResult = await admin.auth().listUsers(1000);
-        authUsers = listUsersResult.users;
-      } catch (authErr: any) {
-        console.error("Auth listUsers failed:", authErr.message);
-      }
+      const listUsersResult = await admin.auth().listUsers(1000);
+      const authUsers = listUsersResult.users;
 
       // 2. Get all users from Firestore
       let firestoreData: Record<string, any> = {};
@@ -178,7 +152,7 @@ async function startServer() {
   api.post('/admin/delete-user', async (req, res) => {
     try {
       const { uid, idToken } = req.body;
-      if (!uid || !idToken) return res.status(400).json({ error: 'Missing uid or idToken' });
+      if (!uid || !idToken) return res.status(400).json({ error: 'Missing parameters' });
 
       const decodedToken = await admin.auth().verifyIdToken(idToken);
       const email = decodedToken.email?.toLowerCase() || '';
@@ -194,12 +168,6 @@ async function startServer() {
     } catch (error) {
       res.status(500).json({ error: 'Internal server error' });
     }
-  });
-
-  // Catch-all for API routes - MUST be JSON
-  api.all('*', (req, res) => {
-    console.warn(`[API 404] ${req.method} ${req.originalUrl}`);
-    res.status(404).json({ error: 'API endpoint not found', path: req.originalUrl });
   });
 
   // MOUNT THE API ROUTER

@@ -386,24 +386,9 @@ export default function Admin() {
     if (isAdmin) {
       // Admin API Health Check
       fetch('/api/admin/health')
-        .then(async res => {
-          if (!res.ok) {
-            const text = await res.text();
-            throw new Error(`Health check failed: ${res.status}. ${text.substring(0, 100)}`);
-          }
-          const contentType = res.headers.get("content-type");
-          const isFallback = res.headers.get("X-SPA-Fallback") === "true";
-          const hasMatchedRouter = res.headers.get("X-API-Router-Matched") === "true";
-          if (!contentType || !contentType.includes("application/json") || isFallback) {
-             throw new Error(`Health check returned non-JSON/Fallback. Type: ${contentType}, Fallback: ${isFallback}, RouterMatched: ${hasMatchedRouter}`);
-          }
-          return res.json();
-        })
+        .then(res => res.json())
         .then(data => console.log("[Admin API Health]", data))
-        .catch(err => {
-          console.warn("[Admin API Health Error]", err.message);
-          // Don't show toast for health check to avoid annoying user, just log it
-        });
+        .catch(err => console.warn("[Admin API Health Error]", err.message));
 
       fetchContent();
       fetchSections();
@@ -759,41 +744,7 @@ export default function Admin() {
       if (!currentUser) return;
 
       const idToken = await currentUser.getIdToken();
-      // Helper for fetching with retries and validation
-      const fetchWithRetry = async (url: string, options: any, retries = 2): Promise<Response> => {
-        const res = await fetch(url, options);
-        
-        const contentType = res.headers.get("content-type");
-        const isFallback = res.headers.get("X-SPA-Fallback") === "true";
-        const hasMatchedRouter = res.headers.get("X-API-Router-Matched") === "true";
-        const hasDetectedAPI = res.headers.get("X-API-Request-Detected") === "true";
-        
-        // If we get HTML instead of JSON for an API call, it's a routing error
-        if ((!contentType || !contentType.includes("application/json") || isFallback) && res.ok) {
-          if (retries > 0) {
-            console.warn(`[Admin] Received HTML/Fallback when expecting JSON. Retrying... (${retries} left)`);
-            await new Promise(r => setTimeout(r, 1000));
-            return fetchWithRetry(url, options, retries - 1);
-          }
-          const text = await res.text();
-          console.error("Invalid response format details:", {
-            url,
-            status: res.status,
-            contentType,
-            isFallback,
-            hasMatchedRouter,
-            hasDetectedAPI,
-            snippet: text.substring(0, 200)
-          });
-          
-          let debugInfo = `Status: ${res.status}, RouterMatched: ${hasMatchedRouter}, DetectedAPI: ${hasDetectedAPI}, Fallback: ${isFallback}`;
-          throw new Error(`Connectivity Error: The backend returned HTML instead of JSON. Path: ${url}. Info: ${debugInfo}. Check server logs.`);
-        }
-        
-        return res;
-      };
-
-      const response = await fetchWithRetry(`/api/admin/list-users?v=${Date.now()}`, {
+      const response = await fetch(`/api/admin/list-users?v=${Date.now()}`, {
         headers: {
           'Authorization': `Bearer ${idToken}`
         }
@@ -806,13 +757,10 @@ export default function Admin() {
           if (contentType && contentType.includes("application/json")) {
             const errorData = await response.json();
             errorMessage = errorData.error || errorMessage;
-            if (errorData.details?.auth) {
-              errorMessage += ` (Auth: ${errorData.details.auth})`;
-            }
           } else {
             const text = await response.text();
             console.error("Non-JSON Error Response:", text.substring(0, 500));
-            errorMessage = `Communication Error (${response.status}): The server returned an invalid response. Raw snippet: ${text.substring(0, 50)}...`;
+            errorMessage = `Communication Error (${response.status}): The server returned an invalid response.`;
           }
         } catch (e) {
           console.error("Error parsing error response:", e);
@@ -821,26 +769,7 @@ export default function Admin() {
       }
       
       const data = await response.json();
-      
-      // Handle both old array format and new object format
       const items = Array.isArray(data) ? data : (data.users || []);
-      const diag = Array.isArray(data) ? null : data.diag;
-
-      if (diag) {
-        console.log("[Admin Debug] Backend Diagnosis:", diag);
-        if (diag.authError) {
-          toast.error(`Auth System Error: ${diag.authError}`, { 
-            duration: 8000,
-            id: 'auth-error' 
-          });
-        }
-        if (!diag.hasServiceAccount) {
-          toast.warning("Service Account is missing in Production. Users may not load.", {
-             duration: 10000,
-             id: 'sa-missing'
-          });
-        }
-      }
 
       setAllUsersCount(items.length);
       const premiumUsers = items.filter((u: any) => u.subscriptionTier && u.subscriptionTier !== 'free' && u.subscriptionStatus === 'active');
@@ -848,7 +777,7 @@ export default function Admin() {
       setSubscribers(items);
     } catch (error) {
       console.error("Fetch Subscribers Error:", error);
-      toast.error(error instanceof Error ? error.message : "Failed to load subscribers. Check your Firebase API settings.");
+      toast.error(error instanceof Error ? error.message : "Failed to load subscribers.");
     }
   };
 

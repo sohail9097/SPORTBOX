@@ -2186,9 +2186,9 @@ export default function Admin() {
                   
                   <div className="space-y-4">
                     <div className="p-5 bg-blue-500/10 border border-blue-500/30 rounded-xl space-y-3">
-                      <p className="text-xs font-black text-blue-400 uppercase italic">Fixing "Sign in to central-bricolage..."</p>
+                      <p className="text-xs font-black text-blue-400 uppercase italic">Fixing "Sign in to sportsbox-1..."</p>
                       <p className="text-[10px] text-text-muted leading-relaxed">
-                        To replace the technical ID with <b>"Sign in to Sportsbox"</b>, you must set an "App Name" in your Google Cloud Dashboard.
+                        To replace the technical ID with <b>"Sign in to Sportsbox-1"</b>, you must set an "App Name" in your Google Cloud Dashboard.
                       </p>
                       
                       <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-lg space-y-2">

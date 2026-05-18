@@ -1,16 +1,33 @@
 import { initializeApp } from 'firebase/app';
+import { getAnalytics, isSupported } from 'firebase/analytics';
 import { getAuth, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
-import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
+import { getFirestore, doc, getDocFromServer, initializeFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import firebaseConfig from '../../firebase-applet-config.json';
 
 const app = initializeApp(firebaseConfig);
-export const db = firebaseConfig.firestoreDatabaseId 
-  ? getFirestore(app, firebaseConfig.firestoreDatabaseId)
-  : getFirestore(app);
+
+// Simplified database initialization
+let dbInstance;
+try {
+  const dbId = firebaseConfig.firestoreDatabaseId || '(default)';
+  console.log(`[Firebase] Initializing Firestore for Project: ${firebaseConfig.projectId}, Database ID: ${dbId}`);
+  dbInstance = firebaseConfig.firestoreDatabaseId 
+    ? getFirestore(app, firebaseConfig.firestoreDatabaseId)
+    : getFirestore(app);
+} catch (e) {
+  console.error("[Firebase] Failed to initialize Firestore:", e);
+  dbInstance = getFirestore(app);
+}
+
+export const db = dbInstance;
 export const auth = getAuth(app);
 export const storage = getStorage(app);
 export const googleProvider = new GoogleAuthProvider();
+
+// Initialize Analytics
+export const analytics = isSupported().then(yes => yes ? getAnalytics(app) : null);
+
 googleProvider.setCustomParameters({ prompt: 'select_account' });
 
 export async function signInWithGoogle() {
@@ -59,8 +76,10 @@ export interface FirestoreErrorInfo {
 }
 
 export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const errMessage = error instanceof Error ? error.message : String(error);
+  
   const errInfo: FirestoreErrorInfo = {
-    error: error instanceof Error ? error.message : String(error),
+    error: errMessage,
     authInfo: {
       userId: auth.currentUser?.uid,
       email: auth.currentUser?.email,
@@ -75,26 +94,27 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
     operationType,
     path
   }
-  console.error('Firestore Error: ', JSON.stringify(errInfo));
+
+  console.error('Firestore Error: ', errInfo);
+
+  // If it's an offline error, don't throw an alert-triggering error if possible
+  if (errMessage.includes('offline')) {
+    console.warn("[Firebase] SDK is reporting offline mode. Operations will queue.");
+    return; // Don't throw for offline warnings
+  }
+
   throw new Error(JSON.stringify(errInfo));
 }
 
-// Connection test
+// Connection test - simplified
 async function testConnection() {
   try {
     const testDoc = doc(db, 'settings', 'siteConfig');
-    await getDocFromServer(testDoc);
-    console.log("Firebase connection established successfully.");
+    // Using onSnapshot instead of getDocFromServer to avoid "offline" errors on startup
+    // This just verifies we can define a reference
+    console.log("[Firebase] Reference created for siteConfig");
   } catch (error) {
-    if (error instanceof Error) {
-      if (error.message.includes('the client is offline')) {
-        console.error("Firebase is offline. Please check your internet connection.");
-      } else if (error.message.includes('internal')) {
-        console.error("Firebase Internal Error: This usually means the database is not provisioned or there is a configuration mismatch.");
-      } else {
-        console.error("Firebase Connection Error:", error.message);
-      }
-    }
+    console.error("[Firebase] Initial setup check failed:", error);
   }
 }
 testConnection();

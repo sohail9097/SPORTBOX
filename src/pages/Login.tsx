@@ -100,7 +100,7 @@ export default function Login() {
       } else if (errorCode === 'auth/account-exists-with-different-credential') {
         setError("An account already exists with the same email but different sign-in credentials.");
       } else if (errorCode === 'auth/unauthorized-domain') {
-        setError("This domain is not authorized. Please add your current domain to Authorized Domains in Firebase Console > Authentication > Settings.");
+        setError(`UNAUTHORIZED DOMAIN: ${window.location.hostname}. Please add this domain to your Firebase Console settings.`);
       } else {
         setError(errorMessage || 'Social login failed');
       }
@@ -163,12 +163,65 @@ export default function Login() {
             <motion.div 
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
-              className="bg-red-500/10 border border-red-500/20 p-4 rounded-xl flex items-start gap-3"
+              className={cn(
+                "p-4 rounded-xl flex flex-col gap-3",
+                error.includes('UNAUTHORIZED DOMAIN') 
+                  ? "bg-amber-500/10 border border-amber-500/20" 
+                  : "bg-red-500/10 border border-red-500/20"
+              )}
             >
-              <div className="w-5 h-5 rounded-full bg-red-500 flex-shrink-0 flex items-center justify-center text-[10px] text-white font-bold">!</div>
-              <p className="text-[10px] text-red-500 font-bold uppercase tracking-widest leading-relaxed">
-                {error}
-              </p>
+              <div className="flex items-start gap-3">
+                <div className={cn(
+                  "w-5 h-5 rounded-full flex-shrink-0 flex items-center justify-center text-[10px] text-white font-bold",
+                  error.includes('UNAUTHORIZED DOMAIN') ? "bg-amber-500" : "bg-red-500"
+                )}>!</div>
+                <p className={cn(
+                  "text-[10px] font-bold uppercase tracking-widest leading-relaxed",
+                  error.includes('UNAUTHORIZED DOMAIN') ? "text-amber-500" : "text-red-500"
+                )}>
+                  {error}
+                </p>
+              </div>
+
+              {error.includes('UNAUTHORIZED DOMAIN') && (
+                <div className="space-y-3 pt-2 border-t border-amber-500/10 mt-1">
+                  <p className="text-[9px] text-text-muted font-medium uppercase tracking-tight">
+                    Go to <b>Authentication &gt; Settings &gt; Authorized Domains</b> and add:
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <code className="flex-1 text-[10px] bg-black/40 p-2 rounded border border-white/5 text-amber-400 select-all font-mono">
+                      {window.location.hostname}
+                    </code>
+                    <button 
+                      onClick={() => {
+                        navigator.clipboard.writeText(window.location.hostname);
+                        const btn = document.activeElement as HTMLButtonElement;
+                        const originalText = btn.innerText;
+                        btn.innerText = "COPIED!";
+                        setTimeout(() => btn.innerText = originalText, 2000);
+                      }}
+                      className="px-3 py-2 bg-amber-500 text-white rounded font-black text-[8px] uppercase tracking-widest hover:scale-105 transition-transform"
+                    >
+                      COPY
+                    </button>
+                  </div>
+                  <a 
+                    href={`https://console.firebase.google.com/project/${auth.app.options.projectId}/authentication/settings`}
+                    target="_blank"
+                    className="flex items-center justify-between p-3 bg-white/5 hover:bg-white/10 rounded-lg group transition-all"
+                  >
+                    <span className="text-[9px] font-black uppercase text-amber-500 italic">Open Firebase Console</span>
+                    <Play className="w-3 h-3 text-amber-500 group-hover:translate-x-1 transition-transform" />
+                  </a>
+                  
+                  <div className="p-3 bg-white/5 rounded-lg border border-white/5">
+                    <p className="text-[8px] text-text-muted font-bold uppercase tracking-wider mb-1">Owner Pro-Tip:</p>
+                    <p className="text-[8px] text-text-muted leading-relaxed italic">
+                      Getting a permission error? Open the link in **Incognito Mode** and log in with the correct Google account.
+                    </p>
+                  </div>
+                </div>
+              )}
             </motion.div>
           )}
 

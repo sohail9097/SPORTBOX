@@ -34,18 +34,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (user) {
         const userDocRef = doc(db, 'users', user.uid);
         
+        // Use a timeout for the initial load to prevent hanging on "offline" errors
+        const authTimeout = setTimeout(() => {
+          if (loading) {
+            console.warn("[Auth] Profile fetch timed out, likely offline or connection issue.");
+            setLoading(false);
+          }
+        }, 5000);
+
         // Use onSnapshot for real-time profile updates
         unsubscribeProfile = onSnapshot(userDocRef, (doc) => {
+          clearTimeout(authTimeout);
           if (doc.exists()) {
             setProfile(doc.data());
           } else {
             // Profile doesn't exist yet, handle initialization
-            // (Note: we don't return here because we might need to create it)
             initializeProfile(user);
           }
           setLoading(false);
         }, (error) => {
-          handleFirestoreError(error, OperationType.GET, `users/${user.uid}`);
+          clearTimeout(authTimeout);
+          console.error("[Auth] Firestore sync error:", error);
+          // Don't throw here to avoid crashing the whole app, just log and continue
           setLoading(false);
         });
       } else {
@@ -63,21 +73,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const initializeProfile = async (authenticatedUser: User) => {
     const userDocRef = doc(db, 'users', authenticatedUser.uid);
     try {
-      const userDoc = await getDoc(userDocRef);
-      if (!userDoc.exists()) {
-        const initialProfile = {
-          uid: authenticatedUser.uid,
-          email: authenticatedUser.email,
-          displayName: authenticatedUser.displayName,
-          subscriptionTier: 'free',
-          subscriptionStatus: 'none',
-          favorites: [],
-          createdAt: new Date().toISOString()
-        };
-        await setDoc(userDocRef, initialProfile);
-        // setProfile will be handled by onSnapshot
+      // Direct setDoc with merge: true is more resilient to offline errors than getDoc + setDoc
+      // It will create the document if it doesn't exist, or update/merge if it does.
+      const initialProfile = {
+        uid: authenticatedUser.uid,
+        email: authenticatedUser.email,
+        displayName: authenticatedUser.displayName,
+        subscriptionTier: 'free',
+        subscriptionStatus: 'none',
+        favorites: [],
+        watchLater: [],
+        recentlyWatched: [],
+        createdAt: new Date().toISOString()
+      };
+      
+      await setDoc(userDocRef, initialProfile, { merge: true });
+      console.log("[Auth] Profile sync requested for user:", authenticatedUser.uid);
+    } catch (error: any) {
+      // If it's an offline error, don't break the UI
+      if (error?.message?.includes('offline')) {
+        console.warn("[Auth] Persistence sync queued (offline).");
+        return;
       }
-    } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, `users/${authenticatedUser.uid}`);
     }
   };

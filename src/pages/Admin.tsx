@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { db, handleFirestoreError, OperationType, auth } from '../lib/firebase';
 import { collection, addDoc, getDocs, getDoc, deleteDoc, doc, updateDoc, query, orderBy, setDoc } from 'firebase/firestore';
 import { SportsContent, Category, ContentType, ContentSection, SliderElement, VideoPromoSettings, SiteConfig, PlayerSettings, SubscriptionPlan } from '../types';
-import { Plus, Trash2, Edit2, Play, LayoutDashboard, Film, Users, Settings, Save, X, Eye, Radio, Crown, Layers, MoveUp, MoveDown, CheckSquare, Square, Image as ImageIcon, Upload, Library, ShieldCheck, Zap, Percent, Trophy, ChevronRight, Activity, Heart, Dribbble, CircleDot, Target, Disc, Flag, Gamepad2, Folder, ChevronLeft } from 'lucide-react';
+import { Plus, Trash2, Edit2, Play, LayoutDashboard, Film, Users, Settings, Save, X, Eye, Radio, Crown, Layers, MoveUp, MoveDown, CheckSquare, Square, Image as ImageIcon, Upload, Library, ShieldCheck, ShieldAlert, Zap, Percent, Trophy, ChevronRight, Activity, Heart, Dribbble, CircleDot, Target, Disc, Flag, Gamepad2, Folder, ChevronLeft } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn, formatDate, transformGDriveUrl } from '../lib/utils';
 import { useAuth } from '../hooks/useAuth';
@@ -124,6 +124,253 @@ export default function Admin() {
       label: 'Limited Offer'
     }
   });
+
+  const [isBulkLoading, setIsBulkLoading] = useState(false);
+
+  const generateBulkDummyContent = async () => {
+    if (!confirm("This will add 10 sample videos to EVERY category (80+ items total). This might take a minute. Continue?")) return;
+    
+    setIsBulkLoading(true);
+    try {
+      const categories = ['football', 'cricket', 'basketball', 'tennis', 'f1', 'boxing', 'golf', 'esports'];
+      const types: ContentType[] = ['highlight', 'replay', 'live'];
+      
+      const images: Record<string, string[]> = {
+        football: [
+          'https://images.unsplash.com/photo-1574629810360-7efbbe195018',
+          'https://images.unsplash.com/photo-1508098682722-e99c43a406b2',
+          'https://images.unsplash.com/photo-1517466787929-bc90951d0974',
+          'https://images.unsplash.com/photo-1551958219-acbc608c6377',
+          'https://images.unsplash.com/photo-1575361394739-df13b10ae45d'
+        ],
+        cricket: [
+          'https://images.unsplash.com/photo-1531415074968-036ba1b575da',
+          'https://images.unsplash.com/photo-1533721387277-22d2c673fa0b',
+          'https://images.unsplash.com/photo-1589487391730-58f20eb2c308',
+          'https://images.unsplash.com/photo-1593341646782-e0b495cff86d',
+          'https://images.unsplash.com/photo-1540747913346-19e32dc3e97e'
+        ],
+        basketball: [
+          'https://images.unsplash.com/photo-1546519638-68e109498ffc',
+          'https://images.unsplash.com/photo-1519861531158-2863f7c5c1b3',
+          'https://images.unsplash.com/photo-1504450758481-7338eba7524a',
+          'https://images.unsplash.com/photo-1518063311540-00445b84293f',
+          'https://images.unsplash.com/photo-1515444744559-7be63e1600de'
+        ],
+        tennis: [
+          'https://images.unsplash.com/photo-1592211633519-7922d5111956',
+          'https://images.unsplash.com/photo-1595435066359-e18e6c466986',
+          'https://images.unsplash.com/photo-1554068865-24cecd4e34b8',
+          'https://images.unsplash.com/photo-1622279457486-62dcc4a4bd1d',
+          'https://images.unsplash.com/photo-1587329310686-dc4a4bd1d7a8'
+        ],
+        f1: [
+          'https://images.unsplash.com/photo-1533139502658-0198f920d8e8',
+          'https://images.unsplash.com/photo-1541185933-ef5d8ed016c2',
+          'https://images.unsplash.com/photo-1552519519-72dcd9b6e587',
+          'https://images.unsplash.com/photo-1537248161962-041a3194090b',
+          'https://images.unsplash.com/photo-1596755094514-f87e34085b2c'
+        ],
+        boxing: [
+          'https://images.unsplash.com/photo-1549719386-74dfcbf7dbed',
+          'https://images.unsplash.com/photo-1509190159492-75ca49124a9e',
+          'https://images.unsplash.com/photo-1552072805-2a9039d00e57',
+          'https://images.unsplash.com/photo-1544117518-2b041560c05a',
+          'https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e'
+        ],
+        golf: [
+          'https://images.unsplash.com/photo-1535131749006-b7f58c99034b',
+          'https://images.unsplash.com/photo-1587174486073-ae5e5cff23aa',
+          'https://images.unsplash.com/photo-1592919010304-4298157796d1',
+          'https://images.unsplash.com/photo-1591491640784-3232eb748d4b',
+          'https://images.unsplash.com/photo-1605342416972-04877708577d'
+        ],
+        esports: [
+          'https://images.unsplash.com/photo-1542751371-adc38448a05e',
+          'https://images.unsplash.com/photo-1511512578047-dfb367046420',
+          'https://images.unsplash.com/photo-1493711662062-fa541adb3fc8',
+          'https://images.unsplash.com/photo-1534423861386-85a16f5d13fd',
+          'https://images.unsplash.com/photo-1552820728-8b83bb6b773f'
+        ]
+      };
+
+      for (const cat of categories) {
+        console.log(`Generating items for ${cat}...`);
+        const catImages = images[cat] || images.football;
+        
+        for (let i = 1; i <= 10; i++) {
+          const type = types[Math.floor(Math.random() * types.length)];
+          const isPremium = i > 5; // Half premium
+          
+          await addDoc(collection(db, 'content'), {
+            title: `${cat.charAt(0).toUpperCase() + cat.slice(1)} Championship Series #${i}`,
+            description: `Exclusive coverage of the ${cat} season. Professional commentary and high-definition multi-angle views.`,
+            category: cat,
+            type: type,
+            status: type === 'live' ? 'live' : 'ended',
+            videoUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+            thumbnailUrl: `${catImages[i % catImages.length]}?q=80&w=800&auto=format&fit=crop`,
+            isPremium: isPremium,
+            viewCount: Math.floor(Math.random() * 10000) + 500,
+            createdAt: new Date().toISOString(),
+            tags: [cat.toUpperCase(), 'Season 2024', type.toUpperCase()]
+          });
+        }
+        
+        // Also ensure a section exists for this category on its specific page
+        const q = query(collection(db, 'sections'));
+        const snap = await getDocs(q);
+        const existing = snap.docs.find(d => d.data().page === cat);
+        
+        if (!existing) {
+          await addDoc(collection(db, 'sections'), {
+            title: `Featured ${cat.charAt(0).toUpperCase() + cat.slice(1)}`,
+            page: cat,
+            contentIds: [], // Home and Category pages will fetch by category anyway or we can populate
+            type: 'normal',
+            order: 1,
+            isActive: true
+          });
+        }
+      }
+
+      alert("Successfully added 80 dummy items across all categories!");
+      window.location.reload();
+    } catch (err) {
+      console.error(err);
+      alert("Failed to add bulk content.");
+    } finally {
+      setIsBulkLoading(false);
+    }
+  };
+
+  const [isInitializing, setIsInitializing] = useState(false);
+
+  const restoreSampleContent = async () => {
+    if (!confirm("This will add some sample matches and highlights to your library. Continue?")) return;
+    setIsInitializing(true);
+    try {
+      const contentList = [
+        {
+          title: 'Champions League Final Highlights',
+          description: 'A classic battle between the giants of European football.',
+          category: 'football',
+          type: 'highlight',
+          videoUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+          thumbnailUrl: 'https://images.unsplash.com/photo-1574629810360-7efbbe195018',
+          isPremium: false,
+          viewCount: 1540,
+          createdAt: new Date().toISOString(),
+          status: 'ended',
+          tags: ['Highlights', 'Final']
+        },
+        {
+          title: 'Cricket World Cup: Best of 2023',
+          description: 'Incredible catches and massive sixes from the pinnacle tournament.',
+          category: 'cricket',
+          type: 'replay',
+          videoUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+          thumbnailUrl: 'https://images.unsplash.com/photo-1531415074968-036ba1b575da',
+          isPremium: true,
+          viewCount: 890,
+          createdAt: new Date().toISOString(),
+          status: 'ended',
+          tags: ['Cricket', 'World Cup']
+        },
+        {
+          title: 'F1: Monaco Grand Prix Highlights',
+          description: 'High speed drama in the streets of Monte Carlo.',
+          category: 'f1',
+          type: 'highlight',
+          videoUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+          thumbnailUrl: 'https://images.unsplash.com/photo-1533139502658-0198f920d8e8',
+          isPremium: false,
+          viewCount: 2200,
+          createdAt: new Date().toISOString(),
+          status: 'ended',
+          tags: ['F1', 'Speed']
+        }
+      ];
+
+      const createdIds = [];
+      for (const item of contentList) {
+        const docRef = await addDoc(collection(db, 'content'), item);
+        createdIds.push(docRef.id);
+      }
+
+      // Automatically create sections if they are missing
+      const sectionsSnap = await getDocs(collection(db, 'sections'));
+      if (sectionsSnap.empty) {
+        const defaultSections = [
+          { title: 'Trending Hub', page: 'home', contentIds: createdIds, type: 'normal', order: 1, isActive: true },
+          { title: 'Tournament Replays', page: 'home', contentIds: [createdIds[1]], type: 'top10', order: 2, isActive: true }
+        ];
+        for (const sec of defaultSections) {
+          await addDoc(collection(db, 'sections'), sec);
+        }
+      }
+
+      alert("Sample library restored! Sections and content are now visible on the home page.");
+      window.location.reload();
+    } catch (err) {
+      console.error(err);
+      alert("Failed to restore content.");
+    } finally {
+      setIsInitializing(false);
+    }
+  };
+
+  const initializeSampleData = async () => {
+    if (!confirm("This will create sample sections and settings if the database is empty. Continue?")) return;
+    
+    setIsInitializing(true);
+    try {
+      // 1. Check if sections are empty
+      const sectionsSnap = await getDocs(collection(db, 'sections'));
+      if (sectionsSnap.empty) {
+        const defaultSections = [
+          { title: 'Live Events', page: 'home', contentIds: [], type: 'normal', order: 1, isActive: true },
+          { title: 'Trending Replays', page: 'home', contentIds: [], type: 'normal', order: 2, isActive: true },
+          { title: 'Tournament Highlights', page: 'home', contentIds: [], type: 'top10', order: 3, isActive: true }
+        ];
+        for (const sec of defaultSections) {
+          await addDoc(collection(db, 'sections'), sec);
+        }
+      }
+
+      // 2. Initialize Settings if empty
+      const videoPromoRef = doc(db, 'settings', 'videoPromo');
+      const promoSnap = await getDoc(videoPromoRef);
+      if (!promoSnap.exists()) {
+        await setDoc(videoPromoRef, {
+          isActive: true,
+          title: 'Welcome to Sportsbox',
+          description: 'The ultimate destination for sports enthusiasts.',
+          videoUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+          buttonText: 'Join Premium',
+          buttonUrl: '/plans',
+          backgroundColor: '#ff0000'
+        });
+      }
+
+      const siteConfigRef = doc(db, 'settings', 'siteConfig');
+      const configSnap = await getDoc(siteConfigRef);
+      if (!configSnap.exists()) {
+        await setDoc(siteConfigRef, {
+          founderImageUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d',
+          logoUrl: ''
+        });
+      }
+
+      alert("Sample sections and settings initialized. Now add some content in the Content tab!");
+      window.location.reload();
+    } catch (err) {
+      console.error(err);
+      alert("Failed to initialize sample data. Check console for details.");
+    } finally {
+      setIsInitializing(false);
+    }
+  };
 
   useEffect(() => {
     if (!authLoading && !isAdmin) {
@@ -824,6 +1071,30 @@ export default function Admin() {
                 >
                   <Trash2 className="w-4 h-4" />
                   {isResetting ? "Resetting Views..." : "Reset All Views (Zero Impressions)"}
+                </button>
+                <button 
+                  onClick={restoreSampleContent}
+                  disabled={isInitializing}
+                  className="px-6 py-3 bg-brand/10 border border-brand/20 text-brand rounded-2xl text-xs font-black uppercase italic hover:bg-brand hover:text-white transition-all disabled:opacity-50 flex items-center gap-2"
+                >
+                  <Trophy className="w-4 h-4" />
+                  {isInitializing ? "Restoring..." : "Emergency Content Restore"}
+                </button>
+                <button 
+                  onClick={initializeSampleData}
+                  disabled={isInitializing}
+                  className="px-6 py-3 bg-brand/10 border border-brand/20 text-brand rounded-2xl text-xs font-black uppercase italic hover:bg-brand hover:text-white transition-all disabled:opacity-50 flex items-center gap-2"
+                >
+                  <Layers className="w-4 h-4" />
+                  {isInitializing ? "Initializing..." : "Restore Missing Sections & Settings"}
+                </button>
+                <button 
+                  onClick={generateBulkDummyContent}
+                  disabled={isBulkLoading}
+                  className="px-6 py-3 bg-blue-600/10 border border-blue-500/20 text-blue-400 rounded-2xl text-xs font-black uppercase italic hover:bg-blue-600 hover:text-white transition-all disabled:opacity-50 flex items-center gap-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  {isBulkLoading ? "Generating 80+ Items..." : "Bulk Generate All Sports Content"}
                 </button>
               </div>
 
@@ -1883,13 +2154,19 @@ export default function Admin() {
                     <div className="p-4 bg-black/40 rounded-xl border border-white/5 space-y-2">
                       <p className="text-[10px] font-bold uppercase text-white/40">Domains to Add:</p>
                       <div className="flex flex-col gap-2">
-                        <code className="text-[10px] bg-bg p-2 rounded border border-white/5 text-amber-400 select-all">ais-dev-mh4r6wg37qxzkiuioan5mi-304563445639.asia-southeast1.run.app</code>
-                        <code className="text-[10px] bg-bg p-2 rounded border border-white/5 text-amber-400 select-all">ais-pre-mh4r6wg37qxzkiuioan5mi-304563445639.asia-southeast1.run.app</code>
+                        <div className="flex items-center gap-2">
+                           <code className="flex-1 text-[10px] bg-bg p-2 rounded border border-white/5 text-amber-400 select-all">{window.location.hostname}</code>
+                           <button onClick={() => navigator.clipboard.writeText(window.location.hostname)} className="text-[8px] bg-amber-500/10 text-amber-500 px-2 py-1 rounded border border-amber-500/20 uppercase font-black">Copy</button>
+                        </div>
+                        <div className="flex items-center gap-2">
+                           <code className="flex-1 text-[10px] bg-bg p-2 rounded border border-white/5 text-white/30 select-all">localhost</code>
+                           <button onClick={() => navigator.clipboard.writeText('localhost')} className="text-[8px] bg-white/5 text-white/40 px-2 py-1 rounded border border-white/10 uppercase font-black">Copy</button>
+                        </div>
                       </div>
                     </div>
                     
                     <a 
-                      href="https://console.firebase.google.com/project/central-bricolage-1cf5x/authentication/settings" 
+                      href={`https://console.firebase.google.com/project/${auth.app.options.projectId}/authentication/settings`} 
                       target="_blank" 
                       className="flex items-center justify-between p-4 bg-white/5 hover:bg-white/10 rounded-xl group transition-all"
                     >
@@ -1907,30 +2184,128 @@ export default function Admin() {
                     <h2 className="text-xl font-display font-black uppercase italic tracking-widest text-white">2. Sign-in Branding</h2>
                   </div>
                   
-                  <p className="text-xs text-text-muted leading-relaxed">
-                    To change <b>"Sign in to gen-lang-client..."</b> to <b>"Sign in to Sportsbox"</b>, update your Project Name.
-                  </p>
-
                   <div className="space-y-4">
-                    <div className="p-4 bg-black/40 rounded-xl border border-white/5 space-y-4">
-                      <div className="space-y-1">
-                        <p className="text-[10px] font-bold uppercase text-blue-400">Step A: Project Name</p>
-                        <p className="text-[10px] text-text-muted italic">Go to General Settings and set "Project name" to <b>Sportsbox</b>.</p>
-                      </div>
-                      <div className="space-y-1">
-                        <p className="text-[10px] font-bold uppercase text-blue-400">Step B: OAuth Consent</p>
-                        <p className="text-[10px] text-text-muted italic">In Google Cloud APIs & Services, set "App name" to <b>Sportsbox</b>.</p>
+                    <div className="p-5 bg-blue-500/10 border border-blue-500/30 rounded-xl space-y-3">
+                      <p className="text-xs font-black text-blue-400 uppercase italic">Fixing "Sign in to central-bricolage..."</p>
+                      <p className="text-[10px] text-text-muted leading-relaxed">
+                        To replace the technical ID with <b>"Sign in to Sportsbox"</b>, you must set an "App Name" in your Google Cloud Dashboard.
+                      </p>
+                      
+                      <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-lg space-y-2">
+                        <p className="text-[10px] font-black text-red-400 uppercase flex items-center gap-2">
+                           <ShieldAlert className="w-3 h-3" />
+                           Are you getting a "Need Access" Error?
+                        </p>
+                        <p className="text-[10px] text-red-500/80 leading-relaxed font-bold">
+                           This happens when you have multiple Gmail accounts logged in.
+                        </p>
+                        <div className="pt-2 flex flex-col gap-2">
+                           <p className="text-[9px] text-white/60">1. Open an <span className="text-white font-bold uppercase underline">Incognito/Private Window</span></p>
+                           <p className="text-[9px] text-white/60">2. Log in with your owner account: <code className="bg-black/40 px-1 py-0.5 rounded text-red-400">{user?.email}</code></p>
+                           <p className="text-[9px] text-white/60">3. Paste the <b>App Branding Link</b> found below.</p>
+                        </div>
                       </div>
                     </div>
 
-                    <a 
-                      href="https://console.firebase.google.com/project/central-bricolage-1cf5x/settings/general" 
-                      target="_blank" 
-                      className="flex items-center justify-between p-4 bg-white/5 hover:bg-white/10 rounded-xl group transition-all"
-                    >
-                      <span className="text-[10px] font-black uppercase italic">Open Firebase General Settings</span>
-                      <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                    </a>
+                    <div className="space-y-4">
+                      <div className="p-4 bg-black/40 rounded-xl border border-white/5 space-y-4">
+                        <div className="space-y-1">
+                          <p className="text-[10px] font-bold uppercase text-blue-400 flex items-center gap-2">
+                             <span className="w-4 h-4 bg-blue-500/20 rounded flex items-center justify-center text-blue-400">A</span>
+                             Project Name (Firebase)
+                          </p>
+                          <p className="text-[10px] text-text-muted italic">Click link #1: Set "Project name" to <b>Sportsbox</b>.</p>
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-[10px] font-bold uppercase text-blue-400 flex items-center gap-2">
+                             <span className="w-4 h-4 bg-blue-500/20 rounded flex items-center justify-center text-blue-400">B</span>
+                             App Name (Most Important)
+                          </p>
+                          <p className="text-[10px] text-text-muted italic underline">Click link #2: Set "App name" to <b>Sportsbox</b>, set "Support email" to yours, and click <b>SAVE</b>.</p>
+                        </div>
+                      </div>
+
+                      <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl">
+                        <div className="flex items-center gap-2 mb-1">
+                          <ShieldCheck className="w-3 h-3 text-amber-500" />
+                          <p className="text-[9px] font-black text-amber-500 uppercase tracking-widest">Fixing "Additional Access" Error:</p>
+                        </div>
+                        <p className="text-[9px] text-text-muted leading-relaxed">
+                          If you see an error saying you need access, it means you are logged into multiple Google accounts. 
+                          <b> Copy the link below and open it in an Incognito/Private window</b>, then log in with your Firebase owner account.
+                        </p>
+                      </div>
+
+                      <div className="flex flex-col gap-2">
+                        <div className="flex gap-2">
+                          <a 
+                            href={`https://console.firebase.google.com/project/${auth.app.options.projectId}/settings/general`} 
+                            target="_blank" 
+                            className="flex-grow flex items-center justify-between p-4 bg-white/5 hover:bg-white/10 rounded-xl group transition-all"
+                          >
+                            <div className="flex flex-col">
+                              <span className="text-[10px] font-black uppercase italic">1. Firebase Settings</span>
+                              <span className="text-[8px] text-text-muted">Changes the project display name</span>
+                            </div>
+                            <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                          </a>
+                          <button 
+                            onClick={() => {
+                              navigator.clipboard.writeText(`https://console.firebase.google.com/project/${auth.app.options.projectId}/settings/general`);
+                              alert("Link copied. Open this in an Incognito window!");
+                            }}
+                            className="px-4 bg-white/5 hover:bg-white/10 rounded-xl border border-white/5 text-[8px] font-black uppercase italic text-text-muted"
+                          >
+                            Copy
+                          </button>
+                        </div>
+                        <div className="flex gap-2">
+                          <a 
+                            href={`https://console.cloud.google.com/apis/credentials/consent?project=${auth.app.options.projectId}`} 
+                            target="_blank" 
+                            className="flex-grow flex items-center justify-between p-4 bg-blue-500/20 hover:bg-blue-500/30 rounded-xl group transition-all border border-blue-500/40 shadow-lg shadow-blue-500/5 animate-pulse-slow"
+                          >
+                            <div className="flex flex-col">
+                              <span className="text-[10px] font-black uppercase italic text-blue-400">2. Google Cloud OAuth Consent (MOST IMPORTANT)</span>
+                              <span className="text-[8px] text-blue-400/60 uppercase font-bold">Changes the Popup Text</span>
+                            </div>
+                            <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform text-blue-400" />
+                          </a>
+                          <button 
+                            onClick={() => {
+                              navigator.clipboard.writeText(`https://console.cloud.google.com/apis/credentials/consent?project=${auth.app.options.projectId}`);
+                              alert("Most important link copied. Open this in Incognito!");
+                            }}
+                            className="px-4 bg-blue-500/10 hover:bg-blue-500/20 rounded-xl border border-blue-500/20 text-[8px] font-black uppercase italic text-blue-400"
+                          >
+                            Copy
+                          </button>
+                        </div>
+
+                        <div className="flex gap-2">
+                          <a 
+                            href={`https://console.cloud.google.com/apis/credentials?project=${auth.app.options.projectId}`} 
+                            target="_blank" 
+                            className="flex-grow flex items-center justify-between p-4 bg-white/5 hover:bg-white/10 rounded-xl group transition-all"
+                          >
+                            <div className="flex flex-col">
+                              <span className="text-[10px] font-black uppercase italic">3. Google Cloud Credentials</span>
+                              <span className="text-[8px] text-text-muted">Add "Authorized JavaScript origins" here</span>
+                            </div>
+                            <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                          </a>
+                          <button 
+                            onClick={() => {
+                              navigator.clipboard.writeText(`https://console.cloud.google.com/apis/credentials?project=${auth.app.options.projectId}`);
+                              alert("Credentials link copied.");
+                            }}
+                            className="px-4 bg-white/5 hover:bg-white/10 rounded-xl border border-white/5 text-[8px] font-black uppercase italic text-text-muted"
+                          >
+                            Copy
+                          </button>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
@@ -1952,7 +2327,7 @@ export default function Admin() {
                     <div className="space-y-3">
                        <div className="p-4 bg-black/40 rounded-xl border border-white/5">
                           <p className="text-[10px] font-bold uppercase text-white/40 mb-2">Current Database ID:</p>
-                          <code className="text-[10px] bg-bg p-2 rounded border border-white/5 text-red-400 block truncate">ai-studio-a22be501-62d9-4b19-b6a4-5c3356b9a90c</code>
+                          <code className="text-[10px] bg-bg p-2 rounded border border-white/5 text-red-400 block truncate">{(auth.app.options as any).databaseId || '(default)'}</code>
                        </div>
                        <p className="text-[9px] text-text-muted italic">Ensure this database ID exists in your Firestore console under "Databases".</p>
                     </div>

@@ -47,26 +47,24 @@ export default function Home() {
       setLoading(false);
     });
 
-    // 3. Trending Replays logic
-    const manualTrendingQuery = query(
+    // 3. Dynamic Sections sync (including the one intended for Trending)
+    const sectionsQuery = query(
       collection(db, 'sections'), 
       where('page', '==', 'home'), 
-      where('title', '==', 'Trending Replays'),
-      where('isActive', '==', true)
+      where('isActive', '==', true),
+      orderBy('order', 'asc')
     );
 
-    let unsubTrending: (() => void) | null = null;
-    const unsubSection = onSnapshot(manualTrendingQuery, async (snap) => {
-      let contentIds: string[] = [];
-      if (!snap.empty) {
-        const sectionDoc = snap.docs[0].data() as ContentSection;
-        contentIds = sectionDoc.contentIds || [];
-      }
-
-      if (contentIds.length > 0) {
+    const unsubSections = onSnapshot(sectionsQuery, async (snap) => {
+      const sectionsList = snap.docs.map(d => ({ id: d.id, ...d.data() } as ContentSection));
+      
+      // Find a section that might be the "Trending" one (either by title or just use the first one available)
+      const trendingSection = sectionsList.find(s => s.title.toLowerCase().includes('trending')) || sectionsList[0];
+      
+      if (trendingSection && trendingSection.contentIds && trendingSection.contentIds.length > 0) {
         try {
           const results = await Promise.all(
-            contentIds.map(id => getDoc(doc(db, 'content', id)).then(s => 
+            trendingSection.contentIds.map(id => getDoc(doc(db, 'content', id)).then(s => 
               s.exists() ? ({ ...s.data(), id: s.id } as SportsContent) : null
             ))
           );
@@ -75,29 +73,28 @@ export default function Home() {
           console.error("[Home] Error fetching manual trending:", e);
         }
       } else {
-        if (unsubTrending) unsubTrending();
-        const trendingQuery = query(
+        // Fallback: Just fetch recent content if no trending section identified
+        const fallbackQuery = query(
           collection(db, 'content'), 
           orderBy('createdAt', 'desc'), 
-          limit(12)
+          limit(6)
         );
-        unsubTrending = onSnapshot(trendingQuery, (s) => {
-          const items = s.docs.map(d => ({ id: d.id, ...d.data() } as SportsContent));
-          setTrending(items.sort((a, b) => (b.viewCount || 0) - (a.viewCount || 0)).slice(0, 6));
-        }, (err) => {
-          console.error("[Home] Trending fallback sync error:", err);
+        getDocs(fallbackQuery).then(s => {
+          setTrending(s.docs.map(d => ({ id: d.id, ...d.data() } as SportsContent)));
         });
       }
+      
+      setLoading(false);
     }, (err) => {
-       console.error("[Home] Section sync error:", err);
+       console.error("[Home] Sections sync error:", err);
+       setLoading(false);
     });
 
     return () => {
       clearTimeout(timer);
       unsubPromo();
       unsubLive();
-      unsubSection();
-      if (unsubTrending) unsubTrending();
+      unsubSections();
     };
   }, []);
 

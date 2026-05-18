@@ -9,6 +9,7 @@ import {
 } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import firebaseConfig from '../../firebase-applet-config.json';
+import { toast } from 'sonner';
 
 const app = initializeApp(firebaseConfig);
 
@@ -39,17 +40,18 @@ googleProvider.setCustomParameters({ prompt: 'select_account' });
 export async function signInWithGoogle() {
   try {
     const result = await signInWithPopup(auth, googleProvider);
+    toast.success(`Welcome, ${result.user.displayName || 'User'}!`);
     return result.user;
   } catch (error: any) {
     if (error.code === 'auth/popup-blocked') {
-      alert("POPUPS BLOCKED: Please enable popups for this site in your browser settings to sign in.");
+      toast.error("Popups blocked! Please enable popups to sign in.");
     } else if (error.code === 'auth/cancelled-popup-request') {
-      // User closed the popup, no need for alert
+      // User closed the popup
     } else if (error.code === 'auth/unauthorized-domain') {
-      alert("DOMAIN NOT AUTHORIZED: This domain is not yet allowed in your Firebase Console.\n\nFIX:\n1. Go to Firebase Console -> Authentication -> Settings -> Authorized Domains\n2. Add these domains:\n   - www.sportsbox.in\n   - sportsbox.in\n   - ais-dev-mh4r6wg37qxzkiuioan5mi-304563445639.asia-southeast1.run.app\n   - ais-pre-mh4r6wg37qxzkiuioan5mi-304563445639.asia-southeast1.run.app");
+       toast.error("Auth domain not authorized. Check Firebase settings.");
     } else {
       console.error('Login failed:', error);
-      alert(`Login Error [${error.code}]: ${error.message || 'Unknown error'}.`);
+      toast.error(`Login Error: ${error.message || 'Unknown error'}`);
     }
     throw error;
   }

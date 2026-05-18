@@ -662,9 +662,12 @@ export default function Admin() {
     if (!confirm(`Are you sure you want to delete the folder "${name}"? Items inside may become orphaned.`)) return;
     try {
       await deleteDoc(doc(db, 'library_folders', id));
+      toast.success("Folder deleted successfully!");
       fetchFolders();
     } catch (err) {
       console.error("Delete folder error:", err);
+      toast.error("Failed to delete folder.");
+      handleFirestoreError(err, OperationType.DELETE, `library_folders/${id}`);
     }
   };
 
@@ -673,8 +676,11 @@ export default function Admin() {
     try {
       await deleteDoc(doc(db, 'library', id));
       setMediaItems(prev => prev.filter(m => m.id !== id));
+      toast.success("Media deleted successfully!");
     } catch (err) {
       console.error("Delete media error:", err);
+      toast.error("Failed to delete media.");
+      handleFirestoreError(err, OperationType.DELETE, `library/${id}`);
     }
   };
 
@@ -993,7 +999,9 @@ export default function Admin() {
     if (!confirm('Are you sure you want to delete this plan?')) return;
     try {
       await deleteDoc(doc(db, 'subscription_plans', id));
+      toast.success("Plan deleted successfully!");
     } catch (error) {
+      toast.error("Failed to delete plan.");
       handleFirestoreError(error, OperationType.DELETE, `subscription_plans/${id}`);
     }
   };
@@ -1002,8 +1010,10 @@ export default function Admin() {
     if (!confirm('Are you sure you want to delete this section?')) return;
     try {
       await deleteDoc(doc(db, 'sections', id));
+      toast.success("Section deleted successfully!");
       fetchSections();
     } catch (error) {
+      toast.error("Failed to delete section.");
       handleFirestoreError(error, OperationType.DELETE, `sections/${id}`);
     }
   };

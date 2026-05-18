@@ -8,6 +8,8 @@ import { db } from '../lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { PlayerSettings } from '../types';
 
+import { toast } from 'sonner';
+
 interface StadiumPlayerProps {
   url: string;
   poster?: string;
@@ -292,7 +294,7 @@ export default function StadiumPlayer({ url, poster, isLive, useIframe: initialU
                         {['Auto', '1080p (HQ)', '720p', '480p', 'Data Saver'].map(quality => (
                            <button 
                                key={quality} 
-                               onClick={() => alert(`Quality changed to ${quality} (Simulated)`)}
+                               onClick={() => toast.info(`Quality changed to ${quality} (Simulated)`)}
                                className={cn(
                                  "w-full px-4 py-3 text-[10px] font-bold hover:bg-brand/20 transition-colors text-left border-b border-white/5 last:border-0",
                                  quality === 'Auto' ? "text-brand" : "text-white/60"

@@ -20,6 +20,8 @@ const CategoryLabelMap: Record<string, { label: string, color: string, bg: strin
   boxing: { label: 'BX', color: 'text-[#ffff00]', bg: 'bg-[#ffff00]/10 border-[#ffff00]/20' },
   golf: { label: 'GF', color: 'text-[#00cc66]', bg: 'bg-[#00cc66]/10 border-[#00cc66]/20' },
   esports: { label: 'ES', color: 'text-[#00ffff]', bg: 'bg-[#00ffff]/10 border-[#00ffff]/20' },
+  kabaddi: { label: 'KB', color: 'text-[#ff6600]', bg: 'bg-[#ff6600]/10 border-[#ff6600]/20' },
+  hockey: { label: 'HK', color: 'text-[#ffffff]', bg: 'bg-[#ffffff]/10 border-[#ffffff]/20' },
 };
 
 export default function CategoryPage() {
@@ -137,31 +139,12 @@ export default function CategoryPage() {
           </div>
         )}
 
-        <div className="mb-6 border-b border-border pb-2">
-          <h2 className="text-xs font-black uppercase tracking-[0.3em] text-text-muted italic">All {categoryName} Assets</h2>
-        </div>
 
-        {loading && content.length === 0 ? (
+        {loading && content.length === 0 && (
           <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-1">
-            {[...Array(8)].map((_, i) => (
+            {[...Array(4)].map((_, i) => (
               <div key={`skeleton-archive-${i}`} className="aspect-video bg-white/5 rounded-[2px] animate-pulse" />
             ))}
-          </div>
-        ) : content.length > 0 ? (
-          <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-1">
-            {content.map((item, i) => (
-              <ContentCard key={`archive-${item.id}`} content={item} index={i} />
-            ))}
-          </div>
-        ) : (
-          <div className="flex flex-col items-center justify-center py-32 text-center space-y-6 glass-card">
-            <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center">
-              <Trophy className="w-10 h-10 text-white/10" />
-            </div>
-            <div className="space-y-2">
-              <h3 className="text-xl font-bold uppercase tracking-wider">No Content Found</h3>
-              <p className="text-white/40 text-sm max-w-xs mx-auto">We're currently scouting for the best {category} events. Check back soon!</p>
-            </div>
           </div>
         )}
       </div>

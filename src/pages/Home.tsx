@@ -120,6 +120,8 @@ export default function Home() {
             { name: 'Boxing', label: 'BX', color: 'text-[#ffff00]', bg: 'bg-[#ffff00]/10' },
             { name: 'Golf', label: 'GF', color: 'text-[#00cc66]', bg: 'bg-[#00cc66]/10' },
             { name: 'Esports', label: 'ES', color: 'text-[#00ffff]', bg: 'bg-[#00ffff]/10' },
+            { name: 'Kabaddi', label: 'KB', color: 'text-[#ff6600]', bg: 'bg-[#ff6600]/10' },
+            { name: 'Hockey', label: 'HK', color: 'text-[#ffffff]', bg: 'bg-[#ffffff]/10' },
           ].map((cat) => (
             <Link
               key={cat.name}

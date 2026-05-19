@@ -197,6 +197,60 @@ async function startServer() {
     }
   });
 
+  apiRouter.post('/admin/seed-dummy-data', async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader?.startsWith('Bearer ')) return res.status(401).json({ error: 'Unauthorized' });
+
+      const idToken = authHeader.split('Bearer ')[1];
+      const decodedToken = await admin.auth().verifyIdToken(idToken);
+      
+      const adminEmails = ['sohailgaji9097@gmail.com', 'tavish@dreamcatchers.tv'];
+      if (!adminEmails.includes(decodedToken.email?.toLowerCase() || '')) return res.status(403).json({ error: 'Forbidden' });
+
+    const categories = ['football', 'basketball', 'tennis', 'f1', 'boxing', 'golf', 'esports', 'kabaddi', 'hockey'];
+    const firebaseConfig = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'firebase-applet-config.json'), 'utf8'));
+    const dbId = firebaseConfig.firestoreDatabaseId && firebaseConfig.firestoreDatabaseId !== '(default)'
+      ? firebaseConfig.firestoreDatabaseId
+      : undefined;
+    const db = admin.firestore(dbId);
+    
+    const batch = db.batch();
+    const now = new Date().toISOString();
+
+    let totalAdded = 0;
+    categories.forEach(cat => {
+      // 15 items per category to keep it fast but substantial
+      for (let i = 1; i <= 15; i++) {
+        const id = `${cat}-dummy-${i}-${Math.random().toString(36).substring(7)}`;
+        const docRef = db.collection('content').doc(id);
+        batch.set(docRef, {
+          id,
+          title: `${cat.charAt(0).toUpperCase() + cat.slice(1)} Global League: Match ${i}`,
+          description: `Enjoy the best of ${cat} with this exclusive match coverage. Experience high-definition streaming and expert commentary.`,
+          category: cat,
+          type: i % 3 === 0 ? 'live' : (i % 2 === 0 ? 'replay' : 'highlight'),
+          videoUrl: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8',
+          thumbnailUrl: `https://picsum.photos/seed/${id}/800/450`,
+          isPremium: i % 5 === 0,
+          viewCount: Math.floor(Math.random() * 5000) + 100,
+          likes: Math.floor(Math.random() * 500),
+          createdAt: now,
+          status: i % 7 === 0 ? 'live' : (i % 5 === 0 ? 'scheduled' : 'ended'),
+          tags: [cat, 'tournament', '2024', 'pro']
+        });
+        totalAdded++;
+      }
+    });
+
+    await batch.commit();
+    res.json({ success: true, message: `Successfully seeded ${totalAdded} items across ${categories.length} categories (Excluding Cricket).` });
+    } catch (error: any) {
+      console.error('[Seed Error]', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Specific 404 for API to prevent falling into SPA fallback
   apiRouter.all('*', (req, res) => {
     console.warn(`[API 404] Not Match: ${req.method} ${req.originalUrl}`);

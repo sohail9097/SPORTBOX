@@ -189,117 +189,35 @@ export default function Admin() {
   const [isBulkLoading, setIsBulkLoading] = useState(false);
 
   const generateBulkDummyContent = async () => {
-    if (!confirm("This will add 10 sample videos to EVERY category (80+ items total). This might take a minute. Continue?")) return;
+    if (!confirm("DANGER: This will add 20 dummy content items to EVERY category EXCEPT Cricket (Total 160 items). This might take a few seconds. Continue?")) return;
     
     setIsBulkLoading(true);
+    const tId = toast.loading("Seeding backend database...");
     try {
-      const categories = ['football', 'cricket', 'basketball', 'tennis', 'f1', 'boxing', 'golf', 'esports'];
-      const types: ContentType[] = ['highlight', 'replay', 'live'];
-      
-      const images: Record<string, string[]> = {
-        football: [
-          'https://images.unsplash.com/photo-1574629810360-7efbbe195018',
-          'https://images.unsplash.com/photo-1508098682722-e99c43a406b2',
-          'https://images.unsplash.com/photo-1517466787929-bc90951d0974',
-          'https://images.unsplash.com/photo-1551958219-acbc608c6377',
-          'https://images.unsplash.com/photo-1575361394739-df13b10ae45d'
-        ],
-        cricket: [
-          'https://images.unsplash.com/photo-1531415074968-036ba1b575da',
-          'https://images.unsplash.com/photo-1533721387277-22d2c673fa0b',
-          'https://images.unsplash.com/photo-1589487391730-58f20eb2c308',
-          'https://images.unsplash.com/photo-1593341646782-e0b495cff86d',
-          'https://images.unsplash.com/photo-1540747913346-19e32dc3e97e'
-        ],
-        basketball: [
-          'https://images.unsplash.com/photo-1546519638-68e109498ffc',
-          'https://images.unsplash.com/photo-1519861531158-2863f7c5c1b3',
-          'https://images.unsplash.com/photo-1504450758481-7338eba7524a',
-          'https://images.unsplash.com/photo-1518063311540-00445b84293f',
-          'https://images.unsplash.com/photo-1515444744559-7be63e1600de'
-        ],
-        tennis: [
-          'https://images.unsplash.com/photo-1592211633519-7922d5111956',
-          'https://images.unsplash.com/photo-1595435066359-e18e6c466986',
-          'https://images.unsplash.com/photo-1554068865-24cecd4e34b8',
-          'https://images.unsplash.com/photo-1622279457486-62dcc4a4bd1d',
-          'https://images.unsplash.com/photo-1587329310686-dc4a4bd1d7a8'
-        ],
-        f1: [
-          'https://images.unsplash.com/photo-1533139502658-0198f920d8e8',
-          'https://images.unsplash.com/photo-1541185933-ef5d8ed016c2',
-          'https://images.unsplash.com/photo-1552519519-72dcd9b6e587',
-          'https://images.unsplash.com/photo-1537248161962-041a3194090b',
-          'https://images.unsplash.com/photo-1596755094514-f87e34085b2c'
-        ],
-        boxing: [
-          'https://images.unsplash.com/photo-1549719386-74dfcbf7dbed',
-          'https://images.unsplash.com/photo-1509190159492-75ca49124a9e',
-          'https://images.unsplash.com/photo-1552072805-2a9039d00e57',
-          'https://images.unsplash.com/photo-1544117518-2b041560c05a',
-          'https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e'
-        ],
-        golf: [
-          'https://images.unsplash.com/photo-1535131749006-b7f58c99034b',
-          'https://images.unsplash.com/photo-1587174486073-ae5e5cff23aa',
-          'https://images.unsplash.com/photo-1592919010304-4298157796d1',
-          'https://images.unsplash.com/photo-1591491640784-3232eb748d4b',
-          'https://images.unsplash.com/photo-1605342416972-04877708577d'
-        ],
-        esports: [
-          'https://images.unsplash.com/photo-1542751371-adc38448a05e',
-          'https://images.unsplash.com/photo-1511512578047-dfb367046420',
-          'https://images.unsplash.com/photo-1493711662062-fa541adb3fc8',
-          'https://images.unsplash.com/photo-1534423861386-85a16f5d13fd',
-          'https://images.unsplash.com/photo-1552820728-8b83bb6b773f'
-        ]
-      };
+      const idToken = await auth.currentUser?.getIdToken();
+      if (!idToken) throw new Error("Authentication required");
 
-      for (const cat of categories) {
-        console.log(`Generating items for ${cat}...`);
-        const catImages = images[cat] || images.football;
-        
-        for (let i = 1; i <= 10; i++) {
-          const type = types[Math.floor(Math.random() * types.length)];
-          const isPremium = i > 5; // Half premium
-          
-          await addDoc(collection(db, 'content'), {
-            title: `${cat.charAt(0).toUpperCase() + cat.slice(1)} Championship Series #${i}`,
-            description: `Exclusive coverage of the ${cat} season. Professional commentary and high-definition multi-angle views.`,
-            category: cat,
-            type: type,
-            status: type === 'live' ? 'live' : 'ended',
-            videoUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
-            thumbnailUrl: `${catImages[i % catImages.length]}?q=80&w=800&auto=format&fit=crop`,
-            isPremium: isPremium,
-            viewCount: Math.floor(Math.random() * 10000) + 500,
-            createdAt: new Date().toISOString(),
-            tags: [cat.toUpperCase(), 'Season 2024', type.toUpperCase()]
-          });
+      const res = await fetch('/api/admin/seed-dummy-data', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${idToken}`,
+          'Content-Type': 'application/json'
         }
-        
-        // Also ensure a section exists for this category on its specific page
-        const q = query(collection(db, 'sections'));
-        const snap = await getDocs(q);
-        const existing = snap.docs.find(d => d.data().page === cat);
-        
-        if (!existing) {
-          await addDoc(collection(db, 'sections'), {
-            title: `Featured ${cat.charAt(0).toUpperCase() + cat.slice(1)}`,
-            page: cat,
-            contentIds: [], // Home and Category pages will fetch by category anyway or we can populate
-            type: 'normal',
-            order: 1,
-            isActive: true
-          });
-        }
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Server failed to seed data.");
       }
-
-      toast.success("Successfully added 80 dummy items across all categories!");
-      window.location.reload();
-    } catch (err) {
+      
+      const data = await res.json();
+      toast.success(data.message || "Successfully seeded 160 items!", { id: tId });
+      
+      // Refresh content
+      await fetchContent();
+    } catch (err: any) {
       console.error(err);
-      toast.error("Failed to add bulk content.");
+      toast.error(err.message || "Failed to add bulk content.", { id: tId });
     } finally {
       setIsBulkLoading(false);
     }
@@ -1371,6 +1289,20 @@ export default function Admin() {
                       <p className="text-[9px] text-text-muted">Football • Replay • GDrive</p>
                     </div>
                   </button>
+
+                  <button 
+                    onClick={generateBulkDummyContent}
+                    disabled={isBulkLoading}
+                    className="flex items-center gap-4 p-4 bg-surface hover:bg-brand/10 border border-brand/20 rounded-2xl transition-all group"
+                  >
+                    <div className="w-12 h-12 bg-brand/10 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                      <Zap className="w-6 h-6 text-brand" />
+                    </div>
+                    <div className="text-left">
+                      <p className="text-xs font-black uppercase italic tracking-widest">Seed All Categories</p>
+                      <p className="text-[9px] text-text-muted">15+ Items per Category • Excludes Cricket</p>
+                    </div>
+                  </button>
                 </div>
               </div>
 
@@ -1545,11 +1477,14 @@ export default function Admin() {
                         </div>
                       </button>
 
-                      {['cricket', 'football', 'basketball', 'tennis', 'others'].map((cat) => {
+                      {['cricket', 'football', 'basketball', 'tennis', 'f1', 'boxing', 'golf', 'esports', 'kabaddi', 'hockey', 'others'].map((cat) => {
                         const Icon = cat === 'football' ? Dribbble : 
                                      cat === 'cricket' ? Trophy : 
                                      cat === 'basketball' ? CircleDot : 
-                                     cat === 'tennis' ? Disc : Activity;
+                                     cat === 'tennis' ? Disc : 
+                                     cat === 'f1' ? Flag :
+                                     cat === 'boxing' ? Target :
+                                     cat === 'esports' ? Gamepad2 : Activity;
                         return (
                           <button
                             key={cat}
@@ -2859,6 +2794,12 @@ export default function Admin() {
                       <option value="cricket">Cricket</option>
                       <option value="basketball">Basketball</option>
                       <option value="tennis">Tennis</option>
+                      <option value="f1">F1 Racing</option>
+                      <option value="boxing">Combat Sports</option>
+                      <option value="golf">Golf</option>
+                      <option value="esports">E-Sports</option>
+                      <option value="kabaddi">Kabaddi</option>
+                      <option value="hockey">Hockey</option>
                       <option value="others">Others</option>
                     </select>
                   </div>
@@ -2943,6 +2884,10 @@ export default function Admin() {
                       <option value="cricket">Cricket Category</option>
                       <option value="basketball">Basketball Category</option>
                       <option value="tennis">Tennis Category</option>
+                      <option value="f1">F1 Category</option>
+                      <option value="boxing">Boxing Category</option>
+                      <option value="kabaddi">Kabaddi Category</option>
+                      <option value="hockey">Hockey Category</option>
                       <option value="others">Others Category</option>
                     </select>
                   </div>

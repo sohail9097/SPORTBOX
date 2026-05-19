@@ -146,17 +146,6 @@ export default function Layout({ children }: { children: ReactNode }) {
                   {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
                 </button>
 
-                <div className={cn(
-                  "px-4 py-2 bg-white/5 rounded-full border border-white/5 text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 transition-all duration-500",
-                  liveCount > 0 ? "text-brand border-brand/20 bg-brand/5" : "text-text-muted opacity-50"
-                )}>
-                  <span className={cn(
-                    "w-1.5 h-1.5 rounded-full transition-all duration-1000",
-                    liveCount > 0 ? "bg-brand animate-pulse scale-110" : "bg-text-muted"
-                  )}></span>
-                  {liveCount > 0 ? `${liveCount.toLocaleString()} Viewing Live` : "No live stream is active"}
-                </div>
-                
                 {user ? (
                   <div className="flex items-center gap-4">
                     {isAdmin && (

@@ -62,7 +62,6 @@ export default function Login() {
       setError("Please complete the reCAPTCHA verification first.");
       return;
     }
-
     setLoading(true);
     setError('');
 
@@ -107,7 +106,6 @@ export default function Login() {
       setError("Please complete the reCAPTCHA verification first.");
       return;
     }
-
     setLoading(true);
     setError('');
     let provider;
@@ -214,12 +212,18 @@ export default function Login() {
                 <span className="text-[9px] font-black uppercase tracking-widest text-text-muted">Security Check</span>
               </div>
               <div className="scale-90 origin-center">
-                <ReCAPTCHA
-                  ref={recaptchaRef}
-                  sitekey={RECAPTCHA_SITE_KEY}
-                  onChange={handleRecaptchaChange}
-                  theme="dark"
-                />
+                {/* 
+                  The container below clips any 'red text' (error/expiration messages) 
+                  that reCAPTCHA might show outside its standard dimensions.
+                */}
+                <div className="w-[304px] h-[78px] overflow-hidden rounded-md">
+                  <ReCAPTCHA
+                    ref={recaptchaRef}
+                    sitekey={RECAPTCHA_SITE_KEY}
+                    onChange={handleRecaptchaChange}
+                    theme="dark"
+                  />
+                </div>
               </div>
             </div>
 

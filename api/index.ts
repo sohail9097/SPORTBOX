@@ -1,4 +1,4 @@
-import { app, ensureInitialized } from '../server';
+import { app, ensureInitialized } from '../server.js';
 
 export default async function handler(req: any, res: any) {
   try {

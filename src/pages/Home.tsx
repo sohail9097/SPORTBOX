@@ -121,7 +121,7 @@ export default function Home() {
             { name: 'Golf', label: 'GF', color: 'text-[#00cc66]', bg: 'bg-[#00cc66]/10' },
             { name: 'Esports', label: 'ES', color: 'text-[#00ffff]', bg: 'bg-[#00ffff]/10' },
             { name: 'Kabaddi', label: 'KB', color: 'text-[#ff6600]', bg: 'bg-[#ff6600]/10' },
-            { name: 'Hockey', label: 'HK', color: 'text-[#ffffff]', bg: 'bg-[#ffffff]/10' },
+            { name: 'Hockey', label: 'HK', color: 'text-text-base', bg: 'bg-slate-500/15 dark:bg-white/10' },
           ].map((cat) => (
             <Link
               key={cat.name}
@@ -135,7 +135,7 @@ export default function Home() {
               )}>
                 <span className="text-sm md:text-2xl font-black italic tracking-tighter">{cat.label}</span>
               </div>
-              <span className="text-[7px] md:text-[9px] font-black uppercase tracking-[0.25em] text-white/40 group-hover:text-white transition-colors text-center mt-1">{cat.name}</span>
+              <span className="text-[7px] md:text-[9px] font-black uppercase tracking-[0.25em] text-text-muted group-hover:text-text-base transition-colors text-center mt-1">{cat.name}</span>
             </Link>
           ))}
         </div>

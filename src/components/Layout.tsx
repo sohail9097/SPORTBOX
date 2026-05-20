@@ -6,7 +6,7 @@ import { auth, db } from '../lib/firebase';
 import { 
   LayoutDashboard, Play, LogOut, User, Crown, 
   Search, Menu, X, Sun, Moon, Home, Tv, 
-  Calendar, UserCircle, Bell, Clock, Flame
+  Calendar, UserCircle, Bell, Clock, Flame, BookOpen
 } from 'lucide-react';
 import { doc, onSnapshot, query, collection, where } from 'firebase/firestore';
 import { motion, AnimatePresence } from 'motion/react';
@@ -63,6 +63,7 @@ export default function Layout({ children }: { children: ReactNode }) {
     { name: 'Home', path: '/', icon: Home },
     { name: 'Search', path: '/search', icon: Search },
     { name: 'Sport Shots', path: '/shorts', icon: Flame },
+    { name: 'Blog', path: '/blogs', icon: BookOpen },
     { name: 'List', path: '/account', icon: Clock },
     { name: 'Live', path: '/live', icon: Tv },
   ];
@@ -72,7 +73,7 @@ export default function Layout({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen flex flex-col bg-bg">
       {/* Top Navigation */}
-      <nav className="sticky top-0 z-50 bg-bg/80 backdrop-blur-xl border-b border-white/5">
+      <nav className="sticky top-0 z-50 bg-bg/80 backdrop-blur-xl border-b border-border">
         <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-14 md:h-16">
             <div className="flex items-center gap-4 md:gap-8">
@@ -98,6 +99,14 @@ export default function Layout({ children }: { children: ReactNode }) {
             </div>
 
             <div className="flex items-center gap-0.5 md:gap-6">
+              <button 
+                onClick={toggleTheme}
+                className="p-1 px-2 text-text-muted hover:text-text-base md:hidden transition-colors"
+                aria-label="Toggle theme"
+              >
+                {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+              </button>
+
               <Link 
                 to="/search"
                 className="p-1 px-2 text-text-muted hover:text-text-base md:hidden"
@@ -156,12 +165,12 @@ export default function Layout({ children }: { children: ReactNode }) {
                     {isAdmin && (
                       <Link
                         to="/admin"
-                        className="flex items-center gap-2 px-4 py-2 bg-slate-800 border border-white/10 rounded-full text-[10px] font-bold uppercase tracking-widest hover:bg-slate-700"
+                        className="flex items-center gap-2 px-4 py-2 bg-surface border border-border rounded-full text-[10px] font-bold uppercase tracking-widest hover:bg-surface-hover text-text-base"
                       >
                         Admin
                       </Link>
                     )}
-                    <Link to="/account" className="flex items-center gap-2 p-1 pl-4 bg-white/5 rounded-full border border-white/5 hover:bg-white/10 transition-colors">
+                    <Link to="/account" className="flex items-center gap-2 p-1 pl-4 bg-surface rounded-full border border-border hover:bg-surface-hover transition-colors">
                       <span className="text-[10px] font-bold uppercase tracking-widest text-text-muted">{profile?.displayName?.split(' ')[0]}</span>
                       <div className="w-8 h-8 bg-surface rounded-full flex items-center justify-center">
                         <User className="w-3.5 h-3.5 text-text-muted" />
@@ -198,7 +207,7 @@ export default function Layout({ children }: { children: ReactNode }) {
         <div className="md:hidden fixed bottom-24 left-1/2 -translate-x-1/2 z-40">
           <button
             onClick={() => setIsMenuOpen(!isMenuOpen)}
-            className="bg-surface/80 backdrop-blur-xl border border-white/10 px-5 py-2 rounded-full flex items-center gap-2 text-xs font-bold uppercase tracking-widest shadow-2xl"
+            className="bg-surface/80 backdrop-blur-xl border border-border px-5 py-2 rounded-full flex items-center gap-2 text-xs font-bold uppercase tracking-widest shadow-2xl text-text-base"
           >
             <span>All</span>
             <Menu className="w-4 h-4" />
@@ -208,7 +217,7 @@ export default function Layout({ children }: { children: ReactNode }) {
 
       {/* Bottom Navigation (Mobile Only) */}
       {!isShortsPage && (
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-bg/95 backdrop-blur-xl border-t border-white/5 pb-safe">
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-bg/95 backdrop-blur-xl border-t border-border pb-safe">
           <div className="flex items-center justify-around h-16">
             {mobileNavLinks.map((link, i) => {
               const Icon = link.icon;
@@ -263,10 +272,10 @@ export default function Layout({ children }: { children: ReactNode }) {
             exit={{ opacity: 0, scale: 0.95 }}
             className="fixed inset-0 z-50 flex items-center justify-center p-6 pointer-events-none"
           >
-            <div className="w-full max-sm:max-w-xs max-w-sm bg-surface/95 backdrop-blur-2xl border border-white/10 rounded-3xl p-8 shadow-2xl pointer-events-auto">
+            <div className="w-full max-sm:max-w-xs max-w-sm bg-surface/95 backdrop-blur-2xl border border-border rounded-3xl p-8 shadow-2xl pointer-events-auto">
               <div className="flex justify-between items-center mb-8">
-                <h3 className="font-display text-xl uppercase tracking-widest">Browse</h3>
-                <button onClick={() => setIsMenuOpen(false)} className="p-2"><X className="w-5 h-5" /></button>
+                <h3 className="font-display text-xl uppercase tracking-widest text-text-base">Browse</h3>
+                <button onClick={() => setIsMenuOpen(false)} className="p-2 text-text-muted hover:text-text-base"><X className="w-5 h-5" /></button>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 {navLinks.map((link) => (
@@ -274,7 +283,7 @@ export default function Layout({ children }: { children: ReactNode }) {
                     key={link.path}
                     to={link.path}
                     onClick={() => setIsMenuOpen(false)}
-                    className="p-4 bg-white/5 rounded-2xl flex flex-col items-center gap-2 hover:bg-brand/10 hover:text-brand transition-all border border-transparent hover:border-brand/20"
+                    className="p-4 bg-surface/50 rounded-2xl flex flex-col items-center gap-2 hover:bg-brand/10 hover:text-brand transition-all border border-border hover:border-brand/20 text-text-muted hover:text-brand"
                   >
                     <span className="text-xs font-black uppercase tracking-widest">{link.name}</span>
                   </Link>
@@ -286,18 +295,18 @@ export default function Layout({ children }: { children: ReactNode }) {
       </AnimatePresence>
 
       {!isShortsPage && (
-        <footer className="bg-surface border-t border-white/5 py-8 md:py-20 pb-24 md:pb-20">
+        <footer className="bg-surface border-t border-border py-8 md:py-20 pb-24 md:pb-20 text-text-base">
         <div className="max-w-[1600px] mx-auto px-4">
           <div className="grid grid-cols-1 md:grid-cols-12 gap-8 md:gap-16 items-start">
             <div className="md:col-span-12 lg:col-span-5 flex flex-col gap-4 md:gap-6 items-center md:items-start text-center md:text-left">
               <div className="flex flex-col gap-3 md:gap-4">
                 <BrandLogo logoUrl={siteConfig.logoUrl} size="lg" />
-                <p className="text-white/40 text-[11px] md:text-sm max-w-sm leading-relaxed">
+                <p className="text-text-muted text-[11px] md:text-sm max-w-sm leading-relaxed">
                   The ultimate destination for sports enthusiasts. Experience live matches, 
                   exclusive highlights, and immersive coverage of your favorite sports.
                 </p>
                 <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 md:gap-3">
-                   <div className="text-[8px] md:text-[10px] font-black uppercase tracking-[0.2em] text-white py-1 px-3 md:py-1.5 md:px-4 bg-white/5 rounded-full border border-white/5">
+                   <div className="text-[8px] md:text-[10px] font-black uppercase tracking-[0.2em] text-text-base py-1 px-3 md:py-1.5 md:px-4 bg-surface-hover rounded-full border border-border">
                      Stadium Feed
                    </div>
                    <div className="text-[8px] md:text-[10px] font-black uppercase tracking-[0.2em] text-brand py-1 px-3 md:py-1.5 md:px-4 bg-brand/10 rounded-full border border-brand/20">
@@ -307,18 +316,18 @@ export default function Layout({ children }: { children: ReactNode }) {
               </div>
             </div>
             
-            <div className="md:col-span-12 lg:col-span-7 grid grid-cols-2 md:grid-cols-3 gap-6 md:gap-12 pt-6 md:pt-0 border-t md:border-t-0 border-white/5">
+            <div className="md:col-span-12 lg:col-span-7 grid grid-cols-2 md:grid-cols-3 gap-6 md:gap-12 pt-6 md:pt-0 border-t md:border-t-0 border-border">
               <div>
-                <h4 className="font-display text-[10px] md:text-sm uppercase tracking-widest mb-4 md:mb-6 text-white">Categories</h4>
-                <ul className="space-y-2 md:space-y-3 text-[10px] md:text-sm text-white/40 font-bold uppercase tracking-widest">
+                <h4 className="font-display text-[10px] md:text-sm uppercase tracking-widest mb-4 md:mb-6 text-text-base">Categories</h4>
+                <ul className="space-y-2 md:space-y-3 text-[10px] md:text-sm text-text-muted font-bold uppercase tracking-widest">
                   <li><Link to="/category/football" className="hover:text-brand transition-colors">Football</Link></li>
                   <li><Link to="/category/cricket" className="hover:text-brand transition-colors">Cricket</Link></li>
                   <li><Link to="/category/basketball" className="hover:text-brand transition-colors">Basketball</Link></li>
                 </ul>
               </div>
               <div>
-                <h4 className="font-display text-[10px] md:text-sm uppercase tracking-widest mb-4 md:mb-6 text-white">Company</h4>
-                <ul className="space-y-2 md:space-y-3 text-[10px] md:text-sm text-white/40 font-bold uppercase tracking-widest">
+                <h4 className="font-display text-[10px] md:text-sm uppercase tracking-widest mb-4 md:mb-6 text-text-base">Company</h4>
+                <ul className="space-y-2 md:space-y-3 text-[10px] md:text-sm text-text-muted font-bold uppercase tracking-widest">
                   <li><Link to="/plans" className="hover:text-brand transition-colors">Plans</Link></li>
                   <li><Link to="/legal/privacy" className="hover:text-brand transition-colors">Privacy</Link></li>
                   <li><Link to="/legal/terms" className="hover:text-brand transition-colors">Terms</Link></li>
@@ -327,18 +336,18 @@ export default function Layout({ children }: { children: ReactNode }) {
                 </ul>
               </div>
               <div className="col-span-2 md:col-span-1">
-                <h4 className="font-display text-[10px] md:text-sm uppercase tracking-widest mb-4 md:mb-6 text-white">Support</h4>
-                <p className="text-[10px] md:text-sm text-white/40 leading-loose uppercase tracking-widest font-bold">
+                <h4 className="font-display text-[10px] md:text-sm uppercase tracking-widest mb-4 md:mb-6 text-text-base">Support</h4>
+                <p className="text-[10px] md:text-sm text-text-muted leading-loose uppercase tracking-widest font-bold">
                   Support @:
-                  <span className="text-white block mt-1 text-[11px] md:text-sm lowercase font-sans font-medium tracking-normal">support@sportsbox.com</span>
+                  <span className="text-text-base block mt-1 text-[11px] md:text-sm lowercase font-sans font-medium tracking-normal">support@sportsbox.com</span>
                 </p>
               </div>
             </div>
           </div>
         </div>
 
-        <div className="max-w-[1600px] mx-auto px-4 mt-8 md:mt-24 pt-6 border-t border-white/5 flex flex-col md:flex-row items-center justify-between gap-4 md:gap-6">
-          <div className="text-[8px] md:text-[10px] text-white/20 uppercase tracking-[0.2em] md:tracking-[0.3em] text-center md:text-left leading-relaxed max-w-md">
+        <div className="max-w-[1600px] mx-auto px-4 mt-8 md:mt-24 pt-6 border-t border-border flex flex-col md:flex-row items-center justify-between gap-4 md:gap-6">
+          <div className="text-[8px] md:text-[10px] text-text-muted/40 uppercase tracking-[0.2em] md:tracking-[0.3em] text-center md:text-left leading-relaxed max-w-md">
             © 2024 SportsBox Media Group. All rights reserved.
           </div>
           <div className="flex flex-wrap justify-center items-center gap-6 md:gap-8 opacity-30 grayscale brightness-200">

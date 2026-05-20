@@ -36,7 +36,7 @@ export default function ContentCard({
         )}
       >
         <div className={cn(
-          "relative overflow-hidden rounded-[10px] border border-white/5 shadow-2xl transition-all duration-300 group-hover:border-brand/30", 
+          "relative overflow-hidden rounded-[10px] border border-border shadow-2xl transition-all duration-300 group-hover:border-brand/30", 
           featured ? "aspect-[21/9]" : (aspectRatio === 'portrait' ? "aspect-[2/3]" : "aspect-video")
         )}>
           {content.thumbnailUrl && content.thumbnailUrl.trim() !== '' ? (

@@ -253,9 +253,9 @@ export default function Blogs() {
           <span>/</span>
           <span className="text-brand font-bold">Blogs</span>
         </div>
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-white/5 pb-6">
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-border pb-6">
           <div>
-            <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-white uppercase">
+            <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-text-base uppercase">
               SportsBox <span className="text-brand">Insights</span>
             </h1>
             <p className="text-sm text-text-muted mt-1.5">
@@ -285,9 +285,9 @@ export default function Blogs() {
             exit={{ opacity: 0, height: 0 }}
             className="max-w-[1240px] mx-auto overflow-hidden text-left mb-10"
           >
-            <div className="bg-surface/90 border border-brand/20 rounded-lg p-6 md:p-8 shadow-xl relative overflow-hidden">
+            <div className="bg-surface border border-border rounded-lg p-6 md:p-8 shadow-xl relative overflow-hidden">
               <div className="absolute top-0 left-0 w-1.5 h-full bg-brand" />
-              <h2 className="text-lg font-bold text-white flex items-center gap-2 mb-6">
+              <h2 className="text-lg font-bold text-text-base flex items-center gap-2 mb-6 font-display uppercase tracking-widest italic">
                 <Sparkles className="w-5 h-5 text-brand animate-pulse" />
                 Draft and Publish a SportsBox Article
               </h2>
@@ -464,7 +464,7 @@ export default function Blogs() {
                 <article 
                   key={blog.id}
                   id={`article-card-${blog.id}`}
-                  className="bg-surface/30 backdrop-blur-md border border-white/5 hover:border-brand/30 rounded-lg overflow-hidden flex flex-col text-left group transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-brand/5"
+                  className="bg-surface/30 backdrop-blur-md border border-border hover:border-brand/30 rounded-lg overflow-hidden flex flex-col text-left group transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-brand/5"
                 >
                   {/* Card Banner Image */}
                   <div 
@@ -490,7 +490,7 @@ export default function Blogs() {
                       {/* Interactive Headline */}
                       <h3 
                         onClick={() => handleOpenBlog(blog)}
-                        className="font-sans font-extrabold text-[19px] leading-snug text-white hover:text-brand cursor-pointer transition-colors line-clamp-2 pr-1"
+                        className="font-sans font-extrabold text-[19px] leading-snug text-text-base hover:text-brand cursor-pointer transition-colors line-clamp-2 pr-1"
                       >
                         {blog.title}
                       </h3>
@@ -515,10 +515,10 @@ export default function Blogs() {
                     </div>
 
                     {/* Bottom Row Actions Button */}
-                    <div className="flex justify-between items-center mt-5 pt-4 border-t border-white/5">
+                    <div className="flex justify-between items-center mt-5 pt-4 border-t border-border">
                       <button 
                         onClick={() => handleOpenBlog(blog)}
-                        className="text-brand hover:text-white text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1 group/btn cursor-pointer"
+                        className="text-brand hover:text-text-base text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1 group/btn cursor-pointer"
                       >
                         Read Post
                         <ArrowUpRight className="w-3.5 h-3.5 group-hover/btn:translate-x-0.5 group-hover/btn:-translate-y-0.5 transition-transform" />
@@ -595,7 +595,7 @@ export default function Blogs() {
               {/* Promo Cover photo overlay */}
               <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-black/10 z-10 transition-colors duration-300" />
               <img 
-                src="https://images.unsplash.com/photo-1542744094-3a31f103e35f?q=80&w=600" 
+                src="https://imagedelivery.net/aPW-WJR2InBqr5gX4RRkcg/5f88c738-c974-48ae-8e85-5a9bec52bf00/public" 
                 alt="Web mockups designer" 
                 className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 opacity-80"
               />
@@ -741,7 +741,7 @@ export default function Blogs() {
               initial={{ scale: 0.96, y: 15 }}
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.96, y: 15 }}
-              className="relative bg-surface border border-white/10 rounded-lg overflow-hidden max-w-3xl w-full max-h-[90vh] flex flex-col shadow-2xl z-20 text-left text-text-base"
+              className="relative bg-surface border border-border rounded-lg overflow-hidden max-w-3xl w-full max-h-[90vh] flex flex-col shadow-2xl z-20 text-left text-text-base"
             >
               {/* Close Button overlay */}
               <button
@@ -775,13 +775,13 @@ export default function Blogs() {
               {/* Body article details content */}
               <div className="flex-grow overflow-y-auto p-6 md:p-8 space-y-6">
                 {/* Author row line */}
-                <div className="flex flex-wrap items-center justify-between gap-4 border-b border-white/5 pb-4 text-xs font-semibold text-text-muted uppercase tracking-wider select-none">
+                <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border pb-4 text-xs font-semibold text-text-muted uppercase tracking-wider select-none">
                   <div className="flex items-center gap-2">
                     <div className="w-8 h-8 rounded-full bg-brand/10 border border-brand/20 flex items-center justify-center">
                       <User className="w-3.5 h-3.5 text-brand" />
                     </div>
                     <div>
-                      <div className="text-white font-extrabold">{selectedBlog.author}</div>
+                      <div className="text-text-base font-extrabold">{selectedBlog.author}</div>
                       <div className="text-[10px] font-medium text-text-muted/70 font-mono mt-0.5 lowercase">{selectedBlog.authorEmail || "Verified SportsBox Analyst"}</div>
                     </div>
                   </div>
@@ -799,17 +799,17 @@ export default function Blogs() {
                 </div>
 
                 {/* Subtitle description */}
-                <p className="text-white/80 font-medium italic text-sm leading-relaxed border-l-2 border-brand pl-4 py-0.5 bg-brand/5 rounded-r">
+                <p className="text-text-base/80 font-medium italic text-sm leading-relaxed border-l-2 border-brand pl-4 py-0.5 bg-brand/5 rounded-r">
                   {selectedBlog.excerpt}
                 </p>
 
                 {/* Scrollable multi paragraphs body text content */}
-                <div className="text-white/90 text-sm md:text-[15px] leading-relaxed space-y-5 whitespace-pre-wrap select-text font-normal font-sans">
+                <div className="text-text-base/90 text-sm md:text-[15px] leading-relaxed space-y-5 whitespace-pre-wrap select-text font-normal font-sans">
                   {selectedBlog.content.split('\n\n').map((paragraph, index) => {
                     // Headline headers markup format inside markdown parser
                     if (paragraph.startsWith('###')) {
                       return (
-                        <h4 key={index} className="text-[17px] font-bold text-white pt-3 tracking-tight border-b border-white/5 pb-2">
+                        <h4 key={index} className="text-[17px] font-bold text-text-base pt-3 tracking-tight border-b border-border pb-2">
                           {paragraph.replace('###', '').trim()}
                         </h4>
                       );

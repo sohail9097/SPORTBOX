@@ -172,14 +172,18 @@ export default function Plans() {
               </p>
 
               <div className="space-y-2 md:space-y-4 mb-6 md:mb-12 flex-grow">
-                {plan.features.map((feature, idx) => (
-                  <div key={`${feature}-${idx}`} className="flex items-center gap-2 md:gap-4 text-[10px] md:text-sm font-bold tracking-tight">
-                    <div className="w-4 h-4 md:w-6 md:h-6 rounded bg-white/5 flex items-center justify-center flex-shrink-0 group-hover:bg-white/10 transition-colors">
-                      <Check className={cn("w-2.5 md:w-3.5 h-2.5 md:h-3.5", (plan.id === 'pro' || plan.id === 'medium' || plan.popular) ? "text-white" : "text-brand")} />
+                {(plan.features || [])
+                  .flatMap(f => f.split(/[\n,]/))
+                  .map(item => item.trim())
+                  .filter(Boolean)
+                  .map((feature, idx) => (
+                    <div key={`${feature}-${idx}`} className="flex items-center gap-2 md:gap-4 text-[10px] md:text-sm font-bold tracking-tight text-white/90">
+                      <div className="w-4 h-4 md:w-6 md:h-6 rounded bg-white/5 flex items-center justify-center flex-shrink-0 group-hover:bg-white/10 transition-colors">
+                        <Check className={cn("w-2.5 md:w-3.5 h-2.5 md:h-3.5", (plan.id === 'pro' || plan.id === 'medium' || plan.popular) ? "text-white" : "text-brand")} />
+                      </div>
+                      <span>{feature}</span>
                     </div>
-                    {feature}
-                  </div>
-                ))}
+                  ))}
               </div>
 
               <button 

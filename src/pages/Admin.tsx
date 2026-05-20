@@ -185,6 +185,7 @@ export default function Admin() {
 
   // Plan Form state
   const [editingPlanId, setEditingPlanId] = useState<string | null>(null);
+  const [featuresInputText, setFeaturesInputText] = useState('');
   const [planForm, setPlanForm] = useState<Partial<SubscriptionPlan>>({
     name: '',
     price: 0,
@@ -1117,10 +1118,16 @@ export default function Admin() {
       const planId = editingPlanId || planForm.id || planForm.name?.toLowerCase().replace(/\s+/g, '-') || 'plan-' + Date.now();
       const docRef = doc(db, 'subscription_plans', planId);
       
-      // Ensure we have a valid offer object if it's active
+      // Ensure features are split strictly by newlines
+      const processedFeatures = featuresInputText
+        .split('\n')
+        .map(item => item.trim())
+        .filter(Boolean);
+
       const finalPlan = {
         ...planForm,
         id: planId,
+        features: processedFeatures,
         offer: planForm.offer?.isActive ? planForm.offer : { isActive: false, percentage: 0, label: '' }
       };
 
@@ -2005,6 +2012,7 @@ export default function Admin() {
                   onClick={() => {
                     setEditingPlanId(null);
                     setPlanForm({ name: '', price: 0, description: '', features: [], icon: 'Zap', popular: false, color: 'from-slate-800 to-slate-900 border-white/5', offer: { isActive: false, percentage: 0, label: 'Limited Offer' } });
+                    setFeaturesInputText('');
                     setIsAddingPlan(true);
                   }}
                   className="btn-primary flex items-center gap-2"
@@ -2023,7 +2031,12 @@ export default function Admin() {
                           <Crown className="w-6 h-6 text-white" />
                         </div>
                         <div className="flex gap-2">
-                          <button onClick={() => { setPlanForm(plan); setEditingPlanId(plan.id); setIsAddingPlan(true); }} className="p-2 bg-black/20 backdrop-blur-md rounded-lg hover:text-white transition-colors"><Edit2 className="w-4 h-4" /></button>
+                          <button onClick={() => { 
+                            setPlanForm(plan); 
+                            setEditingPlanId(plan.id); 
+                            setFeaturesInputText((plan.features || []).join('\n'));
+                            setIsAddingPlan(true); 
+                          }} className="p-2 bg-black/20 backdrop-blur-md rounded-lg hover:text-white transition-colors"><Edit2 className="w-4 h-4" /></button>
                           <button onClick={() => handlePlanDelete(plan.id)} className="p-2 bg-black/20 backdrop-blur-md rounded-lg hover:text-red-500 transition-colors"><Trash2 className="w-4 h-4" /></button>
                         </div>
                       </div>
@@ -2058,13 +2071,27 @@ export default function Admin() {
                       <div className="space-y-2">
                         <p className="text-[10px] font-black uppercase tracking-widest text-text-muted">Active Features</p>
                         <div className="space-y-1">
-                          {plan.features.slice(0, 3).map((f, i) => (
-                            <div key={`${f}-${i}`} className="flex items-center gap-2 text-xs font-medium">
-                              <div className="w-1.5 h-1.5 rounded-full bg-brand" />
-                              {f}
-                            </div>
-                          ))}
-                          {plan.features.length > 3 && <p className="text-[10px] text-text-muted italic">+{plan.features.length - 3} more features</p>}
+                          {(() => {
+                            const processed = (plan.features || [])
+                              .flatMap(f => f.split(/[\n,]/))
+                              .map(item => item.trim())
+                              .filter(Boolean);
+                            return (
+                              <>
+                                {processed.slice(0, 3).map((f, i) => (
+                                  <div key={`${f}-${i}`} className="flex items-center gap-2 text-xs font-medium">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-brand" />
+                                    {f}
+                                  </div>
+                                ))}
+                                {processed.length > 3 && (
+                                  <p className="text-[10px] text-text-muted italic">
+                                    +{processed.length - 3} more features
+                                  </p>
+                                )}
+                              </>
+                            );
+                          })()}
                         </div>
                       </div>
                     </div>
@@ -3458,11 +3485,15 @@ export default function Admin() {
                 <div className="space-y-2">
                   <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Features (One per line)</label>
                   <textarea 
-                    rows={4} 
-                    value={planForm.features?.join('\n')} 
-                    onChange={e => setPlanForm({...planForm, features: e.target.value.split('\n').filter(f => f.trim())})} 
-                    className="w-full bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none"
-                    placeholder="All Live Matches&#10;No Ads&#10;Full HD"
+                    rows={5} 
+                    value={featuresInputText} 
+                    onChange={e => {
+                      setFeaturesInputText(e.target.value);
+                      const processedList = e.target.value.split('\n').map(f => f.trim()).filter(Boolean);
+                      setPlanForm(prev => ({ ...prev, features: processedList }));
+                    }} 
+                    className="w-full bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none text-white font-sans leading-relaxed text-sm h-32"
+                    placeholder="All Live Matches&#10;Cricket Premium&#10;Football Premium"
                   />
                 </div>
 

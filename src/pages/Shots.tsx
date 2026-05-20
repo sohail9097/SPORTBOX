@@ -74,6 +74,26 @@ const MOCK_SHORTS = [
   }
 ];
 
+// Helper to return a premium, deterministic profile picture based on username
+const getCommentAvatar = (username: string) => {
+  const avatars = [
+    'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&h=120&fit=crop', // Woman 1
+    'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=120&h=120&fit=crop', // Man 1
+    'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=120&h=120&fit=crop', // Woman 2
+    'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=120&h=120&fit=crop', // Man 2
+    'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=120&h=120&fit=crop', // Woman 3
+    'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=120&h=120&fit=crop', // Man 3
+    'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=120&h=120&fit=crop', // Woman 4
+    'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=120&h=120&fit=crop'  // Man 4
+  ];
+  let hash = 0;
+  for (let i = 0; i < username.length; i++) {
+    hash = username.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const index = Math.abs(hash) % avatars.length;
+  return avatars[index];
+};
+
 export default function Shots() {
   const { user } = useAuth();
   const [shorts, setShorts] = useState<SportsContent[]>([]);
@@ -88,6 +108,30 @@ export default function Shots() {
   const [comments, setComments] = useState<{ id: string; user: string; text: string; time: string; createdAt?: string }[]>([]);
   const [commentsLoading, setCommentsLoading] = useState(false);
   const [newComment, setNewComment] = useState('');
+  const [commentLikes, setCommentLikes] = useState<{ [commId: string]: { liked: boolean; count: number } }>({});
+
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const handleToggleCommentLike = (commentId: string) => {
+    setCommentLikes(prev => {
+      const current = prev[commentId] || { liked: false, count: 0 };
+      return {
+        ...prev,
+        [commentId]: {
+          liked: !current.liked,
+          count: current.liked ? Math.max(0, current.count - 1) : current.count + 1
+        }
+      };
+    });
+  };
+
+  const handleReplyClick = (commUser: string) => {
+    const formattedUser = commUser.toLowerCase().replace(/\s+/g, '_');
+    setNewComment(`@${formattedUser} `);
+    setTimeout(() => {
+      inputRef.current?.focus();
+    }, 50);
+  };
 
   // Mobile viewport and Advanced Social Sharing options
   const [isMobile, setIsMobile] = useState(false);
@@ -216,6 +260,13 @@ export default function Shots() {
             createdAt: new Date(Date.now() - (i + 1) * 60 * 1000).toISOString()
           }));
           setComments(defaultComments);
+
+          // Seed fallback dynamic like values
+          const newLikes: typeof commentLikes = {};
+          defaultComments.forEach((c, idx) => {
+            newLikes[c.id] = { liked: false, count: Math.floor((idx + 3) * 7.4) % 12 + 1 };
+          });
+          setCommentLikes(prev => ({ ...prev, ...newLikes }));
         } else {
           const formatted = items.map(item => {
             let timeStr = 'Just now';
@@ -237,6 +288,13 @@ export default function Shots() {
             };
           });
           setComments(formatted);
+
+          // Seed Firestore comments dynamic like values
+          const newLikes: typeof commentLikes = {};
+          formatted.forEach((c, idx) => {
+            newLikes[c.id] = { liked: false, count: Math.floor((idx + c.text.length) % 19) };
+          });
+          setCommentLikes(prev => ({ ...prev, ...newLikes }));
         }
       } catch (err) {
         console.error("Failed to load comments:", err);
@@ -399,6 +457,10 @@ export default function Shots() {
     };
 
     setComments(prev => [localComment, ...prev]);
+    setCommentLikes(prev => ({
+      ...prev,
+      [optId]: { liked: false, count: 0 }
+    }));
     setNewComment('');
 
     try {
@@ -467,7 +529,7 @@ export default function Shots() {
   }
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] bg-black text-white py-4 md:py-10 px-2 sm:px-4 flex items-center justify-center select-none overflow-hidden pb-16 md:pb-10 relative">
+    <div className="min-h-[calc(100vh-4rem)] bg-black text-white py-0 md:py-10 px-0 md:px-4 flex items-center justify-center select-none overflow-hidden pb-0 md:pb-10 relative">
       <div className="absolute top-6 left-6 hidden xl:flex flex-col gap-2 max-w-[280px] text-left pointer-events-none">
         <div className="flex items-center gap-2 text-brand">
           <Compass className="w-5 h-5" />
@@ -483,7 +545,7 @@ export default function Shots() {
       <div className="flex flex-col lg:flex-row items-center gap-4 lg:gap-8 max-w-6xl w-full justify-center">
         {/* Main Video Frame */}
         <div 
-          className="relative aspect-[9/16] w-full max-w-[420px] h-[72vh] md:h-[78vh] bg-neutral-900 rounded-2xl md:rounded-[32px] overflow-hidden shadow-2xl border border-white/10 flex items-center justify-center group"
+          className="relative aspect-[9/16] w-full max-w-[420px] h-[calc(100vh-8.5rem)] md:h-[82vh] bg-neutral-900 rounded-none md:rounded-none overflow-hidden shadow-2xl border border-white/10 flex items-center justify-center group"
           id="shorts-stage"
         >
           {shorts.length > 0 ? (
@@ -693,72 +755,195 @@ export default function Shots() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-end md:items-stretch md:justify-end"
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-end md:items-stretch md:justify-end"
           >
             {/* Click backdrop to exit */}
             <div className="absolute inset-0" onClick={() => setIsCommentsOpen(false)} />
-
+ 
             <motion.div 
               initial={isMobile ? { y: '100%', x: 0 } : { x: '100%', y: 0 }}
               animate={isMobile ? { y: 0, x: 0 } : { x: 0, y: 0 }}
               exit={isMobile ? { y: '100%', x: 0 } : { x: '100%', y: 0 }}
-              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="relative w-full md:max-w-md h-[78vh] md:h-full bg-zinc-950 border-t md:border-t-0 md:border-l border-white/10 flex flex-col shadow-2xl z-10 rounded-t-[32px] md:rounded-none overflow-hidden"
+              transition={{ type: 'spring', damping: 25, stiffness: 220 }}
+              className="relative w-full md:max-w-md h-[80vh] md:h-full bg-[#121212] border-t md:border-t-0 md:border-l border-white/10 flex flex-col shadow-2xl z-10 rounded-t-[24px] md:rounded-none overflow-hidden"
             >
-              <div className="flex items-center justify-between p-5 border-b border-white/10">
-                <div>
-                  <h4 className="font-display font-black text-xs uppercase tracking-widest text-[#00ffcc] flex items-center gap-2">
-                    <span>Shots Feed Comments</span>
-                    {commentsLoading && <span className="w-2 h-2 rounded-full bg-brand animate-ping" />}
+              {/* Grab handle for bottom sheet on mobile */}
+              <div className="md:hidden flex justify-center py-3 bg-[#121212] cursor-pointer" onClick={() => setIsCommentsOpen(false)}>
+                <div className="w-9 h-1 bg-white/20 rounded-full" />
+              </div>
+
+              {/* Header */}
+              <div className="flex items-center justify-between px-5 pb-4 pt-1 md:pt-4 border-b border-white/10 bg-[#121212]">
+                <div className="text-left">
+                  <h4 className="font-sans font-extrabold text-[13px] tracking-wide text-white flex items-center gap-1.5">
+                    <span>Comments</span>
+                    <span className="text-[11px] font-medium text-white/50">({comments.length})</span>
+                    {commentsLoading && <span className="w-1.5 h-1.5 rounded-full bg-brand animate-ping" />}
                   </h4>
-                  <p className="text-[9px] text-white/50 uppercase tracking-wider mt-0.5">Interact in real-time</p>
                 </div>
                 <button 
                   onClick={() => setIsCommentsOpen(false)}
-                  className="p-2 bg-white/5 rounded-full border border-white/10 hover:bg-[#00ffcc]/15 hover:text-[#00ffcc] transition-all text-xs font-bold"
+                  className="p-1.5 bg-white/5 hover:bg-white/10 text-white rounded-full transition-all"
                 >
                   <X className="w-4 h-4" />
                 </button>
               </div>
-
+ 
               {/* Feed of comments */}
-              <div className="flex-1 overflow-y-auto p-5 space-y-4">
+              <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 bg-[#121212]">
                 {comments.length > 0 ? (
-                  comments.map((comm) => (
-                    <div key={comm.id} className="p-3 bg-white/5 rounded-2xl border border-white/5 text-left transition-all hover:bg-white/10">
-                      <div className="flex justify-between items-center">
-                        <span className="text-xs font-black uppercase text-brand/80">{comm.user}</span>
-                        <span className="text-[9px] text-white/30 font-mono">{comm.time}</span>
+                  comments.map((comm) => {
+                    const cleanUsername = comm.user.toLowerCase().replace(/\s+/g, '_');
+                    const isLiked = commentLikes[comm.id]?.liked || false;
+                    const countLikes = commentLikes[comm.id]?.count || 0;
+                    
+                    return (
+                      <div key={comm.id} className="bg-white/[0.03] border border-white/[0.04] p-4.5 rounded-[20px] transition-all duration-150 hover:bg-white/[0.06] hover:border-brand/20 flex items-start gap-3">
+                        {/* Avatar Column */}
+                        <div className="relative group flex-shrink-0 cursor-pointer">
+                          <div className="absolute -inset-[1px] bg-gradient-to-tr from-[#ff3366] to-[#ff9900] rounded-full opacity-90" />
+                          <img 
+                            src={getCommentAvatar(comm.user)} 
+                            alt={comm.user} 
+                            referrerPolicy="no-referrer"
+                            className="relative w-9 h-9 rounded-full object-cover border-[1.5px] border-black bg-zinc-800" 
+                          />
+                        </div>
+
+                        {/* Comment Content Column */}
+                        <div className="flex-1 min-w-0 text-left">
+                          <div className="flex items-center flex-wrap gap-1.5 text-xs text-white">
+                            <span className="font-extrabold text-white text-[12px] hover:underline cursor-pointer">
+                              @{cleanUsername}
+                            </span>
+                            <span className="text-white/40 text-[10px]">• {comm.time}</span>
+                            {comm.user === 'David' && (
+                              <span className="text-[8px] font-black text-black bg-[#00ffcc] px-1.5 py-0.5 rounded uppercase select-none font-mono">
+                                Author
+                              </span>
+                            )}
+                          </div>
+                          
+                          <p className="text-xs text-zinc-100 mt-1 leading-relaxed break-all select-text pr-1 font-medium font-sans">
+                            {comm.text}
+                          </p>
+
+                          {/* Controls (Reply & Like detail) */}
+                          <div className="flex items-center gap-4 mt-2.5 text-[10px] font-black uppercase tracking-widest select-none text-white/50">
+                            <button 
+                              type="button" 
+                              onClick={() => handleReplyClick(comm.user)}
+                              className="hover:text-brand transition-colors cursor-pointer"
+                            >
+                              Reply
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleToggleCommentLike(comm.id)}
+                              className="hover:text-red-400 transition-colors cursor-pointer"
+                            >
+                              {isLiked ? 'Liked' : 'Like'}
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Like interaction side panel */}
+                        <div className="flex flex-col items-center justify-center pl-1 min-w-[30px] self-start mt-1">
+                          <button 
+                            type="button"
+                            onClick={() => handleToggleCommentLike(comm.id)}
+                            className="text-white/40 hover:text-red-500 hover:scale-110 active:scale-90 transition-all p-0.5"
+                          >
+                            <Heart 
+                              className={`w-3.5 h-3.5 transition-colors ${
+                                isLiked ? 'fill-red-500 text-red-500' : 'text-white/40'
+                              }`} 
+                            />
+                          </button>
+                          {countLikes > 0 && (
+                            <span className="text-[10px] text-zinc-400 font-extrabold font-mono mt-0.5">
+                              {countLikes}
+                            </span>
+                          )}
+                        </div>
                       </div>
-                      <p className="text-xs text-white/80 mt-1 uppercase tracking-wide leading-relaxed">
-                        {comm.text}
-                      </p>
-                    </div>
-                  ))
+                    );
+                  })
                 ) : (
                   <div className="text-center py-24 text-white/40">
                     <MessageCircle className="w-8 h-8 mx-auto opacity-20 mb-2" />
-                    <p className="text-xs uppercase tracking-wider">No comments yet. Start the conversation!</p>
+                    <p className="text-xs uppercase tracking-wider font-extrabold">No comments yet. Start the conversation!</p>
                   </div>
                 )}
               </div>
 
-              {/* Box to Post Comments */}
-              <form onSubmit={handlePostComment} className="p-5 border-t border-white/10 bg-zinc-900/60 flex gap-2 pb-8 md:pb-5">
-                <input 
-                  type="text" 
-                  value={newComment}
-                  onChange={e => setNewComment(e.target.value)}
-                  placeholder="Share your thoughts..."
-                  className="flex-1 bg-black border border-white/10 px-4 py-3 rounded-xl outline-none focus:border-brand text-xs uppercase tracking-wider text-white"
-                />
-                <button 
-                  type="submit" 
-                  className="bg-brand hover:bg-brand-alt text-black p-3 px-4 rounded-xl flex items-center justify-center transition-colors font-black text-xs uppercase tracking-wider"
-                >
-                  <Send className="w-4 h-4" />
-                </button>
-              </form>
+              {/* Bottom Quick-Reaction Emoji Row (Instagram style) */}
+              <div className="flex items-center justify-around px-4 py-2.5 bg-[#16161c] border-t border-white/5 select-none z-10 w-full shrink-0">
+                {['❤️', '🙌', '🔥', '👏', '😢', '😍', '😮', '😂'].map((emoji) => (
+                  <button
+                    key={emoji}
+                    type="button"
+                    onClick={() => {
+                      setNewComment(prev => prev + emoji);
+                      setTimeout(() => {
+                        inputRef.current?.focus();
+                      }, 40);
+                    }}
+                    className="text-xl hover:scale-125 transition-transform duration-200 active:scale-95 focus:outline-none py-1"
+                  >
+                    {emoji}
+                  </button>
+                ))}
+              </div>
+ 
+              {/* Comment Input pill and current user Avatar */}
+              <div className="p-4 border-t border-white/10 bg-[#16161c] shrink-0 pb-10 md:pb-6 shadow-[0_-8px_24px_rgba(0,0,0,0.5)] z-20">
+                <div className="text-[10px] font-black uppercase tracking-widest text-[#00ffcc] mb-2 px-1 flex justify-between items-center select-none font-sans">
+                  <span>Write a response</span>
+                  <span className="opacity-40 text-white font-sans text-[9px] font-normal lowercase">Press enter to post</span>
+                </div>
+                
+                <form onSubmit={handlePostComment} className="flex items-center gap-3">
+                  {/* Current User Avatar */}
+                  <img 
+                    src={user ? getCommentAvatar(user.displayName || user.email || 'guest') : 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop'}
+                    alt="My profile" 
+                    referrerPolicy="no-referrer"
+                    className="w-9 h-9 rounded-full object-cover border-2 border-brand/40 bg-zinc-800 flex-shrink-0" 
+                  />
+
+                  {/* High contrast, prominent comment input field */}
+                  <div className="flex-1 bg-zinc-950 border-2 border-white/20 focus-within:border-brand rounded-2xl px-4 py-2.5 flex items-center justify-between gap-2 overflow-hidden shadow-inner transition-all duration-200">
+                    <input 
+                      ref={inputRef}
+                      type="text" 
+                      value={newComment}
+                      onChange={e => setNewComment(e.target.value)}
+                      placeholder="Share your thoughts about this clip..."
+                      className="flex-1 bg-transparent border-none outline-none focus:outline-none text-[13px] tracking-wide text-white placeholder-white/50 p-0 focus:ring-0 w-full font-medium"
+                    />
+                    
+                    {/* GIF Trigger Badge (Instagram aesthetic) */}
+                    <span className="text-[9px] font-black tracking-widest text-[#00ffcc] border border-[#00ffcc]/30 rounded px-1.5 py-0.5 select-none cursor-pointer hover:bg-[#00ffcc]/10 transition-colors shrink-0 font-mono">
+                      GIF
+                    </span>
+                  </div>
+
+                  {/* Send Button */}
+                  <button 
+                    type="submit" 
+                    disabled={!newComment.trim()}
+                    className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300 shrink-0 ${
+                      newComment.trim() 
+                        ? 'bg-brand text-white scale-100 hover:opacity-95 hover:scale-105 active:scale-95 shadow-lg shadow-brand/20' 
+                        : 'bg-white/5 text-white/20 cursor-not-allowed scale-90'
+                    }`}
+                    title="Send comment"
+                  >
+                    <Send className="w-4 h-4 ml-0.5" />
+                  </button>
+                </form>
+              </div>
             </motion.div>
           </motion.div>
         )}
@@ -771,7 +956,7 @@ export default function Shots() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4"
           >
             {/* Backdrop click dismisses */}
             <div className="absolute inset-0" onClick={() => setIsShareModalOpen(false)} />

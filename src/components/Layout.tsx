@@ -56,6 +56,7 @@ export default function Layout({ children }: { children: ReactNode }) {
     { name: 'Cricket', path: '/category/cricket' },
     { name: 'Sport Shots', path: '/shorts' },
     { name: 'Plans', path: '/plans', icon: Crown },
+    { name: 'Blogs', path: '/blogs' },
   ];
 
   const mobileNavLinks = [
@@ -65,6 +66,8 @@ export default function Layout({ children }: { children: ReactNode }) {
     { name: 'List', path: '/account', icon: Clock },
     { name: 'Live', path: '/live', icon: Tv },
   ];
+
+  const isShortsPage = location.pathname.startsWith('/shorts');
 
   return (
     <div className="min-h-screen flex flex-col bg-bg">
@@ -186,67 +189,71 @@ export default function Layout({ children }: { children: ReactNode }) {
         </div>
       </nav>
 
-      <main className="flex-grow pb-20 md:pb-0">
+      <main className={cn("flex-grow", isShortsPage ? "pb-0" : "pb-20 md:pb-0")}>
         {children}
       </main>
 
       {/* Floating Category Menu */}
-      <div className="md:hidden fixed bottom-24 left-1/2 -translate-x-1/2 z-40">
-        <button
-          onClick={() => setIsMenuOpen(!isMenuOpen)}
-          className="bg-surface/80 backdrop-blur-xl border border-white/10 px-5 py-2 rounded-full flex items-center gap-2 text-xs font-bold uppercase tracking-widest shadow-2xl"
-        >
-          <span>All</span>
-          <Menu className="w-4 h-4" />
-        </button>
-      </div>
+      {!isShortsPage && (
+        <div className="md:hidden fixed bottom-24 left-1/2 -translate-x-1/2 z-40">
+          <button
+            onClick={() => setIsMenuOpen(!isMenuOpen)}
+            className="bg-surface/80 backdrop-blur-xl border border-white/10 px-5 py-2 rounded-full flex items-center gap-2 text-xs font-bold uppercase tracking-widest shadow-2xl"
+          >
+            <span>All</span>
+            <Menu className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       {/* Bottom Navigation (Mobile Only) */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-bg/95 backdrop-blur-xl border-t border-white/5 pb-safe">
-        <div className="flex items-center justify-around h-16">
-          {mobileNavLinks.map((link, i) => {
-            const Icon = link.icon;
-            const isActive = location.pathname === link.path;
-            const isLive = link.name === 'Live' && liveCount > 0;
-            
-            return (
-              <Link
-                key={`mobile-nav-${link.name}-${i}`}
-                to={link.path}
-                className={cn(
-                  "flex flex-col items-center justify-center gap-1 w-full h-full transition-all duration-500 relative",
-                  isActive ? "text-brand" : (isLive ? "text-red-500" : "text-text-muted")
-                )}
-              >
-                {isLive && (
-                  <motion.span 
-                    initial={{ scale: 0, opacity: 0 }}
-                    animate={{ 
-                      scale: [1, 1.5, 1],
-                      opacity: [0.8, 1, 0.8],
-                    }}
-                    transition={{
-                      duration: 2,
-                      repeat: Infinity,
-                      ease: "easeInOut"
-                    }}
-                    className="absolute top-2 right-1/2 translate-x-3 w-2 h-2 bg-red-600 rounded-full shadow-[0_0_15px_rgba(220,38,38,1),0_0_30px_rgba(220,38,38,0.6)]" 
-                  />
-                )}
-                <Icon className={cn(
-                  "w-5 h-5 transition-all duration-500", 
-                  isActive && "fill-brand/20",
-                  isLive && "text-red-500 drop-shadow-[0_0_12px_rgba(239,68,68,0.8)] animate-pulse"
-                )} />
-                <span className={cn(
-                  "text-[10px] font-black uppercase tracking-tighter whitespace-nowrap",
-                  isLive ? "text-red-500 animate-pulse" : ""
-                )}>{link.name === 'Sport Shots' ? 'Shots' : link.name}</span>
-              </Link>
-            );
-          })}
-        </div>
-      </nav>
+      {!isShortsPage && (
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-bg/95 backdrop-blur-xl border-t border-white/5 pb-safe">
+          <div className="flex items-center justify-around h-16">
+            {mobileNavLinks.map((link, i) => {
+              const Icon = link.icon;
+              const isActive = location.pathname === link.path;
+              const isLive = link.name === 'Live' && liveCount > 0;
+              
+              return (
+                <Link
+                  key={`mobile-nav-${link.name}-${i}`}
+                  to={link.path}
+                  className={cn(
+                    "flex flex-col items-center justify-center gap-1 w-full h-full transition-all duration-500 relative",
+                    isActive ? "text-brand" : (isLive ? "text-red-500" : "text-text-muted")
+                  )}
+                >
+                  {isLive && (
+                    <motion.span 
+                      initial={{ scale: 0, opacity: 0 }}
+                      animate={{ 
+                        scale: [1, 1.5, 1],
+                        opacity: [0.8, 1, 0.8],
+                      }}
+                      transition={{
+                        duration: 2,
+                        repeat: Infinity,
+                        ease: "easeInOut"
+                      }}
+                      className="absolute top-2 right-1/2 translate-x-3 w-2 h-2 bg-red-600 rounded-full shadow-[0_0_15px_rgba(220,38,38,1),0_0_30px_rgba(220,38,38,0.6)]" 
+                    />
+                  )}
+                  <Icon className={cn(
+                    "w-5 h-5 transition-all duration-500", 
+                    isActive && "fill-brand/20",
+                    isLive && "text-red-500 drop-shadow-[0_0_12px_rgba(239,68,68,0.8)] animate-pulse"
+                  )} />
+                  <span className={cn(
+                    "text-[10px] font-black uppercase tracking-tighter whitespace-nowrap",
+                    isLive ? "text-red-500 animate-pulse" : ""
+                  )}>{link.name === 'Sport Shots' ? 'Shots' : link.name}</span>
+                </Link>
+              );
+            })}
+          </div>
+        </nav>
+      )}
 
       <AnimatePresence>
         {isMenuOpen && (
@@ -278,7 +285,8 @@ export default function Layout({ children }: { children: ReactNode }) {
         )}
       </AnimatePresence>
 
-      <footer className="bg-surface border-t border-white/5 py-8 md:py-20 pb-24 md:pb-20">
+      {!isShortsPage && (
+        <footer className="bg-surface border-t border-white/5 py-8 md:py-20 pb-24 md:pb-20">
         <div className="max-w-[1600px] mx-auto px-4">
           <div className="grid grid-cols-1 md:grid-cols-12 gap-8 md:gap-16 items-start">
             <div className="md:col-span-12 lg:col-span-5 flex flex-col gap-4 md:gap-6 items-center md:items-start text-center md:text-left">
@@ -338,6 +346,7 @@ export default function Layout({ children }: { children: ReactNode }) {
           </div>
         </div>
       </footer>
+      )}
     </div>
   );
 }

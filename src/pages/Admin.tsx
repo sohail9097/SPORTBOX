@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { db, handleFirestoreError, OperationType, auth } from '../lib/firebase';
 import { collection, addDoc, getDocs, getDoc, deleteDoc, doc, updateDoc, query, orderBy, setDoc, onSnapshot } from 'firebase/firestore';
-import { SportsContent, Category, ContentType, ContentSection, SliderElement, VideoPromoSettings, SiteConfig, PlayerSettings, SubscriptionPlan } from '../types';
-import { Plus, Trash2, Edit2, Play, LayoutDashboard, Film, Users, Settings, Save, X, Eye, Radio, Crown, Layers, MoveUp, MoveDown, CheckSquare, Square, Image as ImageIcon, Upload, Library, ShieldCheck, ShieldAlert, Zap, Percent, Trophy, ChevronRight, Activity, Heart, Dribbble, CircleDot, Target, Disc, Flag, Gamepad2, Folder, ChevronLeft } from 'lucide-react';
+import { SportsContent, Category, ContentType, ContentSection, SliderElement, VideoPromoSettings, SiteConfig, PlayerSettings, SubscriptionPlan, BlogPost } from '../types';
+import { Plus, Trash2, Edit2, Play, LayoutDashboard, Film, Users, Settings, Save, X, Eye, Radio, Crown, Layers, MoveUp, MoveDown, CheckSquare, Square, Image as ImageIcon, Upload, Library, ShieldCheck, ShieldAlert, Zap, Percent, Trophy, ChevronRight, Activity, Heart, Dribbble, CircleDot, Target, Disc, Flag, Gamepad2, Folder, ChevronLeft, BookOpen, Scissors } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn, formatDate, transformGDriveUrl } from '../lib/utils';
 import { useAuth } from '../hooks/useAuth';
@@ -76,7 +76,7 @@ function ApiStatusIndicator() {
 export default function Admin() {
   const { user, isAdmin, loading: authLoading } = useAuth();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'content' | 'live' | 'sections' | 'categories' | 'slider' | 'users' | 'settings' | 'media' | 'plans' | 'trending' | 'likes' | 'domain_setup'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'content' | 'live' | 'sections' | 'categories' | 'slider' | 'users' | 'settings' | 'media' | 'plans' | 'trending' | 'likes' | 'domain_setup' | 'shots' | 'blogs'>('dashboard');
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [content, setContent] = useState<SportsContent[]>([]);
   const [mediaItems, setMediaItems] = useState<any[]>([]);
@@ -93,6 +93,21 @@ export default function Admin() {
   const [subscriptionPlans, setSubscriptionPlans] = useState<SubscriptionPlan[]>([]);
   const [isResetting, setIsResetting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  
+  const [blogs, setBlogs] = useState<BlogPost[]>([]);
+  const [blogsLoading, setBlogsLoading] = useState(false);
+  const [editingBlogId, setEditingBlogId] = useState<string | null>(null);
+  const [isAddingBlog, setIsAddingBlog] = useState(false);
+  const [blogForm, setBlogForm] = useState({
+    title: '',
+    excerpt: '',
+    content: '',
+    category: 'football',
+    imageUrl: 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?q=80&w=800',
+    readTime: '5 min read',
+    tagsInput: '',
+    author: 'Admin'
+  });
   
   const [selectedContentLikes, setSelectedContentLikes] = useState<{ id: string, title: string, likers: any[] } | null>(null);
   const [likesLoading, setLikesLoading] = useState(false);
@@ -413,6 +428,12 @@ export default function Admin() {
       };
     }
   }, [isAdmin]);
+
+  useEffect(() => {
+    if (isAdmin && activeTab === 'blogs') {
+      fetchBlogs();
+    }
+  }, [isAdmin, activeTab]);
 
   const resetAllViews = async () => {
     if (!confirm("Are you sure you want to reset all impressions to zero? This will clear all view data from every media item in the database.")) return;
@@ -828,6 +849,93 @@ export default function Admin() {
     }
   };
 
+  const fetchBlogs = async () => {
+    setBlogsLoading(true);
+    try {
+      const q = query(collection(db, 'blogs'), orderBy('createdAt', 'desc'));
+      const snap = await getDocs(q);
+      const items = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as BlogPost));
+      setBlogs(items);
+    } catch (err) {
+      console.error("Error fetching blogs in Admin:", err);
+    } finally {
+      setBlogsLoading(false);
+    }
+  };
+
+  const handleBlogSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!isAdmin) {
+      toast.error("Unauthorized: Only administrators are permitted to save or edit articles.");
+      return;
+    }
+    if (!blogForm.title.trim() || !blogForm.excerpt.trim() || !blogForm.content.trim()) {
+      toast.error("Please fill in title, excerpt and markdown content.");
+      return;
+    }
+    const toastId = toast.loading("Saving blog post...");
+    try {
+      const generatedId = editingBlogId || `blog-${Date.now()}`;
+      const processedTags = blogForm.tagsInput
+        .split(',')
+        .map(t => t.trim())
+        .filter(t => t.length > 0);
+
+      const finalBlogPayload: BlogPost = {
+        id: generatedId,
+        title: blogForm.title.trim(),
+        excerpt: blogForm.excerpt.trim(),
+        content: blogForm.content.trim(),
+        category: blogForm.category,
+        imageUrl: transformGDriveUrl(blogForm.imageUrl.trim() || 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?q=80&w=800', 'image'),
+        author: blogForm.author.trim() || 'Admin',
+        authorEmail: user?.email || 'admin@sportsbox.live',
+        createdAt: editingBlogId ? (blogs.find(b => b.id === editingBlogId)?.createdAt || new Date().toISOString()) : new Date().toISOString(),
+        readTime: blogForm.readTime.trim() || '5 min read',
+        likesCount: editingBlogId ? (blogs.find(b => b.id === editingBlogId)?.likesCount || 0) : 0,
+        views: editingBlogId ? (blogs.find(b => b.id === editingBlogId)?.views || 1) : 1,
+        tags: processedTags.length > 0 ? processedTags : [blogForm.category.toUpperCase(), 'SPORTS']
+      };
+
+      await setDoc(doc(db, 'blogs', generatedId), finalBlogPayload);
+      toast.success(editingBlogId ? "Sport Article updated successfully!" : "Sport Article published successfully!", { id: toastId });
+      
+      setIsAddingBlog(false);
+      setEditingBlogId(null);
+      setBlogForm({
+        title: '',
+        excerpt: '',
+        content: '',
+        category: 'football',
+        imageUrl: 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?q=80&w=800',
+        readTime: '5 min read',
+        tagsInput: '',
+        author: 'Admin'
+      });
+      fetchBlogs();
+    } catch (error) {
+      console.error("[Blogs Save Error]:", error);
+      toast.error("Failed to save blog post.", { id: toastId });
+    }
+  };
+
+  const handleDeleteBlog = async (id: string, title: string) => {
+    if (!isAdmin) {
+      toast.error("Unauthorized: Only administrators can delete blog articles.");
+      return;
+    }
+    if (!window.confirm(`Are you sure you want to delete the article "${title}"? This action is permanent.`)) return;
+    const toastId = toast.loading("Deleting blog post...");
+    try {
+      await deleteDoc(doc(db, 'blogs', id));
+      toast.success("Blog post deleted successfully!", { id: toastId });
+      fetchBlogs();
+    } catch (error) {
+      console.error("Delete blog error:", error);
+      toast.error("Failed to delete blog post.", { id: toastId });
+    }
+  };
+
   const fetchSections = async () => {
     try {
       const q = query(collection(db, 'sections'), orderBy('order', 'asc'));
@@ -1093,6 +1201,8 @@ export default function Admin() {
           <SidebarLink icon={ShieldCheck} label="Domain Setup" active={activeTab === 'domain_setup'} onClick={() => setActiveTab('domain_setup')} />
           <SidebarLink icon={Heart} label="Likes Insight" active={activeTab === 'likes'} onClick={() => setActiveTab('likes')} />
           <SidebarLink icon={Library} label="Media Uploads" active={activeTab === 'media'} onClick={() => setActiveTab('media')} />
+          <SidebarLink icon={Scissors} label="Sport Shots" active={activeTab === 'shots'} onClick={() => setActiveTab('shots')} />
+          <SidebarLink icon={BookOpen} label="Manage Blogs" active={activeTab === 'blogs'} onClick={() => setActiveTab('blogs')} />
         </div>
       </div>
 
@@ -2765,6 +2875,231 @@ export default function Admin() {
               </div>
             </motion.div>
           )}
+
+          {activeTab === 'shots' && (
+            <motion.div key="shots" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} className="space-y-8 font-sans">
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                <div className="space-y-2">
+                  <h1 className="text-5xl font-black uppercase italic tracking-tighter">Sport Shots</h1>
+                  <p className="text-text-muted font-medium">Create and manage your short, vertical aspect ratio videos.</p>
+                </div>
+                <button 
+                  onClick={() => {
+                    setForm({
+                      title: '',
+                      description: '',
+                      category: 'football',
+                      type: 'short',
+                      videoUrl: '',
+                      thumbnailUrl: '',
+                      isPremium: false,
+                      status: 'ended',
+                      viewCount: 0,
+                      tags: []
+                    });
+                    setTagsInput('');
+                    setEditingId(null);
+                    setIsAdding(true);
+                  }}
+                  className="px-6 py-3 bg-brand text-white text-xs font-black uppercase italic hover:bg-brand/85 transition-all flex items-center gap-2 rounded-2xl"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add Sport Shot
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {content.filter(item => item.type === 'short').length === 0 ? (
+                  <div className="col-span-full py-20 bg-surface/30 rounded-[32px] border-2 border-dashed border-white/5 flex flex-col items-center justify-center text-center font-sans">
+                    <Scissors className="w-12 h-12 text-white/10 mb-4 animate-bounce" />
+                    <p className="text-text-muted font-bold uppercase tracking-widest text-xs">No sport shots in the database</p>
+                  </div>
+                ) : (
+                  content.filter(item => item.type === 'short').map(item => (
+                    <div key={`shot-card-${item.id}`} className="bg-surface/50 border border-white/5 rounded-[24px] overflow-hidden group hover:border-brand/40 transition-all flex flex-col justify-between font-sans">
+                      <div className="relative aspect-[9/16] bg-black max-h-[320px] overflow-hidden font-sans">
+                        {item.thumbnailUrl ? (
+                          <img src={item.thumbnailUrl} alt={item.title} className="w-full h-full object-cover group-hover:scale-105 transition-all duration-500 font-sans shadow-md" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center bg-brand/5">
+                            <Play className="w-12 h-12 text-brand/20" />
+                          </div>
+                        )}
+                        <div className="absolute top-4 right-4 bg-black/60 px-3 py-1 rounded-full text-[10px] font-black tracking-widest uppercase text-white font-mono">
+                          {item.category}
+                        </div>
+                        {item.isPremium && (
+                          <div className="absolute top-4 left-4 bg-yellow-500 text-black px-2.5 py-1 text-[10px] font-black uppercase tracking-widest rounded-md leading-none shadow-md">
+                            Premium
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div className="p-5 flex-grow flex flex-col justify-between gap-4 font-sans">
+                        <div className="space-y-1">
+                          <h4 className="font-bold text-sm uppercase tracking-wider line-clamp-1">{item.title}</h4>
+                          <p className="text-xs text-text-muted line-clamp-2 md:h-10">{item.description || 'No description provided.'}</p>
+                        </div>
+                        
+                        <div className="flex items-center justify-between text-[11px] font-bold text-text-muted border-t border-white/5 pt-4">
+                          <span className="flex items-center gap-1"><Eye className="w-3.5 h-3.5" /> {(item.viewCount || 0).toLocaleString()}</span>
+                          <span className="flex items-center gap-1 inline-block bg-white/5 px-2.5 py-1 rounded-md text-white/80 shrink-0 capitalize">{item.status || 'Ended'}</span>
+                        </div>
+
+                        <div className="flex gap-2 border-t border-white/5 pt-4">
+                          <button 
+                            onClick={() => {
+                              setForm({
+                                title: item.title,
+                                description: item.description,
+                                category: item.category,
+                                type: 'short',
+                                videoUrl: item.videoUrl,
+                                thumbnailUrl: item.thumbnailUrl || '',
+                                isPremium: item.isPremium || false,
+                                status: item.status || 'ended',
+                                viewCount: item.viewCount || 0,
+                                tags: item.tags || []
+                              });
+                              setTagsInput((item.tags || []).join(', '));
+                              setEditingId(item.id);
+                              setIsAdding(true);
+                            }}
+                            className="flex-grow py-2.5 bg-white/5 hover:bg-brand/10 hover:text-brand border border-white/10 text-[10px] font-black uppercase tracking-widest text-white rounded-xl transition-all flex items-center justify-center gap-1.5"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                            Edit
+                          </button>
+                          <button 
+                            onClick={() => handleDelete(item.id)}
+                            className="p-2.5 bg-red-500/10 hover:bg-red-500 hover:text-white border border-red-500/10 text-red-500 rounded-xl transition-all"
+                            title="Delete Sport Shot"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </motion.div>
+          )}
+
+          {activeTab === 'blogs' && (
+            <motion.div key="blogs" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} className="space-y-8 font-sans">
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                <div className="space-y-2">
+                  <h1 className="text-5xl font-black uppercase italic tracking-tighter">Manage Blogs</h1>
+                  <p className="text-text-muted font-medium">Publish, edit or delete articles, news, and match analyses.</p>
+                </div>
+                <button 
+                  onClick={() => {
+                    setBlogForm({
+                      title: '',
+                      excerpt: '',
+                      content: '',
+                      category: 'football',
+                      imageUrl: 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?q=80&w=800',
+                      readTime: '5 min read',
+                      tagsInput: '',
+                      author: 'Admin'
+                    });
+                    setEditingBlogId(null);
+                    setIsAddingBlog(true);
+                  }}
+                  className="px-6 py-3 bg-brand text-white text-xs font-black uppercase italic hover:bg-brand/80 transition-all flex items-center gap-2 rounded-2xl"
+                >
+                  <Plus className="w-4 h-4" />
+                  New Blog Post
+                </button>
+              </div>
+
+              {blogsLoading ? (
+                <div className="py-20 flex flex-col items-center justify-center gap-3 animate-pulse">
+                  <div className="w-12 h-12 border-4 border-brand border-t-transparent rounded-full animate-spin"></div>
+                  <p className="text-text-muted text-xs font-bold uppercase tracking-widest">Retrieving Sports Articles...</p>
+                </div>
+              ) : blogs.length === 0 ? (
+                <div className="py-20 bg-surface/30 rounded-[32px] border-2 border-dashed border-white/5 flex flex-col items-center justify-center text-center">
+                  <BookOpen className="w-12 h-12 text-white/10 mb-4" />
+                  <p className="text-text-muted font-bold uppercase tracking-widest text-xs">No blogs found in collection</p>
+                </div>
+              ) : (
+                <div className="glass-card overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse font-sans">
+                      <thead>
+                        <tr className="border-b border-white/10 text-[10px] font-black uppercase tracking-widest bg-white/5 text-text-muted">
+                          <th className="p-5">Article details</th>
+                          <th className="p-5">Category</th>
+                          <th className="p-5">Author</th>
+                          <th className="p-5">Stats</th>
+                          <th className="p-5 text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-white/5">
+                        {blogs.map(blog => (
+                          <tr key={`blog-tr-${blog.id}`} className="hover:bg-white/5 transition-colors text-xs text-text-muted font-medium">
+                            <td className="p-5 flex gap-4 items-center max-w-sm">
+                              <img src={blog.imageUrl} alt={blog.title} className="w-16 h-12 object-cover rounded-lg bg-black" />
+                              <div>
+                                <h4 className="font-bold text-white uppercase tracking-wider line-clamp-1">{blog.title}</h4>
+                                <p className="text-text-muted text-[11px] line-clamp-1 mt-1">{blog.excerpt}</p>
+                              </div>
+                            </td>
+                            <td className="p-5 uppercase tracking-widest text-[11px] font-black text-brand font-mono">
+                              {blog.category}
+                            </td>
+                            <td className="p-5 text-white/95 uppercase tracking-wide font-medium">
+                              {blog.author}
+                            </td>
+                            <td className="p-5">
+                              <div className="flex gap-4 text-xs text-white/60">
+                                <span className="flex items-center gap-1.5" title="Views"><Eye className="w-3.5 h-3.5" /> {blog.views}</span>
+                                <span className="flex items-center gap-1.5 text-red-500/80" title="Likes"><Heart className="w-3.5 h-3.5" /> {blog.likesCount}</span>
+                              </div>
+                            </td>
+                            <td className="p-5 text-right font-sans my-auto">
+                              <div className="flex gap-2 justify-end">
+                                <button 
+                                  onClick={() => {
+                                    setBlogForm({
+                                      title: blog.title,
+                                      excerpt: blog.excerpt,
+                                      content: blog.content,
+                                      category: blog.category,
+                                      imageUrl: blog.imageUrl,
+                                      readTime: blog.readTime,
+                                      tagsInput: (blog.tags || []).join(', '),
+                                      author: blog.author || 'Admin'
+                                    });
+                                    setEditingBlogId(blog.id);
+                                    setIsAddingBlog(true);
+                                  }}
+                                  className="p-2 bg-white/5 hover:bg-brand/10 border border-white/10 hover:text-brand text-white transition-all rounded-lg"
+                                  title="Edit Blog Post"
+                                >
+                                  <Edit2 className="w-4 h-4" />
+                                </button>
+                                <button 
+                                  onClick={() => handleDeleteBlog(blog.id, blog.title)}
+                                  className="p-2 bg-red-500/10 hover:bg-red-500 hover:text-white border border-red-500/10 text-red-500 transition-all rounded-lg"
+                                  title="Delete Blog Post"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </motion.div>
+          )}
         </AnimatePresence>
       </div>
 
@@ -3248,6 +3583,72 @@ export default function Admin() {
               </div>
             </motion.div>
           )}
+
+        {isAddingBlog && (
+          <>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsAddingBlog(false)} className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60]" />
+            <motion.div initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }} className="fixed top-0 right-0 h-full w-full max-w-xl bg-surface border-l border-white/10 z-[70] p-8 overflow-y-auto font-sans">
+              <div className="flex items-center justify-between mb-8 font-sans">
+                <h2 className="text-2xl font-display uppercase font-black tracking-widest italic">{editingBlogId ? 'Edit Article' : 'Draft New Article'}</h2>
+                <button onClick={() => setIsAddingBlog(false)}><X className="w-6 h-6 hover:text-brand" /></button>
+              </div>
+              <form onSubmit={handleBlogSubmit} className="space-y-6 font-sans">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Article Title</label>
+                  <input type="text" required value={blogForm.title} onChange={e => setBlogForm({...blogForm, title: e.target.value})} className="w-full bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none" placeholder="e.g. Football Academy: Next Gen Talents" />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Excerpt (Teaser Description)</label>
+                  <textarea rows={2} required value={blogForm.excerpt} onChange={e => setBlogForm({...blogForm, excerpt: e.target.value})} className="w-full bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none" placeholder="A short 1-2 sentence hook to attract readers on the explore catalog..." />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-white/40 font-sans">Category</label>
+                    <select value={blogForm.category} onChange={e => setBlogForm({...blogForm, category: e.target.value})} className="w-full bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none uppercase font-mono text-[11px] font-bold">
+                      <option value="football">Football</option>
+                      <option value="cricket">Cricket</option>
+                      <option value="basketball">Basketball</option>
+                      <option value="tennis">Tennis</option>
+                      <option value="f1">F1 Racing</option>
+                      <option value="boxing">Combat Sports</option>
+                      <option value="golf">Golf</option>
+                      <option value="esports">E-Sports</option>
+                      <option value="kabaddi">Kabaddi</option>
+                      <option value="hockey">Hockey</option>
+                      <option value="others">Others</option>
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Read Time Estimation</label>
+                    <input type="text" required value={blogForm.readTime} onChange={e => setBlogForm({...blogForm, readTime: e.target.value})} className="w-full bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none" placeholder="e.g., 4 min read" />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-white/40 font-sans">Author Name</label>
+                    <input type="text" required value={blogForm.author} onChange={e => setBlogForm({...blogForm, author: e.target.value})} className="w-full bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-white/40 font-sans">Tags (Comma-separated)</label>
+                    <input type="text" value={blogForm.tagsInput} onChange={e => setBlogForm({...blogForm, tagsInput: e.target.value})} className="w-full bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none" placeholder="e.g. transfers, tactics, matches" />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Cover Image URL</label>
+                  <input type="text" required value={blogForm.imageUrl} onChange={e => setBlogForm({...blogForm, imageUrl: e.target.value})} className="w-full bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none" />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-white/40 font-mono">Article Content (Markdown format supported)</label>
+                  <textarea rows={10} required value={blogForm.content} onChange={e => setBlogForm({...blogForm, content: e.target.value})} className="w-full bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none font-mono text-xs leading-relaxed" placeholder="Write full article body here..." />
+                </div>
+                <button type="submit" className="btn-primary w-full flex items-center justify-center gap-2 py-4">
+                  <Save className="w-5 h-5" />
+                  Publish Article
+                </button>
+              </form>
+            </motion.div>
+          </>
+        )}
         </AnimatePresence>
     </div>
   );

@@ -10,15 +10,45 @@ service cloud.firestore {
     }
     function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
 
-    // Broad permissive rules for everything during migration/debug
-    match /{document=**} {
-      allow read: if true;
-      allow write: if isSignedIn();
-    }
-
-    // Specific user protection
+    // Users: owners/admins can read/write their own info
     match /users/{userId} {
       allow read, write: if isOwner(userId) || isAdmin();
+    }
+
+    // Blogs: everyone can read, only admin can write
+    match /blogs/{blogId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Content/Videos/Streams: everyone can read, only admin can write
+    match /content/{contentId} {
+      allow read: if true;
+      allow write: if isAdmin();
+      
+      // Comments subcollection: signed-in users can read/write
+      match /comments/{commentId} {
+        allow read: if true;
+        allow write: if isSignedIn();
+      }
+    }
+
+    // Slider: read for all, write for admin
+    match /slider/{slideId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Sections: read for all, write for admin
+    match /sections/{sectionId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Subscriptions: read for all, write for admin
+    match /subscriptions/{subId} {
+      allow read: if true;
+      allow write: if isAdmin();
     }
   }
 }

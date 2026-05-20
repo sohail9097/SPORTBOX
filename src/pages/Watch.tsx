@@ -224,8 +224,8 @@ export default function Watch() {
       <div className="flex flex-col min-h-[calc(100vh-80px)] max-w-[1920px] mx-auto">
         {/* Cinematic Player Section */}
         <div className="flex-grow bg-black relative flex flex-col">
-          <div className="z-40 bg-black pt-2 md:pt-8 px-3 md:px-12">
-            <div className="relative aspect-video flex items-center justify-center overflow-hidden max-w-7xl mx-auto w-full rounded-2xl md:rounded-3xl shadow-2xl">
+          <div className="z-40 bg-black p-0">
+            <div className="relative aspect-video flex items-center justify-center overflow-hidden w-full rounded-none shadow-2xl">
               {isLocked ? (
                 <div className="absolute inset-0 z-40 bg-black/95 flex items-center justify-center p-8">
                   <motion.div 

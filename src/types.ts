@@ -101,3 +101,19 @@ export interface SiteConfig {
   founderImageUrl?: string;
   logoUrl?: string;
 }
+
+export interface BlogPost {
+  id: string;
+  title: string;
+  excerpt: string;
+  content: string;
+  category: string;
+  imageUrl: string;
+  author: string;
+  authorEmail?: string;
+  createdAt: string;
+  readTime: string;
+  likesCount: number;
+  views: number;
+  tags?: string[];
+}

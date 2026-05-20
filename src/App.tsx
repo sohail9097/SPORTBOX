@@ -13,6 +13,7 @@ import Login from './pages/Login';
 import Legal from './pages/Legal';
 import DataDeletion from './pages/DataDeletion';
 import Shots from './pages/Shots';
+import Blogs from './pages/Blogs';
 import { ThemeProvider } from './lib/ThemeContext';
 import { AuthProvider } from './hooks/useAuth';
 
@@ -37,6 +38,7 @@ function App() {
               <Route path="/account" element={<Account />} />
               <Route path="/admin" element={<Admin />} />
               <Route path="/search" element={<Search />} />
+              <Route path="/blogs" element={<Blogs />} />
               <Route path="/legal/privacy" element={<Legal />} />
               <Route path="/legal/terms" element={<Legal />} />
               <Route path="/legal/cookies" element={<Legal />} />

@@ -1,5 +1,5 @@
 export type Category = 'football' | 'cricket' | 'basketball' | 'tennis' | 'f1' | 'boxing' | 'golf' | 'esports' | 'others';
-export type ContentType = 'live' | 'replay' | 'highlight';
+export type ContentType = 'live' | 'replay' | 'highlight' | 'short';
 export type Status = 'scheduled' | 'live' | 'ended';
 
 export interface SportsContent {

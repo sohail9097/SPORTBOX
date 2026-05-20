@@ -2809,6 +2809,7 @@ export default function Admin() {
                         <option value="replay">Replay</option>
                         <option value="highlight">Highlight</option>
                         <option value="live">Live Stream</option>
+                        <option value="short">Short Video (Vertical)</option>
                      </select>
                   </div>
                 </div>

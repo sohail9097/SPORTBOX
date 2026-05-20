@@ -12,6 +12,7 @@ import Search from './pages/Search';
 import Login from './pages/Login';
 import Legal from './pages/Legal';
 import DataDeletion from './pages/DataDeletion';
+import Shots from './pages/Shots';
 import { ThemeProvider } from './lib/ThemeContext';
 import { AuthProvider } from './hooks/useAuth';
 
@@ -30,6 +31,7 @@ function App() {
               <Route path="/login" element={<Login />} />
               <Route path="/live" element={<Live />} />
               <Route path="/category/:category" element={<CategoryPage />} />
+              <Route path="/shorts" element={<Shots />} />
               <Route path="/watch/:id" element={<Watch />} />
               <Route path="/plans" element={<Plans />} />
               <Route path="/account" element={<Account />} />

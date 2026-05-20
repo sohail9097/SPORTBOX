@@ -243,8 +243,78 @@ async function startServer() {
       }
     });
 
+    // Seed premium vertical sport shorts
+    const shortsData = [
+      {
+        id: 'short-bkey-1',
+        title: 'Steph Curry Pregame Shooting routine',
+        description: 'Witness the pure excellence of Curry as he warms up for the big game with non-stop swishes!',
+        category: 'basketball',
+        type: 'short',
+        videoUrl: 'https://assets.mixkit.co/videos/preview/mixkit-basketball-player-dribbling-the-ball-34444-large.mp4',
+        thumbnailUrl: 'https://images.unsplash.com/photo-1546519638-68e109498ffc?q=80&w=800',
+        isPremium: false,
+        viewCount: 14500,
+        likes: 1243,
+        createdAt: now,
+        status: 'ended',
+        tags: ['basketball', 'speed', 'pro']
+      },
+      {
+        id: 'short-soccer-2',
+        title: 'Top Bin Practice Goal of the Week',
+        description: 'Perfect curled shot into the absolute top corner of the net during sunset practice.',
+        category: 'football',
+        type: 'short',
+        videoUrl: 'https://assets.mixkit.co/videos/preview/mixkit-soccer-player-kicking-ball-in-stadium-1549-large.mp4',
+        thumbnailUrl: 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?q=80&w=800',
+        isPremium: false,
+        viewCount: 22400,
+        likes: 3105,
+        createdAt: now,
+        status: 'ended',
+        tags: ['football', 'goal', 'skills']
+      },
+      {
+        id: 'short-boxing-3',
+        title: 'Rapid Fire Punch Combos',
+        description: 'Unbelievable speed and precision combos training session under intense coaches directions.',
+        category: 'boxing',
+        type: 'short',
+        videoUrl: 'https://assets.mixkit.co/videos/preview/mixkit-boxing-glove-hitting-air-4876-large.mp4',
+        thumbnailUrl: 'https://images.unsplash.com/photo-1549719386-74dfcbf7dbed?q=80&w=800',
+        isPremium: true,
+        viewCount: 8900,
+        likes: 721,
+        createdAt: now,
+        status: 'ended',
+        tags: ['boxing', 'training', 'speed']
+      },
+      {
+        id: 'short-tennis-4',
+        title: 'Perfect Forehand Stroke Slow-Mo',
+        description: 'Deconstruct the flawless forehand technique under advanced high-speed action camera.',
+        category: 'tennis',
+        type: 'short',
+        videoUrl: 'https://assets.mixkit.co/videos/preview/mixkit-tennis-player-hitting-ball-with-racket-1550-large.mp4',
+        thumbnailUrl: 'https://images.unsplash.com/photo-1622279457486-62dcc4a4bd1d?q=80&w=800',
+        isPremium: false,
+        viewCount: 12000,
+        likes: 914,
+        createdAt: now,
+        status: 'ended',
+        tags: ['tennis', 'pro', 'skills']
+      }
+    ];
+
+    shortsData.forEach(short => {
+      const docRef = db.collection('content').doc(short.id);
+      batch.set(docRef, short);
+      totalAdded++;
+    });
+
     await batch.commit();
-    res.json({ success: true, message: `Successfully seeded ${totalAdded} items across ${categories.length} categories (Excluding Cricket).` });
+    res.json({ success: true, message: `Successfully seeded ${totalAdded} items including vertical Sport Shots (Excluding Cricket).` });
     } catch (error: any) {
       console.error('[Seed Error]', error);
       res.status(500).json({ error: error.message });

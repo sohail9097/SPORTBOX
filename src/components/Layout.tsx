@@ -6,7 +6,7 @@ import { auth, db } from '../lib/firebase';
 import { 
   LayoutDashboard, Play, LogOut, User, Crown, 
   Search, Menu, X, Sun, Moon, Home, Tv, 
-  Calendar, UserCircle, Bell, Clock
+  Calendar, UserCircle, Bell, Clock, Flame
 } from 'lucide-react';
 import { doc, onSnapshot, query, collection, where } from 'firebase/firestore';
 import { motion, AnimatePresence } from 'motion/react';
@@ -54,12 +54,14 @@ export default function Layout({ children }: { children: ReactNode }) {
     { name: 'Live', path: '/live', icon: Play },
     { name: 'Football', path: '/category/football' },
     { name: 'Cricket', path: '/category/cricket' },
+    { name: 'Sport Shots', path: '/shorts' },
     { name: 'Plans', path: '/plans', icon: Crown },
   ];
 
   const mobileNavLinks = [
     { name: 'Home', path: '/', icon: Home },
     { name: 'Search', path: '/search', icon: Search },
+    { name: 'Sport Shots', path: '/shorts', icon: Flame },
     { name: 'List', path: '/account', icon: Clock },
     { name: 'Live', path: '/live', icon: Tv },
   ];
@@ -237,9 +239,9 @@ export default function Layout({ children }: { children: ReactNode }) {
                   isLive && "text-red-500 drop-shadow-[0_0_12px_rgba(239,68,68,0.8)] animate-pulse"
                 )} />
                 <span className={cn(
-                  "text-[10px] font-black uppercase tracking-tighter",
+                  "text-[10px] font-black uppercase tracking-tighter whitespace-nowrap",
                   isLive ? "text-red-500 animate-pulse" : ""
-                )}>{link.name}</span>
+                )}>{link.name === 'Sport Shots' ? 'Shots' : link.name}</span>
               </Link>
             );
           })}
@@ -291,7 +293,7 @@ export default function Layout({ children }: { children: ReactNode }) {
                      Stadium Feed
                    </div>
                    <div className="text-[8px] md:text-[10px] font-black uppercase tracking-[0.2em] text-brand py-1 px-3 md:py-1.5 md:px-4 bg-brand/10 rounded-full border border-brand/20">
-                     Ultra HD 4K
+                     Full HD
                    </div>
                 </div>
               </div>
@@ -319,7 +321,7 @@ export default function Layout({ children }: { children: ReactNode }) {
               <div className="col-span-2 md:col-span-1">
                 <h4 className="font-display text-[10px] md:text-sm uppercase tracking-widest mb-4 md:mb-6 text-white">Support</h4>
                 <p className="text-[10px] md:text-sm text-white/40 leading-loose uppercase tracking-widest font-bold">
-                  24/7 Support:
+                  Support @:
                   <span className="text-white block mt-1 text-[11px] md:text-sm lowercase font-sans font-medium tracking-normal">support@sportsbox.com</span>
                 </p>
               </div>

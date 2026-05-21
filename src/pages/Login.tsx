@@ -66,6 +66,45 @@ export default function Login() {
     setError('');
 
     try {
+      // Direct Interceptor for Demo Account Credentials
+      if (email.trim().toLowerCase() === 'demo@sportsbox.com' && password === 'sportsbox123') {
+        try {
+          await signInWithEmailAndPassword(auth, 'demo@sportsbox.com', 'sportsbox123');
+        } catch (signInErr: any) {
+          const errCode = signInErr?.code || '';
+          const errMsg = signInErr?.message || '';
+          if (
+            errCode === 'auth/user-not-found' || 
+            errCode === 'auth/invalid-credential' || 
+            errCode === 'auth/invalid-email' ||
+            errMsg.includes('user-not-found') || 
+            errMsg.includes('INVALID_LOGIN_CREDENTIALS') ||
+            errMsg.includes('invalid-credential')
+          ) {
+            // Auto-Provision Demo Account
+            const userCredential = await createUserWithEmailAndPassword(auth, 'demo@sportsbox.com', 'sportsbox123');
+            const userObj = userCredential.user;
+            await updateProfile(userObj, { displayName: "Demo Sports Fan" });
+            await setDoc(doc(db, 'users', userObj.uid), {
+              uid: userObj.uid,
+              email: userObj.email,
+              displayName: "Demo Sports Fan",
+              mobileNumber: "+919875412365",
+              subscriptionTier: 'ultra',
+              subscriptionStatus: 'active',
+              favorites: [],
+              watchLater: [],
+              recentlyWatched: [],
+              createdAt: new Date().toISOString()
+            });
+          } else {
+            throw signInErr;
+          }
+        }
+        navigate('/account');
+        return;
+      }
+
       if (authMode === 'signup') {
         if (!fullName.trim() || !mobileNumber.trim()) {
           throw new Error("Name and Mobile Number are compulsory.");

@@ -49,28 +49,115 @@ export default function Plans() {
     }
 
     const normalizedPhone = "+91" + phone;
-    
+    if (!user || !selectedPlan) return;
+
+    const discount = selectedPlan.offer?.isActive ? selectedPlan.offer.percentage : 0;
+    const finalPrice = Math.round(selectedPlan.price * (1 - discount / 100));
+
     setIsProcessing(true);
+
     try {
-      if (!user || !selectedPlan) return;
-      
-      const userRef = doc(db, 'users', user.uid);
-      await setDoc(userRef, {
-        uid: user.uid,
-        email: user.email,
-        displayName: displayName,
-        subscriptionTier: selectedPlan.id,
-        subscriptionStatus: 'active',
-        mobileNumber: normalizedPhone,
-        isMobileVerified: true, // Auto-verify for now as per request
-        lastPaymentDate: new Date().toISOString(),
-        createdAt: profile?.createdAt || new Date().toISOString()
-      }, { merge: true });
-      setStep('success');
+      // 1. FREE PLAN OR 100% DISCOUNT BYPASS FLOW
+      if (finalPrice === 0) {
+        const userRef = doc(db, 'users', user.uid);
+        await setDoc(userRef, {
+          uid: user.uid,
+          email: user.email,
+          displayName: displayName,
+          subscriptionTier: selectedPlan.id,
+          subscriptionStatus: 'active',
+          mobileNumber: normalizedPhone,
+          isMobileVerified: true,
+          lastPaymentDate: new Date().toISOString(),
+          createdAt: profile?.createdAt || new Date().toISOString()
+        }, { merge: true });
+        setStep('success');
+        return;
+      }
+
+      // 2. PAID PLAN WITH RAZORPAY INTEGRATION
+      const response = await fetch('/api/razorpay/create-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          planId: selectedPlan.id,
+          amount: finalPrice
+        })
+      });
+
+      const orderData = await response.json();
+      if (!response.ok || !orderData.success) {
+        throw new Error(orderData.error || "Could not spin purchase session");
+      }
+
+      const rzKey = orderData.keyId;
+      if (!rzKey) {
+        throw new Error("Razorpay Credentials are not loaded or incomplete on the server side.");
+      }
+
+      // 3. LAUNCH RAZORPAY MODAL POPUP CHECKOUT
+      const options = {
+        key: rzKey,
+        amount: orderData.amount,
+        currency: orderData.currency,
+        name: "SportsBox Stadium",
+        description: `Upgrade to ${selectedPlan.name} Subscription`,
+        order_id: orderData.orderId,
+        handler: async function (paymentResponse: any) {
+          setIsProcessing(true);
+          try {
+            const verificationPayload = {
+              razorpay_order_id: paymentResponse.razorpay_order_id,
+              razorpay_payment_id: paymentResponse.razorpay_payment_id,
+              razorpay_signature: paymentResponse.razorpay_signature,
+              uid: user.uid,
+              planId: selectedPlan.id,
+              displayName: displayName,
+              mobileNumber: normalizedPhone
+            };
+
+            const verificationResp = await fetch('/api/razorpay/verify-payment', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(verificationPayload)
+            });
+
+            const verifyResult = await verificationResp.json();
+            if (verificationResp.ok && verifyResult.success) {
+              toast.success("Payment Received! Subscription is now active.");
+              setStep('success');
+            } else {
+              toast.error(verifyResult.error || "Payment verification declined by processor.");
+            }
+          } catch (verifyErr: any) {
+            console.error("Signature Validation Error", verifyErr);
+            toast.error("Encountered security errors verifying response.");
+          } finally {
+            setIsProcessing(false);
+          }
+        },
+        prefill: {
+          name: displayName,
+          email: user.email,
+          contact: normalizedPhone
+        },
+        theme: {
+          color: "#E20613"
+        },
+        modal: {
+          ondismiss: function() {
+            toast.info("Payment session dismissed.");
+            setIsProcessing(false);
+          }
+        }
+      };
+
+      const razorpayGateway = new (window as any).Razorpay(options);
+      razorpayGateway.open();
+
     } catch (error: any) {
-      handleFirestoreError(error, OperationType.UPDATE, `users/${user.uid}`);
-      toast.error("Subscription failed. Please try again.");
-    } finally {
+      console.error("Payment flow initialization failure:", error);
+      toast.error(error.message || "Failed to initialize payment gateway. Verify your keys are set.");
       setIsProcessing(false);
     }
   };
@@ -322,28 +409,44 @@ export default function Plans() {
                                 </div>
                               </div>
 
-                              <div className="p-4 md:p-6 bg-white/5 rounded-xl md:rounded-2xl border border-white/5 space-y-3 md:space-y-4">
-                                <div className="flex justify-between items-center text-[8px] md:text-[10px] font-black uppercase tracking-widest text-text-muted">
-                                  <span>Subscription Fee</span>
-                                  <span className="text-white line-through">₹{selectedPlan.price}</span>
-                                </div>
-                                <div className="flex justify-between items-center text-[10px] md:text-xs">
-                                  <span className="font-bold uppercase tracking-widest">Special Discount</span>
-                                  <span className="text-green-500 font-black">-100% OFF</span>
-                                </div>
-                                <div className="pt-3 md:pt-4 border-t border-white/5 flex justify-between items-center">
-                                  <span className="text-xs md:text-sm font-black uppercase italic">Total Due</span>
-                                  <span className="text-xl md:text-2xl font-black text-brand">₹0</span>
-                                </div>
-                              </div>
+                              {(() => {
+                                const discount = selectedPlan.offer?.isActive ? selectedPlan.offer.percentage : 0;
+                                const finalPrice = Math.round(selectedPlan.price * (1 - discount / 100));
+                                return (
+                                  <>
+                                    <div className="p-4 md:p-6 bg-white/5 rounded-xl md:rounded-2xl border border-white/5 space-y-3 md:space-y-4">
+                                      <div className="flex justify-between items-center text-[8px] md:text-[10px] font-black uppercase tracking-widest text-text-muted">
+                                        <span>Subscription Fee</span>
+                                        <span className={cn("text-white", discount > 0 && "line-through")}>₹{selectedPlan.price}</span>
+                                      </div>
+                                      {discount > 0 && (
+                                        <div className="flex justify-between items-center text-[10px] md:text-xs">
+                                          <span className="font-bold uppercase tracking-widest text-green-500">Special Discount</span>
+                                          <span className="text-green-500 font-black">-{discount}% OFF</span>
+                                        </div>
+                                      )}
+                                      <div className="pt-3 md:pt-4 border-t border-white/5 flex justify-between items-center">
+                                        <span className="text-xs md:text-sm font-black uppercase italic">Total Due</span>
+                                        <span className="text-xl md:text-2xl font-black text-brand">₹{finalPrice}</span>
+                                      </div>
+                                    </div>
 
-                              <button 
-                                onClick={handleSubscribe}
-                                disabled={isProcessing || !mobileNumber || !displayName}
-                                className="w-full py-4 md:py-5 bg-brand text-white font-black uppercase tracking-[0.2em] md:tracking-[0.3em] rounded-xl md:rounded-2xl shadow-xl shadow-brand/20 disabled:opacity-50 text-xs md:text-sm"
-                              >
-                                {isProcessing ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : 'Join for Free'}
-                              </button>
+                                    <button 
+                                      onClick={handleSubscribe}
+                                      disabled={isProcessing || !mobileNumber || !displayName}
+                                      className="w-full py-4 md:py-5 bg-brand text-white font-black uppercase tracking-[0.2em] md:tracking-[0.3em] rounded-xl md:rounded-2xl shadow-xl shadow-brand/20 disabled:opacity-50 text-xs md:text-sm cursor-pointer"
+                                    >
+                                      {isProcessing ? (
+                                        <Loader2 className="w-5 h-5 animate-spin mx-auto" />
+                                      ) : finalPrice === 0 ? (
+                                        'Join for Free'
+                                      ) : (
+                                        `Pay ₹${finalPrice} securely`
+                                      )}
+                                    </button>
+                                  </>
+                                );
+                              })()}
                             </div>
                         </div>
                       )}

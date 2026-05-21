@@ -5,6 +5,8 @@ import { fileURLToPath } from 'url';
 import admin from 'firebase-admin';
 import fs from 'fs';
 import cors from 'cors';
+import Razorpay from 'razorpay';
+import crypto from 'crypto';
 
 // Initialize Firebase Admin
 let adminApp: admin.app.App;
@@ -108,6 +110,130 @@ async function startServer() {
   // UN-AUTHENTICATED PING
   apiRouter.get('/ping', (req, res) => {
     res.json({ pong: true, timestamp: new Date().toISOString() });
+  });
+
+  // --- RAZORPAY PAYMENT GATEWAY MODULE ---
+  let razorpayInstance: any = null;
+  function getRazorpay() {
+    if (!razorpayInstance) {
+      const keyId = process.env.RAZORPAY_KEY_ID;
+      const keySecret = process.env.RAZORPAY_KEY_SECRET;
+      if (!keyId || !keySecret) {
+        throw new Error("Razorpay API Keys are not configured on the server. Please set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET.");
+      }
+      razorpayInstance = new Razorpay({
+        key_id: keyId,
+        key_secret: keySecret
+      });
+    }
+    return razorpayInstance;
+  }
+
+  // Create Razorpay Order
+  apiRouter.post('/razorpay/create-order', async (req, res) => {
+    try {
+      const { planId, amount } = req.body;
+      if (!planId || !amount) {
+        return res.status(400).json({ error: 'Missing parameters: planId and amount are required' });
+      }
+
+      const client = getRazorpay();
+      
+      const options = {
+        amount: Math.round(parseFloat(amount) * 100), // Amount in paise
+        currency: "INR",
+        receipt: `receipt_${planId}_${Date.now()}`
+      };
+
+      const order = await (client.orders as any).create(options);
+      console.log(`[Razorpay] Created order ${order.id} for plan ${planId} of amount ${amount} INR`);
+
+      res.json({
+        success: true,
+        orderId: order.id,
+        amount: order.amount,
+        currency: order.currency,
+        keyId: process.env.RAZORPAY_KEY_ID // Send to client for initialization
+      });
+    } catch (error: any) {
+      console.error('[Razorpay Create Order Error]:', error);
+      res.status(500).json({ error: error.message || 'Failed to create order' });
+    }
+  });
+
+  // Verify Razorpay Payment Signature and activate subscription
+  apiRouter.post('/razorpay/verify-payment', async (req, res) => {
+    try {
+      const { 
+        razorpay_order_id, 
+        razorpay_payment_id, 
+        razorpay_signature, 
+        uid, 
+        planId, 
+        displayName, 
+        mobileNumber 
+      } = req.body;
+
+      if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature || !uid || !planId) {
+        return res.status(400).json({ error: 'Missing required parameters for payment verification' });
+      }
+
+      // Verify Razorpay Signature
+      const secret = process.env.RAZORPAY_KEY_SECRET;
+      if (!secret) {
+        throw new Error("Razorpay Secret is not configured on the server.");
+      }
+
+      const signBody = razorpay_order_id + "|" + razorpay_payment_id;
+      const expectedSignature = crypto
+        .createHmac('sha256', secret)
+        .update(signBody)
+        .digest('hex');
+
+      if (expectedSignature !== razorpay_signature) {
+        console.warn(`[Razorpay Signature Invalidation] Received: ${razorpay_signature}, Expected: ${expectedSignature}`);
+        return res.status(400).json({ success: false, error: 'Payment verification failed: Invalid signature' });
+      }
+
+      console.log(`[Razorpay Payment Verified] Order: ${razorpay_order_id}, Payment: ${razorpay_payment_id}`);
+
+      // Update subscription in Firestore
+      const firebaseConfig = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'firebase-applet-config.json'), 'utf8'));
+      const dbId = firebaseConfig.firestoreDatabaseId && firebaseConfig.firestoreDatabaseId !== '(default)'
+        ? firebaseConfig.firestoreDatabaseId
+        : undefined;
+      const db = admin.firestore(dbId);
+
+      const userRef = db.collection('users').doc(uid);
+      const userSnap = await userRef.get();
+      const existingData = userSnap.exists ? userSnap.data() : {};
+
+      const newUserData = {
+        uid,
+        email: existingData?.email || null,
+        displayName: displayName || existingData?.displayName || null,
+        subscriptionTier: planId,
+        subscriptionStatus: 'active',
+        mobileNumber: mobileNumber || existingData?.mobileNumber || null,
+        isMobileVerified: true,
+        lastPaymentDate: new Date().toISOString(),
+        paymentDetails: {
+          gateway: 'razorpay',
+          orderId: razorpay_order_id,
+          paymentId: razorpay_payment_id,
+          verifiedAt: new Date().toISOString()
+        },
+        createdAt: existingData?.createdAt || new Date().toISOString()
+      };
+
+      await userRef.set(newUserData, { merge: true });
+      console.log(`[Firestore Updated] Activated subscription for ${uid} as ${planId}`);
+
+      res.json({ success: true, message: 'Payment verified and subscription activated.' });
+    } catch (error: any) {
+      console.error('[Razorpay Verify Payment Error]:', error);
+      res.status(500).json({ error: error.message || 'Failed to verify payment' });
+    }
   });
 
   // Admin API Routes

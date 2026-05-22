@@ -3,9 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { db, handleFirestoreError, OperationType, auth } from '../lib/firebase';
 import { collection, addDoc, getDocs, getDoc, deleteDoc, doc, updateDoc, query, orderBy, setDoc, onSnapshot } from 'firebase/firestore';
 import { SportsContent, Category, ContentType, ContentSection, SliderElement, VideoPromoSettings, SiteConfig, PlayerSettings, SubscriptionPlan, BlogPost } from '../types';
-import { Plus, Trash2, Edit2, Play, LayoutDashboard, Film, Users, Settings, Save, X, Eye, Radio, Crown, Layers, MoveUp, MoveDown, CheckSquare, Square, Image as ImageIcon, Upload, Library, ShieldCheck, ShieldAlert, Zap, Percent, Trophy, ChevronRight, Activity, Heart, Dribbble, CircleDot, Target, Disc, Flag, Gamepad2, Folder, ChevronLeft, BookOpen, Scissors } from 'lucide-react';
+import { Plus, Trash2, Edit2, Play, LayoutDashboard, Film, Users, Settings, Save, X, Eye, Radio, Crown, Layers, MoveUp, MoveDown, CheckSquare, Square, Image as ImageIcon, Upload, Library, ShieldCheck, ShieldAlert, Zap, Percent, Trophy, ChevronRight, Activity, Heart, Dribbble, CircleDot, Target, Disc, Flag, Gamepad2, Folder, ChevronLeft, BookOpen, Scissors, Waves, Flame, Compass } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { cn, formatDate, transformGDriveUrl } from '../lib/utils';
+import { cn, formatDate, transformGDriveUrl, getVideoAutoThumbnail } from '../lib/utils';
 import { useAuth } from '../hooks/useAuth';
 import MediaManager from '../components/MediaManager';
 import StadiumPlayer from '../components/StadiumPlayer';
@@ -155,6 +155,9 @@ export default function Admin() {
     tags: []
   });
   const [tagsInput, setTagsInput] = useState('');
+  const [allLibraryVideos, setAllLibraryVideos] = useState<any[]>([]);
+  const [showLibrarySelect, setShowLibrarySelect] = useState(false);
+  const [loadingVideos, setLoadingVideos] = useState(false);
 
   // Section Form state
   const [editingSectionId, setEditingSectionId] = useState<string | null>(null);
@@ -180,7 +183,8 @@ export default function Admin() {
     order: 0,
     isActive: true,
     animationType: 'fade',
-    page: 'home'
+    page: 'home',
+    directVideoPlay: false
   });
 
   // Plan Form state
@@ -273,17 +277,17 @@ export default function Admin() {
           tags: ['Cricket', 'World Cup']
         },
         {
-          title: 'F1: Monaco Grand Prix Highlights',
-          description: 'High speed drama in the streets of Monte Carlo.',
-          category: 'f1',
+          title: 'Heavyweight Championship Fight Highlights',
+          description: 'A spectacular boxing showdown for the undisputed crown.',
+          category: 'boxing',
           type: 'highlight',
           videoUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
-          thumbnailUrl: 'https://images.unsplash.com/photo-1533139502658-0198f920d8e8',
+          thumbnailUrl: 'https://images.unsplash.com/photo-1549719386-74dfcbf7dbed',
           isPremium: false,
           viewCount: 2200,
           createdAt: new Date().toISOString(),
           status: 'ended',
-          tags: ['F1', 'Speed']
+          tags: ['Boxing', 'Championship']
         }
       ];
 
@@ -568,6 +572,43 @@ export default function Admin() {
     }
   };
 
+  const purgeAllDynamicContent = async () => {
+    if (!window.confirm("CRITICAL WARNING: This will permanently delete ALL matches, replay content, slider settings, custom homepage sections, and blogs in your app database. This cannot be undone! Continue?")) return;
+    setIsSaving(true);
+    try {
+      // 1. Purge 'content'
+      const contentSnap = await getDocs(collection(db, 'content'));
+      for (const d of contentSnap.docs) {
+        await deleteDoc(doc(db, 'content', d.id));
+      }
+      
+      // 2. Purge 'blogs'
+      const blogsSnap = await getDocs(collection(db, 'blogs'));
+      for (const d of blogsSnap.docs) {
+        await deleteDoc(doc(db, 'blogs', d.id));
+      }
+
+      // 3. Purge 'slider'
+      const sliderSnap = await getDocs(collection(db, 'slider'));
+      for (const d of sliderSnap.docs) {
+        await deleteDoc(doc(db, 'slider', d.id));
+      }
+
+      // 4. Purge 'sections'
+      const sectionsSnap = await getDocs(collection(db, 'sections'));
+      for (const d of sectionsSnap.docs) {
+        await deleteDoc(doc(db, 'sections', d.id));
+      }
+
+      toast.success("Database fully wiped! All dummy & user content successfully removed.");
+    } catch (err) {
+      console.error("Purge error:", err);
+      toast.error("Failed to purge database: " + (err instanceof Error ? err.message : ""));
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   // fetchPlayerConfig, fetchVideoPromo, fetchSiteConfig are handled by onSnapshot in useEffect
 
   const handlePlayerConfigUpdate = async (e: React.FormEvent) => {
@@ -583,6 +624,25 @@ export default function Admin() {
       handleFirestoreError(error, OperationType.UPDATE, 'settings/playerConfig');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const loadAllLibraryVideos = async () => {
+    setLoadingVideos(true);
+    try {
+      const q = query(collection(db, 'library'), orderBy('createdAt', 'desc'));
+      const snap = await getDocs(q);
+      const items = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      // Filter items to ensure we display actual video types
+      const videos = items.filter((item: any) => {
+        const urlStr = (item.url || '').toLowerCase();
+        return item.type === 'video' || urlStr.endsWith('.mp4') || urlStr.endsWith('.m3u8') || urlStr.includes('youtube.com') || urlStr.includes('youtu.be');
+      });
+      setAllLibraryVideos(videos);
+    } catch (err) {
+      console.error("Failed to load library videos:", err);
+    } finally {
+      setLoadingVideos(false);
     }
   };
 
@@ -617,7 +677,7 @@ export default function Admin() {
         const defaultFolders = [
           'Ads', 'Banner', 'Cast & Crew', 'Constant', 'Genres', 
           'Live TV', 'Logos', 'Movie', 'Onboarding', 'TV Show', 
-          'Users', 'Video', 'Cricket', 'Football', 'Basketball', 
+          'Users', 'Video', 'Cricket', 'Football', 'Wrestling', 
           'Tennis', 'Kabaddi', 'Hockey', 'Combat Sports'
         ];
         
@@ -1053,7 +1113,7 @@ export default function Admin() {
       setEditingSliderId(null);
       fetchSlider();
       toast.success("Slide saved successfully!");
-      setSliderForm({ title: '', description: '', imageUrl: '', videoUrl: '', actionUrl: '', isLive: false, order: 0, isActive: true, animationType: 'fade', page: 'home' });
+      setSliderForm({ title: '', description: '', imageUrl: '', videoUrl: '', actionUrl: '', isLive: false, order: 0, isActive: true, animationType: 'fade', page: 'home', directVideoPlay: false });
     } catch (error) {
       console.error("Slider save error:", error);
       toast.error("Failed to save slide. " + (error instanceof Error ? error.message : ""));
@@ -1333,7 +1393,10 @@ export default function Admin() {
                     {liveItems.map(stream => (
                       <div key={`stream-stat-${stream.id}`} className="flex items-center gap-4 p-4 bg-surface/50 border border-white/5 rounded-2xl">
                         <div className="w-16 h-10 rounded-lg overflow-hidden border border-border bg-black">
-                          {stream.thumbnailUrl && <img src={stream.thumbnailUrl} className="w-full h-full object-cover" alt="" />}
+                          {(() => {
+                            const t = stream.thumbnailUrl && stream.thumbnailUrl.trim() !== '' ? stream.thumbnailUrl : getVideoAutoThumbnail(stream.videoUrl || '', stream.category);
+                            return t ? <img src={t} className="w-full h-full object-cover" alt="" /> : null;
+                          })()}
                         </div>
                         <div className="flex-grow">
                           <p className="text-xs font-bold text-white truncate max-w-[150px]">{stream.title}</p>
@@ -1513,7 +1576,10 @@ export default function Admin() {
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-4">
                             <div className="h-12 w-20 rounded-lg overflow-hidden bg-bg border border-border">
-                              {item.thumbnailUrl && item.thumbnailUrl.trim() !== '' && <img src={item.thumbnailUrl} className="w-full h-full object-cover" alt="" />}
+                              {(() => {
+                                const t = item.thumbnailUrl && item.thumbnailUrl.trim() !== '' ? item.thumbnailUrl : getVideoAutoThumbnail(item.videoUrl || '', item.category);
+                                return t ? <img src={t} className="w-full h-full object-cover" alt="" /> : null;
+                              })()}
                             </div>
                             <div>
                               <p className="text-sm font-bold truncate max-w-[200px]">{item.title}</p>
@@ -1594,14 +1660,15 @@ export default function Admin() {
                         </div>
                       </button>
 
-                      {['cricket', 'football', 'basketball', 'tennis', 'f1', 'boxing', 'golf', 'esports', 'kabaddi', 'hockey', 'others'].map((cat) => {
+                      {['cricket', 'football', 'wrestling', 'boxing', 'kabaddi', 'watersports', 'stunts', 'polo', 'others'].map((cat) => {
                         const Icon = cat === 'football' ? Dribbble : 
                                      cat === 'cricket' ? Trophy : 
-                                     cat === 'basketball' ? CircleDot : 
-                                     cat === 'tennis' ? Disc : 
-                                     cat === 'f1' ? Flag :
+                                     cat === 'wrestling' ? Activity : 
                                      cat === 'boxing' ? Target :
-                                     cat === 'esports' ? Gamepad2 : Activity;
+                                     cat === 'kabaddi' ? Zap :
+                                     cat === 'watersports' ? Waves :
+                                     cat === 'stunts' ? Flame :
+                                     cat === 'polo' ? Compass : Activity;
                         return (
                           <button
                             key={cat}
@@ -1662,7 +1729,8 @@ export default function Admin() {
                               order: (slider.length > 0 ? Math.max(...slider.map(s => s.order)) + 1 : 0), 
                               isActive: true, 
                               animationType: 'fade',
-                              page: selectedCategory 
+                              page: selectedCategory,
+                              directVideoPlay: false
                             });
                             setIsAddingSlider(true);
                           }}
@@ -1778,7 +1846,7 @@ export default function Admin() {
                   <button 
                     onClick={() => {
                       setEditingSliderId(null);
-                      setSliderForm({ title: '', description: '', imageUrl: '', videoUrl: '', actionUrl: '', isLive: false, order: (slider.length > 0 ? Math.max(...slider.map(s => s.order)) + 1 : 0), isActive: true, animationType: 'fade' });
+                      setSliderForm({ title: '', description: '', imageUrl: '', videoUrl: '', actionUrl: '', isLive: false, order: (slider.length > 0 ? Math.max(...slider.map(s => s.order)) + 1 : 0), isActive: true, animationType: 'fade', directVideoPlay: false });
                       setIsAddingSlider(true);
                     }}
                     className="btn-primary flex items-center gap-2"
@@ -1855,7 +1923,10 @@ export default function Admin() {
                     <div key={`live-center-${item.id}`} className="glass-card p-6 border-l-4 border-l-brand">
                       <div className="flex justify-between items-start mb-4">
                         <div className="h-10 w-16 bg-bg border border-border rounded overflow-hidden">
-                          {item.thumbnailUrl && item.thumbnailUrl.trim() !== '' && <img src={item.thumbnailUrl} className="w-full h-full object-cover" alt="" />}
+                          {(() => {
+                            const t = item.thumbnailUrl && item.thumbnailUrl.trim() !== '' ? item.thumbnailUrl : getVideoAutoThumbnail(item.videoUrl || '', item.category);
+                            return t ? <img src={t} className="w-full h-full object-cover" alt="" /> : null;
+                          })()}
                         </div>
                         <span className={cn(
                           "px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest border",
@@ -2365,6 +2436,20 @@ export default function Admin() {
                           Initialize Pricing Plans
                         </button>
                      </div>
+                     <div className="space-y-4 md:col-span-2 pt-6 border-t border-white/5">
+                        <h4 className="font-bold text-red-500 uppercase text-xs tracking-widest italic">Danger Zone: Pure Database Reset</h4>
+                        <p className="text-xs text-text-muted leading-relaxed">
+                          Permanently delete all custom configurations, imported media matches, horizontal sliders, layout sections, comment lists, and sports articles to start with a blank app.
+                        </p>
+                        <button 
+                          onClick={purgeAllDynamicContent}
+                          disabled={isSaving}
+                          className="px-6 py-4 bg-red-600/10 border border-red-600/20 text-red-500 hover:text-white hover:bg-red-600 rounded-xl text-[10px] font-black uppercase italic tracking-[0.2em] transition-all flex items-center gap-2 disabled:opacity-50"
+                        >
+                          {isSaving ? <Activity className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                          Purge All Content & Reset App
+                        </button>
+                     </div>
                   </div>
                 </div>
 
@@ -2689,9 +2774,10 @@ export default function Admin() {
                             <td className="px-6 py-4">
                               <div className="flex items-center gap-3">
                                 <div className="w-12 h-8 rounded bg-surface overflow-hidden">
-                                  {item.thumbnailUrl && item.thumbnailUrl.trim() !== '' && (
-                                    <img src={transformGDriveUrl(item.thumbnailUrl, 'image')} className="w-full h-full object-cover" alt="" />
-                                  )}
+                                  {(() => {
+                                    const t = item.thumbnailUrl && item.thumbnailUrl.trim() !== '' ? transformGDriveUrl(item.thumbnailUrl, 'image') : getVideoAutoThumbnail(item.videoUrl || '', item.category);
+                                    return t ? <img src={t} className="w-full h-full object-cover" alt="" /> : null;
+                                  })()}
                                 </div>
                                 <span className="text-sm font-bold truncate max-w-[200px]">{item.title}</span>
                               </div>
@@ -2922,7 +3008,8 @@ export default function Admin() {
                       isPremium: false,
                       status: 'ended',
                       viewCount: 0,
-                      tags: []
+                      tags: [],
+                      cropCenter: true
                     });
                     setTagsInput('');
                     setEditingId(null);
@@ -2945,13 +3032,16 @@ export default function Admin() {
                   content.filter(item => item.type === 'short').map(item => (
                     <div key={`shot-card-${item.id}`} className="bg-surface/50 border border-white/5 rounded-[24px] overflow-hidden group hover:border-brand/40 transition-all flex flex-col justify-between font-sans">
                       <div className="relative aspect-[9/16] bg-black max-h-[320px] overflow-hidden font-sans">
-                        {item.thumbnailUrl ? (
-                          <img src={item.thumbnailUrl} alt={item.title} className="w-full h-full object-cover group-hover:scale-105 transition-all duration-500 font-sans shadow-md" />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center bg-brand/5">
-                            <Play className="w-12 h-12 text-brand/20" />
-                          </div>
-                        )}
+                        {(() => {
+                          const t = item.thumbnailUrl && item.thumbnailUrl.trim() !== '' ? item.thumbnailUrl : getVideoAutoThumbnail(item.videoUrl || '', item.category);
+                          return t ? (
+                            <img src={t} alt={item.title} className="w-full h-full object-cover group-hover:scale-105 transition-all duration-500 font-sans shadow-md" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center bg-brand/5">
+                              <Play className="w-12 h-12 text-brand/20" />
+                            </div>
+                          );
+                        })()}
                         <div className="absolute top-4 right-4 bg-black/60 px-3 py-1 rounded-full text-[10px] font-black tracking-widest uppercase text-white font-mono">
                           {item.category}
                         </div>
@@ -2986,7 +3076,8 @@ export default function Admin() {
                                 isPremium: item.isPremium || false,
                                 status: item.status || 'ended',
                                 viewCount: item.viewCount || 0,
-                                tags: item.tags || []
+                                tags: item.tags || [],
+                                cropCenter: item.cropCenter !== false
                               });
                               setTagsInput((item.tags || []).join(', '));
                               setEditingId(item.id);
@@ -3154,14 +3245,12 @@ export default function Admin() {
                     <select value={form.category} onChange={e => setForm({...form, category: e.target.value as Category})} className="w-full bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none">
                       <option value="football">Football</option>
                       <option value="cricket">Cricket</option>
-                      <option value="basketball">Basketball</option>
-                      <option value="tennis">Tennis</option>
-                      <option value="f1">F1 Racing</option>
-                      <option value="boxing">Combat Sports</option>
-                      <option value="golf">Golf</option>
-                      <option value="esports">E-Sports</option>
+                      <option value="wrestling">Wrestling</option>
+                      <option value="boxing">Boxing</option>
                       <option value="kabaddi">Kabaddi</option>
-                      <option value="hockey">Hockey</option>
+                      <option value="watersports">Water Sport</option>
+                      <option value="stunts">Stunt</option>
+                      <option value="polo">Polo</option>
                       <option value="others">Others</option>
                     </select>
                   </div>
@@ -3185,14 +3274,14 @@ export default function Admin() {
                     </select>
                   </div>
                 </div>
-                <div className="space-y-2">
+                 <div className="space-y-2">
                   <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Video URL (m3u8/mp4/Youtube)</label>
                   <div className="flex gap-2">
                     <input type="text" required value={form.videoUrl} onChange={e => setForm({...form, videoUrl: e.target.value})} className="flex-grow bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none" />
                     <button 
                       type="button" 
                       onClick={() => setPreviewContent({ 
-                        url: transformGDriveUrl(form.videoUrl, 'video'), 
+                        url: transformGDriveUrl(form.videoUrl || '', 'video'), 
                         title: form.title || 'Preview', 
                         isLive: form.status === 'live' 
                       })}
@@ -3204,6 +3293,71 @@ export default function Admin() {
                     <button type="button" onClick={() => setActiveTab('media')} className="px-4 bg-surface hover:bg-brand/10 border border-white/10 rounded-md text-[10px] font-bold uppercase"><Upload className="w-3 h-3" /></button>
                   </div>
                 </div>
+
+                {form.type === 'short' && (
+                  <div className="space-y-3 bg-white/5 p-4 rounded-xl border border-white/5">
+                    <div className="flex justify-between items-center">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-brand flex items-center gap-1">
+                        <Film className="w-3.5 h-3.5" />
+                        Select Video From Library
+                      </label>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          if (!showLibrarySelect) {
+                            await loadAllLibraryVideos();
+                          }
+                          setShowLibrarySelect(!showLibrarySelect);
+                        }}
+                        className="text-[9px] bg-brand/10 hover:bg-brand text-brand hover:text-white px-2.5 py-1 rounded transition-all font-bold uppercase tracking-wider"
+                      >
+                        {showLibrarySelect ? 'Close Picker' : 'Browse Videos'}
+                      </button>
+                    </div>
+                    
+                    {showLibrarySelect && (
+                      <div className="space-y-1 max-h-48 overflow-y-auto pr-1">
+                        {loadingVideos ? (
+                          <div className="flex items-center gap-2 text-xs text-text-muted italic justify-center p-3">
+                            <Activity className="w-3.5 h-3.5 animate-spin" /> Retrieving media...
+                          </div>
+                        ) : allLibraryVideos.length === 0 ? (
+                          <p className="text-[10px] text-text-muted italic p-2 text-center">No videos found. Upload first in 'Media Uploads' tab.</p>
+                        ) : (
+                          allLibraryVideos.map(vid => (
+                            <button
+                              key={vid.id}
+                              type="button"
+                              onClick={() => {
+                                setForm({
+                                  ...form,
+                                  videoUrl: vid.url,
+                                  title: form.title || vid.name.split('.').slice(0, -1).join('.') || vid.name,
+                                  cropCenter: true
+                                });
+                                toast.success(`Selected: "${vid.name}"`);
+                              }}
+                              className={`flex items-center justify-between w-full p-2 rounded text-left border transition-all ${
+                                form.videoUrl === vid.url 
+                                  ? 'bg-brand/10 border-brand/40 text-brand' 
+                                  : 'bg-bg/50 border-white/5 hover:border-brand/30 hover:bg-bg'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2 min-w-0 pr-2">
+                                <Film className={`w-3.5 h-3.5 shrink-0 ${form.videoUrl === vid.url ? 'text-brand' : 'text-text-muted'}`} />
+                                <span className="text-[10px] font-bold truncate">{vid.name}</span>
+                              </div>
+                              <span className="text-[9px] font-sans font-medium text-text-muted shrink-0">
+                                {vid.size ? `${(vid.size / (1024 * 1024)).toFixed(1)} MB` : 'Size N/A'}
+                              </span>
+                            </button>
+                          ))
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <div className="space-y-2">
                   <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Search tags (comma separated)</label>
                   <input type="text" value={tagsInput} onChange={e => setTagsInput(e.target.value)} className="w-full bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none" placeholder="e.g. final, world cup, ronaldo, highlights" />
@@ -3212,6 +3366,30 @@ export default function Admin() {
                   <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Thumbnail URL</label>
                   <input type="url" value={form.thumbnailUrl} onChange={e => setForm({...form, thumbnailUrl: e.target.value})} className="w-full bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none" />
                 </div>
+
+                {form.type === 'short' && (
+                  <div className="flex items-start gap-3 bg-brand/5 border border-brand/10 p-4 rounded-xl">
+                     <div className="pt-0.5">
+                       <input 
+                         type="checkbox" 
+                         id="cropCenter" 
+                         checked={form.cropCenter !== false} 
+                         onChange={e => setForm({...form, cropCenter: e.target.checked})} 
+                         className="w-4 h-4 accent-brand cursor-pointer" 
+                       />
+                     </div>
+                     <div>
+                       <label htmlFor="cropCenter" className="text-xs font-black uppercase text-brand flex items-center gap-1 cursor-pointer">
+                         <Scissors className="w-3.5 h-3.5" />
+                         Crop Landscape (Center 9:16)
+                       </label>
+                       <p className="text-[10px] text-text-muted mt-1 uppercase tracking-wider leading-relaxed font-semibold">
+                         If enabled, the video player will automatically center-crop the widescreen 16:9 video so it fills the vertical screen perfectly. Uncheck to fit the full widescreen video letterboxed.
+                       </p>
+                     </div>
+                  </div>
+                )}
+
                 <div className="flex items-center gap-3 bg-white/5 p-4 rounded-md">
                    <input type="checkbox" id="isPremium" checked={form.isPremium} onChange={e => setForm({...form, isPremium: e.target.checked})} className="w-4 h-4 accent-brand" />
                    <label htmlFor="isPremium" className="text-sm font-bold uppercase cursor-pointer">Premium Content</label>
@@ -3245,12 +3423,12 @@ export default function Admin() {
                       <option value="home">Home Page</option>
                       <option value="football">Football Category</option>
                       <option value="cricket">Cricket Category</option>
-                      <option value="basketball">Basketball Category</option>
-                      <option value="tennis">Tennis Category</option>
-                      <option value="f1">F1 Category</option>
+                      <option value="wrestling">Wrestling Category</option>
                       <option value="boxing">Boxing Category</option>
                       <option value="kabaddi">Kabaddi Category</option>
-                      <option value="hockey">Hockey Category</option>
+                      <option value="watersports">Water Sport Category</option>
+                      <option value="stunts">Stunt Category</option>
+                      <option value="polo">Polo Category</option>
                       <option value="others">Others Category</option>
                     </select>
                   </div>
@@ -3374,7 +3552,7 @@ export default function Admin() {
                               ...sliderForm,
                               title: item.title,
                               description: item.description,
-                              imageUrl: item.thumbnailUrl || '',
+                              imageUrl: item.thumbnailUrl || getVideoAutoThumbnail(item.videoUrl || '', item.category),
                               videoUrl: item.videoUrl,
                               actionUrl: `/watch/${item.id}`,
                             });
@@ -3382,7 +3560,10 @@ export default function Admin() {
                           className="flex items-center gap-3 p-2 rounded-lg bg-surface hover:bg-brand/10 border border-transparent hover:border-brand/50 transition-all text-left w-full"
                         >
                           <div className="w-10 h-6 rounded bg-bg overflow-hidden shrink-0 border border-border">
-                            {item.thumbnailUrl && item.thumbnailUrl.trim() !== '' && <img src={item.thumbnailUrl} className="w-full h-full object-cover" />}
+                            {(() => {
+                              const t = item.thumbnailUrl && item.thumbnailUrl.trim() !== '' ? item.thumbnailUrl : getVideoAutoThumbnail(item.videoUrl || '', item.category);
+                              return t ? <img src={t} className="w-full h-full object-cover" /> : null;
+                            })()}
                           </div>
                           <span className="text-[10px] font-bold truncate">{item.title}</span>
                         </button>
@@ -3398,6 +3579,7 @@ export default function Admin() {
                   <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Description</label>
                   <textarea rows={2} value={sliderForm.description || ''} onChange={e => setSliderForm({...sliderForm, description: e.target.value})} className="w-full bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none" />
                 </div>
+
                 <div className="space-y-4">
                   <div className="space-y-2">
                     <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Hero Image URL</label>
@@ -3411,11 +3593,20 @@ export default function Admin() {
                     </div>
                   </div>
                 </div>
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Action URL</label>
-                    <input type="text" value={sliderForm.actionUrl || ''} onChange={e => setSliderForm({...sliderForm, actionUrl: e.target.value})} className="w-full bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none" placeholder="/watch/id" />
-                   </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Action URL</label>
+                  <input type="text" value={sliderForm.actionUrl || ''} onChange={e => setSliderForm({...sliderForm, actionUrl: e.target.value})} className="w-full bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none" placeholder="/watch/id" />
+                  <p className="text-[10px] text-white/50 leading-relaxed font-medium">
+                    Enter the destination page to open when clicked:
+                    <br />• <code className="text-brand font-mono bg-white/5 px-1 py-0.5 rounded">/watch/CONTENT_ID</code> (e.g., <code className="text-brand font-mono bg-white/5 px-1 py-0.5 rounded">/watch/kabaddi-match-1</code>) to open/play a specific video.
+                    <br />• <code className="text-brand font-mono bg-white/5 px-1 py-0.5 rounded">/live</code> to open the Live streams screen.
+                    <br />• <code className="text-brand font-mono bg-white/5 px-1 py-0.5 rounded">/plans</code> to open the Plans subscription page.
+                    <br /><span className="text-amber-400">💡 Tip: Use the <strong>"Quick Import from Library"</strong> section above to fill all fields automatically!</span>
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Animation Type</label>
                     <select value={sliderForm.animationType || 'fade'} onChange={e => setSliderForm({...sliderForm, animationType: e.target.value as any})} className="w-full bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none">
@@ -3435,19 +3626,27 @@ export default function Admin() {
                     <option value="home">Home Page</option>
                     <option value="football">Football Category</option>
                     <option value="cricket">Cricket Category</option>
-                    <option value="basketball">Basketball Category</option>
-                    <option value="tennis">Tennis Category</option>
+                    <option value="wrestling">Wrestling Category</option>
+                    <option value="boxing">Boxing Category</option>
+                    <option value="kabaddi">Kabaddi Category</option>
+                    <option value="watersports">Water Sport Category</option>
+                    <option value="stunts">Stunt Category</option>
+                    <option value="polo">Polo Category</option>
                     <option value="others">Others Category</option>
                   </select>
                 </div>
-                <div className="flex gap-4">
-                  <div className="flex-grow flex items-center gap-3 bg-white/5 p-4 rounded-md">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="flex items-center gap-3 bg-white/5 p-4 rounded-md border border-white/5">
                      <input type="checkbox" id="isLiveSlide" checked={sliderForm.isLive} onChange={e => setSliderForm({...sliderForm, isLive: e.target.checked})} className="w-4 h-4 accent-brand" />
-                     <label htmlFor="isLiveSlide" className="text-sm font-bold uppercase cursor-pointer">Live Badge</label>
+                     <label htmlFor="isLiveSlide" className="text-xs font-bold uppercase cursor-pointer select-none">Live Badge</label>
                   </div>
-                  <div className="flex-grow flex items-center gap-3 bg-white/5 p-4 rounded-md">
+                  <div className="flex items-center gap-3 bg-white/5 p-4 rounded-md border border-white/5">
                      <input type="checkbox" id="isActiveSlide" checked={sliderForm.isActive} onChange={e => setSliderForm({...sliderForm, isActive: e.target.checked})} className="w-4 h-4 accent-brand" />
-                     <label htmlFor="isActiveSlide" className="text-sm font-bold uppercase cursor-pointer">Active</label>
+                     <label htmlFor="isActiveSlide" className="text-xs font-bold uppercase cursor-pointer select-none">Active</label>
+                  </div>
+                  <div className="flex items-center gap-3 bg-white/5 p-4 rounded-md border border-amber-500/10">
+                     <input type="checkbox" id="directVideoPlaySlide" checked={sliderForm.directVideoPlay || false} onChange={e => setSliderForm({...sliderForm, directVideoPlay: e.target.checked})} className="w-4 h-4 accent-amber-400" />
+                     <label htmlFor="directVideoPlaySlide" className="text-xs font-bold uppercase cursor-pointer select-none text-amber-400">Direct Autoplay Video</label>
                   </div>
                 </div>
                 <button type="submit" className="btn-primary w-full flex items-center justify-center gap-2">
@@ -3638,14 +3837,12 @@ export default function Admin() {
                     <select value={blogForm.category} onChange={e => setBlogForm({...blogForm, category: e.target.value})} className="w-full bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none uppercase font-mono text-[11px] font-bold">
                       <option value="football">Football</option>
                       <option value="cricket">Cricket</option>
-                      <option value="basketball">Basketball</option>
-                      <option value="tennis">Tennis</option>
-                      <option value="f1">F1 Racing</option>
-                      <option value="boxing">Combat Sports</option>
-                      <option value="golf">Golf</option>
-                      <option value="esports">E-Sports</option>
+                      <option value="wrestling">Wrestling</option>
+                      <option value="boxing">Boxing</option>
                       <option value="kabaddi">Kabaddi</option>
-                      <option value="hockey">Hockey</option>
+                      <option value="watersports">Water Sport</option>
+                      <option value="stunts">Stunt</option>
+                      <option value="polo">Polo</option>
                       <option value="others">Others</option>
                     </select>
                   </div>

@@ -10,69 +10,8 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
 
-// Sample sport vertical video reels to load as beautiful fallbacks/defaults
-const MOCK_SHORTS = [
-  {
-    id: 'short-bkey-1',
-    title: 'Steph Curry Pregame Shooting routine',
-    description: 'Witness the pure excellence of Curry as he warms up for the big game with non-stop swishes!',
-    category: 'basketball',
-    type: 'short',
-    videoUrl: 'https://assets.mixkit.co/videos/preview/mixkit-basketball-player-dribbling-the-ball-34444-large.mp4',
-    thumbnailUrl: 'https://images.unsplash.com/photo-1546519638-68e109498ffc?q=80&w=800',
-    isPremium: false,
-    viewCount: 14500,
-    likes: 1243,
-    createdAt: new Date().toISOString(),
-    status: 'ended',
-    tags: ['Basketball', 'Curry', 'Routine', 'WarmUp']
-  },
-  {
-    id: 'short-soccer-2',
-    title: 'Top Bin Practice Goal of the Week',
-    description: 'Perfect curled shot into the absolute top corner of the net during sunset practice.',
-    category: 'football',
-    type: 'short',
-    videoUrl: 'https://assets.mixkit.co/videos/preview/mixkit-soccer-player-kicking-ball-in-stadium-1549-large.mp4',
-    thumbnailUrl: 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?q=80&w=800',
-    isPremium: false,
-    viewCount: 22400,
-    likes: 3105,
-    createdAt: new Date().toISOString(),
-    status: 'ended',
-    tags: ['Football', 'Goals', 'Unbelievable', 'Skills']
-  },
-  {
-    id: 'short-boxing-3',
-    title: 'Rapid Fire Punch Combos',
-    description: 'Unbelievable speed and precision combos training session under intense coaches directions.',
-    category: 'boxing',
-    type: 'short',
-    videoUrl: 'https://assets.mixkit.co/videos/preview/mixkit-boxing-glove-hitting-air-4876-large.mp4',
-    thumbnailUrl: 'https://images.unsplash.com/photo-1549719386-74dfcbf7dbed?q=80&w=800',
-    isPremium: true,
-    viewCount: 8900,
-    likes: 721,
-    createdAt: new Date().toISOString(),
-    status: 'ended',
-    tags: ['Boxing', 'Training', 'Combos', 'Speed']
-  },
-  {
-    id: 'short-tennis-4',
-    title: 'Perfect Forehand Stroke Slow-Mo',
-    description: 'Deconstruct the flawless forehand technique under advanced high-speed action camera.',
-    category: 'tennis',
-    type: 'short',
-    videoUrl: 'https://assets.mixkit.co/videos/preview/mixkit-tennis-player-hitting-ball-with-racket-1550-large.mp4',
-    thumbnailUrl: 'https://images.unsplash.com/photo-1622279457486-62dcc4a4bd1d?q=80&w=800',
-    isPremium: false,
-    viewCount: 12000,
-    likes: 914,
-    createdAt: new Date().toISOString(),
-    status: 'ended',
-    tags: ['Tennis', 'Forehand', 'SlowMotion', 'Masterclass']
-  }
-];
+// Empty array as we cleared all dummy content
+const MOCK_SHORTS: SportsContent[] = [];
 
 // Helper to return a premium, deterministic profile picture based on username
 const getCommentAvatar = (username: string) => {
@@ -152,21 +91,12 @@ export default function Shots() {
       const snap = await getDocs(q);
       let items = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as SportsContent));
       
-      // If Firestore contains zero shots, we present MOCK_SHORTS as beautiful initial list and seed them automatically so it's persisted!
-      if (items.length === 0) {
-        items = MOCK_SHORTS as unknown as SportsContent[];
-        // Try to automatically seed them so the user is ready to go
-        for (const mock of MOCK_SHORTS) {
-          try {
-            await setDoc(doc(db, 'content', mock.id), mock);
-          } catch (e) {
-            console.warn("Auto-seed of short failed:", e);
-          }
-        }
-      } else {
-        // Sort by createdAt descending
-        items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-      }
+      // Sort items by createdAt if present
+      items.sort((a, b) => {
+        const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return dateB - dateA;
+      });
 
       setShorts(items);
       
@@ -588,7 +518,9 @@ export default function Shots() {
                           handleNext();
                         }
                       }}
-                      className="w-full h-full object-cover cursor-pointer bg-neutral-950"
+                      className={`w-full h-full cursor-pointer bg-neutral-955 ${
+                        short.cropCenter !== false ? 'object-cover scale-100' : 'object-contain'
+                      }`}
                     />
 
                     {/* Play / Pause overlay flash indicator */}

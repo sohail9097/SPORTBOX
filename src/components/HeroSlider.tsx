@@ -3,7 +3,7 @@ import { db } from '../lib/firebase';
 import { collection, query, where, orderBy, getDocs, onSnapshot, limit } from 'firebase/firestore';
 import { SliderElement, Category } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
-import { Play, ChevronLeft, ChevronRight, X, Info, Calendar, Plus } from 'lucide-react';
+import { Play, ChevronLeft, ChevronRight, X, Info, Calendar, Plus, Volume2, VolumeX } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { cn } from '../lib/utils';
 import ReactPlayer from 'react-player';
@@ -20,6 +20,7 @@ export default function HeroSlider({ page = 'home' }: HeroSliderProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [videoModal, setVideoModal] = useState<string | null>(null);
+  const [isMuted, setIsMuted] = useState(true);
   const autoPlayRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
@@ -56,8 +57,11 @@ export default function HeroSlider({ page = 'home' }: HeroSliderProps) {
   };
 
   useEffect(() => {
-    if (slides.length > 0 && !videoModal) {
-      autoPlayRef.current = setInterval(nextSlide, 4000);
+    const activeSlide = slides[currentIndex];
+    const isDirectVideoActive = activeSlide?.directVideoPlay && activeSlide?.videoUrl;
+    
+    if (slides.length > 0 && !videoModal && !isDirectVideoActive) {
+      autoPlayRef.current = setInterval(nextSlide, 5000);
     }
     return () => {
       if (autoPlayRef.current) clearInterval(autoPlayRef.current);
@@ -111,9 +115,81 @@ export default function HeroSlider({ page = 'home' }: HeroSliderProps) {
       'facebook.com', 
       'twitch.tv/embed',
       'cloudflarestream.com',
-      '/iframe'
+      '/iframe',
+      '.html'
     ];
     return iframeProviders.some(p => url.includes(p));
+  };
+
+  const getEmbedUrl = (url: string, mutedState: boolean) => {
+    if (!url) return '';
+    
+    let target = url.trim();
+    
+    // 1. If user pasted raw iframe embed code, extract the src attribute
+    if (target.startsWith('<')) {
+      const match = target.match(/src=["']([^"']+)["']/i);
+      if (match) {
+        target = match[1];
+      }
+    }
+    
+    // Strip trailing slashes and default query parameters to build cleanly
+    let cleanUrl = target.split('?')[0];
+    if (cleanUrl.endsWith('/')) {
+      cleanUrl = cleanUrl.slice(0, -1);
+    }
+
+    // 2. Cloudflare Stream Identification and formatting
+    if (cleanUrl.includes('cloudflarestream.com') || cleanUrl.includes('videodelivery.net')) {
+      if (!cleanUrl.endsWith('/iframe')) {
+        try {
+          const urlObj = new URL(cleanUrl);
+          const pathParts = urlObj.pathname.split('/').filter(Boolean);
+          if (pathParts.length > 0 && pathParts[pathParts.length - 1] !== 'iframe') {
+            cleanUrl = `${cleanUrl}/iframe`;
+          }
+        } catch (e) {
+          if (!cleanUrl.endsWith('/iframe')) {
+            cleanUrl = `${cleanUrl}/iframe`;
+          }
+        }
+      }
+      return `${cleanUrl}?autoplay=true&muted=${mutedState ? 'true' : 'false'}&loop=true&controls=false&playsinline=true&preload=auto`;
+    }
+
+    // 3. YouTube Identification
+    if (cleanUrl.includes('youtube.com') || cleanUrl.includes('youtu.be')) {
+      let videoId = '';
+      if (cleanUrl.includes('youtube.com/embed/')) {
+        videoId = cleanUrl.split('/embed/')[1];
+      } else if (cleanUrl.includes('youtube.com/watch')) {
+        const match = target.match(/[?&]v=([^&#]+)/);
+        if (match) videoId = match[1];
+      } else if (cleanUrl.includes('youtu.be/')) {
+        videoId = cleanUrl.split('youtu.be/')[1];
+      }
+      if (videoId) {
+        return `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=${mutedState ? '1' : '0'}&loop=1&playlist=${videoId}&controls=0&modestbranding=1&playsinline=1&rel=0&showinfo=0&iv_load_policy=3`;
+      }
+    }
+
+    // 4. Vimeo Identification
+    if (cleanUrl.includes('vimeo.com')) {
+      let videoId = '';
+      if (cleanUrl.includes('player.vimeo.com/video/')) {
+        videoId = cleanUrl.split('/video/')[1];
+      } else {
+        const parts = cleanUrl.split('/');
+        videoId = parts[parts.length - 1];
+      }
+      if (videoId) {
+        return `https://player.vimeo.com/video/${videoId}?autoplay=1&muted=${mutedState ? '1' : '0'}&loop=1&background=1&autopause=0&transparent=1&controls=0`;
+      }
+    }
+
+    // Generic fallback query string
+    return `${target}${target.includes('?') ? '&' : '?'}autoplay=1&mute=${mutedState ? '1' : '0'}&loop=1`;
   };
 
   return (
@@ -127,7 +203,36 @@ export default function HeroSlider({ page = 'home' }: HeroSliderProps) {
           transition={anim.transition}
           className="absolute inset-0"
         >
-          {currentSlide.imageUrl && currentSlide.imageUrl.trim() !== '' ? (
+          {currentSlide.directVideoPlay && currentSlide.videoUrl && currentSlide.videoUrl.trim() !== '' ? (
+            <div className="absolute inset-0 w-full h-full overflow-hidden bg-black">
+              {isIframeUrl(currentSlide.videoUrl) ? (
+                <iframe 
+                  src={getEmbedUrl(currentSlide.videoUrl, isMuted)}
+                  className="absolute inset-0 w-full h-full border-0 pointer-events-none scale-105"
+                  allow="autoplay; encrypted-media; picture-in-picture"
+                />
+              ) : (
+                <Player
+                  url={currentSlide.videoUrl}
+                  width="100%"
+                  height="100%"
+                  playing={true}
+                  muted={isMuted}
+                  loop={true}
+                  playsinline={true}
+                  className="react-player-bg absolute inset-0 w-full h-full"
+                  config={{
+                    file: {
+                      attributes: {
+                        style: { width: '100%', height: '100%', objectFit: 'cover' }
+                      },
+                      forceHLS: true,
+                    }
+                  }}
+                />
+              )}
+            </div>
+          ) : currentSlide.imageUrl && currentSlide.imageUrl.trim() !== '' ? (
             <img 
               src={currentSlide.imageUrl} 
               className="w-full h-full object-cover" 
@@ -169,7 +274,7 @@ export default function HeroSlider({ page = 'home' }: HeroSliderProps) {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.5 }}
-              className="flex items-center justify-center md:justify-start gap-3 pt-2 md:pt-4"
+              className="flex flex-wrap items-center justify-center md:justify-start gap-3 pt-2 md:pt-4"
             >
               <button 
                 onClick={handleWatchNow}
@@ -185,6 +290,15 @@ export default function HeroSlider({ page = 'home' }: HeroSliderProps) {
                 <Plus className="w-4 h-4" />
                 List
               </Link>
+              {currentSlide.directVideoPlay && currentSlide.videoUrl && currentSlide.videoUrl.trim() !== '' && (
+                <button 
+                  onClick={() => setIsMuted(prev => !prev)}
+                  className="flex-1 md:flex-none px-6 md:px-8 py-3.5 md:py-4 bg-black/60 hover:bg-black/80 text-white font-black text-[11px] md:text-xs uppercase tracking-[0.2em] rounded-full flex items-center justify-center gap-2 transition-all border border-white/10 cursor-pointer"
+                >
+                  {isMuted ? <VolumeX className="w-4 h-4 text-amber-400" /> : <Volume2 className="w-4 h-4 text-green-400 animate-pulse" />}
+                  {isMuted ? "Unmute" : "Mute"}
+                </button>
+              )}
             </motion.div>
           </div>
         </motion.div>

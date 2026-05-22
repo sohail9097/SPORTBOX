@@ -1,4 +1,4 @@
-export type Category = 'football' | 'cricket' | 'basketball' | 'tennis' | 'f1' | 'boxing' | 'golf' | 'esports' | 'others';
+export type Category = 'football' | 'cricket' | 'wrestling' | 'boxing' | 'others' | 'kabaddi' | 'watersports' | 'stunts' | 'polo';
 export type ContentType = 'live' | 'replay' | 'highlight' | 'short';
 export type Status = 'scheduled' | 'live' | 'ended';
 
@@ -16,6 +16,7 @@ export interface SportsContent {
   createdAt: string;
   status: Status;
   tags?: string[];
+  cropCenter?: boolean;
 }
 
 export interface SubscriptionPlan {
@@ -74,6 +75,7 @@ export interface SliderElement {
   isActive: boolean;
   animationType?: 'fade' | 'slide';
   page?: 'home' | Category; // Added for per-page sliders
+  directVideoPlay?: boolean;
 }
 
 export interface VideoPromoSettings {

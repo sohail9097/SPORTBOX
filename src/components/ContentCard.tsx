@@ -1,6 +1,6 @@
 import { SportsContent } from '../types';
 import { Play, Eye, Clock, Crown, Lock } from 'lucide-react';
-import { cn, formatDate } from '../lib/utils';
+import { cn, formatDate, getVideoAutoThumbnail } from '../lib/utils';
 import { Link } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { useAuth } from '../hooks/useAuth';
@@ -21,6 +21,10 @@ export default function ContentCard({
   const { profile, isAdmin } = useAuth();
   const isLocked = (!profile || profile.subscriptionTier === 'free') && !isAdmin;
 
+  const displayThumbnail = content.thumbnailUrl && content.thumbnailUrl.trim() !== ''
+    ? content.thumbnailUrl
+    : getVideoAutoThumbnail(content.videoUrl || '', content.category);
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -39,9 +43,9 @@ export default function ContentCard({
           "relative overflow-hidden rounded-[10px] border border-border shadow-2xl transition-all duration-300 group-hover:border-brand/30", 
           featured ? "aspect-[21/9]" : (aspectRatio === 'portrait' ? "aspect-[2/3]" : "aspect-video")
         )}>
-          {content.thumbnailUrl && content.thumbnailUrl.trim() !== '' ? (
+          {displayThumbnail ? (
             <img 
-              src={content.thumbnailUrl} 
+              src={displayThumbnail} 
               alt={content.title}
               className={cn(
                 "w-full h-full object-cover transition-transform duration-500 group-hover:scale-110",

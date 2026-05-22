@@ -11,69 +11,8 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
 
-// Sample curated Sports Blogs themed precisely to match the user's reference image
-const MOCK_BLOGS: BlogPost[] = [
-  {
-    id: 'blog-wordpress-website',
-    title: "How to Design a Modern Sports Website – Step-by-Step Guide for Beginners",
-    excerpt: "Are you trying to figure out how to create a high-performance sports website? Today you will find out! A web designer who has created hundreds of athletic portals and helped thousands of others explains the essential tactics...",
-    content: "Building an online presence for a sports brand or athletic community doesn't have to be complicated. Whether you are creating a hub for local league scores, a team roster display, or high-tempo match analysis, the fundamental steps remain identical. Here is a clear, step-by-step framework to publish your first athletic home on the web.\n\n### 1. Structure for Fast Scoring and Updates\nSports fans visit sites to quickly verify scores, transfer news, or team standings. Your landing zone must present this telemetry instantly without burying it. Use simple typography pairs and high-contrast widgets to serve high-priority stats near the top.\n\n### 2. Craft Mobile Responsive Interactive Layouts\nOver 80% of sports enthusiasts keep up with games on their mobile devices during active matches. If your live-ticker or vertical clip player fails to scale dynamically on compact displays, fans will move elsewhere. Use flexible grids and fluid canvas heights to secure premium viewport presentation.\n\n### 3. Integrate Local Storage caching & Speed\nEnsure that match logs, premium blog previews, and offline statistics persist nicely on the device. Simple states and caching allow immediate loading even during patchy network coverage inside crowded stadiums.",
-    category: "Tutorial",
-    imageUrl: "https://images.unsplash.com/photo-1508098682722-e99c43a406b2?q=80&w=800",
-    author: "Aigars Silkalns",
-    authorEmail: "aigars@silkalns.net",
-    createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-    readTime: "5 min read",
-    likesCount: 142,
-    views: 480,
-    tags: ['Tutorial', 'SportsBox', 'Design', 'Web']
-  },
-  {
-    id: 'blog-online-course',
-    title: "27 Best Sports and Athletic Website Examples 2026",
-    excerpt: "Looking for athletic and fitness website inspiration? A modern sports media portal needs to showcase game clips, communicate standings, and keep sign-ups effortless — whether for club memberships or training leagues. We review the best...",
-    content: "Reviewing successful platforms is one of the most effective ways to identify and adopt winning design patterns. In this ultimate round-up, we dissect twenty-seven of the most innovative athletic hubs currently leading the global digital sports industry.\n\n### Why Interaction Trumps Static Text\nModern audiences demand immersion. The highest performing sports sites don't just dump flat articles; they invite action. Engaging interfaces leverage floating comment dialogs, swipeable vertical video widgets (shots), and interactive live streaming players to make visitors feel like they are inside the stadium.\n\n### Essential Performance Indicators\nWhen scaling a global sports database, minimize layout shifts and secure sub-second cold starts. Use server proxy pipelines to bundle assets cleanly, configure responsive media wrappers, and avoid exposing API keys directly in client-side queries.\n\n### The Final Breakdown\nExplore these carefully selected designs, study their visual rhythm, color accents, and typography pairings, and let them drive your next digital sports product build.",
-    category: "Website Design",
-    imageUrl: "https://images.unsplash.com/photo-1546519638-68e109498ffc?q=80&w=800",
-    author: "Aigars Silkalns",
-    authorEmail: "aigars@silkalns.net",
-    createdAt: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString(),
-    readTime: "6 min read",
-    likesCount: 228,
-    views: 651,
-    tags: ['Website Design', 'Inspiration', 'Athletic']
-  },
-  {
-    id: 'blog-virtual-assistant',
-    title: "29 Best Sport Analytics Dashboards & Portals 2026",
-    excerpt: "Exploring the legendary charts, strike tracking statistics, and unmatched performance visualizations that power modern athletic teams, stats providers, and advanced coaching clinics...",
-    content: "Advanced metrics and spatial sports analysis have transformed how athletes play and executives manage rosters. However, the final benefit comes only when intricate statistics are made visual, legible, and simple for coach-athlete interactions. Let's break down the twenty-nine most polished athletic analytics dashboard layouts of the year.\n\n### Layout Principles for High Density Data\nWhen displaying real-time athlete heart rates, heatmaps, or trajectory tracking, avoid placing too much telemetry clutter in page margins. Clutter acts as a severe cognitive barrier. Frame key metrics using a fluid layout, and pair headings with space-grotesk typography or mono blocks for clean numerical visualization.\n\n### Integrating Interactive D3 Charts\nBuild modular data blocks so scouts can track pitch trends or shooting arcs progressively. D3 and Recharts components provide robust, performant responsive layouts that automatically re-adjust on resize events.",
-    category: "Analytics",
-    imageUrl: "https://images.unsplash.com/photo-1531415080292-7bfc52d9de75?q=80&w=800",
-    author: "Sohail Gaji",
-    authorEmail: "sohailgaji9097@gmail.com",
-    createdAt: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString(),
-    readTime: "7 min read",
-    likesCount: 310,
-    views: 890,
-    tags: ['Analytics', 'Visuals', 'Data', 'Coaching']
-  },
-  {
-    id: 'blog-general-contractor',
-    title: "29 Best Fitness & Gym Website Examples 2026",
-    excerpt: "From sleek dark-themed boutique training studios to massive commercial fitness networks, we review the design benchmarks setting high standards for health, web booking, and wellness portals...",
-    content: "In the wellness industry, visual confidence is everything. A fitness website must project strength, energy, and community the second a user lands on the page. In this visual guide, we review twenty-nine exemplary gym and training websites setting the tone for modern responsive designs.\n\n### Bold Typography & High Contrast Accents\nSuccessful studios lean towards heavy sans-serif headings paired with striking accent highlights (like fluorescent lime-greens or hazard oranges) to echo local workout environments. Use layout structures that highlight schedules, trainer bios, and membership calls-to-action.\n\n### Seamless Bookings and Payments\nEnsure local payment flows and schedule reserves are fully integrated on-site without opening insecure third-party redirects.",
-    category: "Fitness & Gym",
-    imageUrl: "https://images.unsplash.com/photo-1517838277536-f5f99be501cd?q=80&w=800",
-    author: "Aigars Silkalns",
-    authorEmail: "aigars@silkalns.net",
-    createdAt: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString(),
-    readTime: "5 min read",
-    likesCount: 195,
-    views: 512,
-    tags: ['Fitness', 'Gym', 'Wellness', 'Design']
-  }
-];
+// Curry empty array as we cleared all dummy content
+const MOCK_BLOGS: BlogPost[] = [];
 
 // Suggested presets for adding new cover photos in drafting mode
 const SUGGESTED_IMAGES = [
@@ -112,18 +51,7 @@ export default function Blogs() {
     const unsubscribe = onSnapshot(q, async (snapshot) => {
       let items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as BlogPost));
       
-      // Auto seed db if initial document list is empty
-      if (items.length === 0) {
-        items = [...MOCK_BLOGS];
-        for (const mock of MOCK_BLOGS) {
-          try {
-            await setDoc(doc(db, 'blogs', mock.id), mock);
-            console.log(`[Blogs] Seeded ${mock.title}!`);
-          } catch (e) {
-            console.warn(`[Blogs] Silent seed error for ${mock.id}:`, e);
-          }
-        }
-      }
+      // No auto seed logic anymore since we cleared all dummy content
 
       setBlogs(items);
       setLoading(false);

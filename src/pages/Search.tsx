@@ -59,7 +59,7 @@ export default function Search() {
     filterResults();
   }, [searchTerm, selectedCategory, allContent]);
 
-  const categories = ['all', 'football', 'cricket', 'basketball', 'tennis', 'others'];
+  const categories = ['all', 'football', 'cricket', 'wrestling', 'boxing', 'kabaddi', 'watersports', 'stunts', 'polo', 'others'];
 
   if (loading && allContent.length === 0) return <LoadingScreen />;
 

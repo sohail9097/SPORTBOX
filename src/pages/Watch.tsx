@@ -6,7 +6,7 @@ import { SportsContent, PlayerSettings } from '../types';
 import { useAuth } from '../hooks/useAuth';
 import { Play, Share2, Heart, MessageSquare, Crown, Info, ChevronRight, Activity, PlusCircle, CheckCircle2 } from 'lucide-react';
 import { motion } from 'motion/react';
-import { cn, formatDate, transformGDriveUrl } from '../lib/utils';
+import { cn, formatDate, transformGDriveUrl, getVideoAutoThumbnail } from '../lib/utils';
 import StadiumPlayer from '../components/StadiumPlayer';
 import ReactMarkdown from 'react-markdown';
 import { toast } from 'sonner';
@@ -253,13 +253,18 @@ export default function Watch() {
                       className="absolute inset-0 z-10 cursor-pointer group"
                       onClick={() => setIsPlaying(true)}
                     >
-                      {content.thumbnailUrl && content.thumbnailUrl.trim() !== '' && (
-                        <img 
-                          src={transformGDriveUrl(content.thumbnailUrl, 'image')} 
-                          alt={content.title}
-                          className="w-full h-full object-cover"
-                        />
-                      )}
+                      {(() => {
+                        const thumb = (content.thumbnailUrl && content.thumbnailUrl.trim() !== '')
+                          ? transformGDriveUrl(content.thumbnailUrl, 'image')
+                          : getVideoAutoThumbnail(content.videoUrl || '', content.category);
+                        return thumb ? (
+                          <img 
+                            src={thumb} 
+                            alt={content.title}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : null;
+                      })()}
                       <div className="absolute inset-0 bg-black/40 group-hover:bg-black/20 transition-colors flex items-center justify-center">
                         <div className="w-16 h-16 md:w-24 md:h-24 bg-brand/90 rounded-full flex items-center justify-center shadow-2xl transform group-hover:scale-110 transition-transform duration-500">
                           <Play className="w-8 h-8 md:w-12 md:h-12 text-white fill-white ml-1" />
@@ -287,7 +292,7 @@ export default function Watch() {
                         autoPlay
                         controls
                         className="w-full h-full bg-black object-contain"
-                        poster={content.thumbnailUrl && content.thumbnailUrl.trim() !== '' ? transformGDriveUrl(content.thumbnailUrl, 'image') : undefined}
+                        poster={(content.thumbnailUrl && content.thumbnailUrl.trim() !== '') ? transformGDriveUrl(content.thumbnailUrl, 'image') : getVideoAutoThumbnail(content.videoUrl || '', content.category)}
                       />
                     )
                   ) : content.videoUrl && content.videoUrl.trim() !== '' ? (
@@ -393,13 +398,18 @@ export default function Watch() {
                             className="group block space-y-1.5 flex-shrink-0 w-[42vw] md:w-[240px] snap-start"
                           >
                             <div className="relative aspect-video rounded-xl overflow-hidden bg-surface shadow-2xl">
-                              {item.thumbnailUrl && item.thumbnailUrl.trim() !== '' && (
-                                <img 
-                                  src={transformGDriveUrl(item.thumbnailUrl, 'image')} 
-                                  alt={item.title}
-                                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
-                                />
-                              )}
+                              {(() => {
+                                const rThumb = (item.thumbnailUrl && item.thumbnailUrl.trim() !== '')
+                                  ? transformGDriveUrl(item.thumbnailUrl, 'image')
+                                  : getVideoAutoThumbnail(item.videoUrl || '', item.category);
+                                return rThumb ? (
+                                  <img 
+                                    src={rThumb} 
+                                    alt={item.title}
+                                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                                  />
+                                ) : null;
+                              })()}
                               <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                                 <Play className="w-6 h-6 text-white fill-white" />
                               </div>

@@ -14,14 +14,12 @@ import { cn } from '../lib/utils';
 const CategoryLabelMap: Record<string, { label: string, color: string, bg: string }> = {
   football: { label: 'FB', color: 'text-[#00ff88]', bg: 'bg-[#00ff88]/10 border-[#00ff88]/20' },
   cricket: { label: 'CK', color: 'text-[#ff9900]', bg: 'bg-[#ff9900]/10 border-[#ff9900]/20' },
-  basketball: { label: 'BK', color: 'text-[#3399ff]', bg: 'bg-[#3399ff]/10 border-[#3399ff]/20' },
-  tennis: { label: 'TN', color: 'text-[#cc33ff]', bg: 'bg-[#cc33ff]/10 border-[#cc33ff]/20' },
-  f1: { label: 'F1', color: 'text-[#ff3333]', bg: 'bg-[#ff3333]/10 border-[#ff3333]/20' },
+  wrestling: { label: 'WR', color: 'text-[#ff1a40]', bg: 'bg-[#ff1a40]/10 border-[#ff1a40]/20' },
   boxing: { label: 'BX', color: 'text-[#ffff00]', bg: 'bg-[#ffff00]/10 border-[#ffff00]/20' },
-  golf: { label: 'GF', color: 'text-[#00cc66]', bg: 'bg-[#00cc66]/10 border-[#00cc66]/20' },
-  esports: { label: 'ES', color: 'text-[#00ffff]', bg: 'bg-[#00ffff]/10 border-[#00ffff]/20' },
   kabaddi: { label: 'KB', color: 'text-[#ff6600]', bg: 'bg-[#ff6600]/10 border-[#ff6600]/20' },
-  hockey: { label: 'HK', color: 'text-[#ffffff]', bg: 'bg-[#ffffff]/10 border-[#ffffff]/20' },
+  watersports: { label: 'WS', color: 'text-[#00ccff]', bg: 'bg-[#00ccff]/10 border-[#00ccff]/20' },
+  stunts: { label: 'ST', color: 'text-[#ff1aff]', bg: 'bg-[#ff1aff]/10 border-[#ff1aff]/20' },
+  polo: { label: 'PL', color: 'text-[#d4af37]', bg: 'bg-[#d4af37]/10 border-[#d4af37]/20' },
 };
 
 export default function CategoryPage() {

@@ -322,7 +322,7 @@ export default function Layout({ children }: { children: ReactNode }) {
                 <ul className="space-y-2 md:space-y-3 text-[10px] md:text-sm text-text-muted font-bold uppercase tracking-widest">
                   <li><Link to="/category/football" className="hover:text-brand transition-colors">Football</Link></li>
                   <li><Link to="/category/cricket" className="hover:text-brand transition-colors">Cricket</Link></li>
-                  <li><Link to="/category/basketball" className="hover:text-brand transition-colors">Basketball</Link></li>
+                  <li><Link to="/category/wrestling" className="hover:text-brand transition-colors">Wrestling</Link></li>
                 </ul>
               </div>
               <div>

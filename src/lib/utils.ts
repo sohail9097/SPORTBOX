@@ -36,3 +36,88 @@ export const transformGDriveUrl = (url: string, type: 'image' | 'video' = 'image
     return `https://drive.google.com/uc?export=download&id=${id}&confirm=no_antivirus`;
   }
 };
+
+export function getCategoryFallbackImage(category?: string): string {
+  const cat = (category || 'others').toLowerCase();
+  switch (cat) {
+    case 'football':
+      return 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?q=80&w=800&auto=format&fit=crop';
+    case 'cricket':
+      return 'https://images.unsplash.com/photo-1531415074968-036ba1b575da?q=80&w=800&auto=format&fit=crop';
+    case 'wrestling':
+      return 'https://images.unsplash.com/photo-1549719386-74dfcbf7dbed?q=80&w=800&auto=format&fit=crop';
+    case 'tennis':
+      return 'https://images.unsplash.com/photo-1595435934249-5df7ed86e1c0?q=80&w=800&auto=format&fit=crop';
+    case 'f1':
+      return 'https://images.unsplash.com/photo-1568605117036-5fe5e7bab0b7?q=80&w=800&auto=format&fit=crop';
+    case 'boxing':
+      return 'https://images.unsplash.com/photo-1517838277536-f5f99be501cd?q=80&w=800&auto=format&fit=crop';
+    case 'watersports':
+      return 'https://images.unsplash.com/photo-1502680390469-be75c86b636f?q=80&w=800&auto=format&fit=crop';
+    case 'kabaddi':
+      return 'https://images.unsplash.com/photo-1574629810360-7efbbe195018?q=80&w=800&auto=format&fit=crop';
+    case 'stunts':
+      return 'https://images.unsplash.com/photo-1568285519808-115fef54e8ab?q=80&w=800&auto=format&fit=crop';
+    case 'polo':
+      return 'https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?q=80&w=800&auto=format&fit=crop';
+    default:
+      return 'https://images.unsplash.com/photo-1574629810360-7efbbe195018?q=80&w=800&auto=format&fit=crop';
+  }
+}
+
+export function getVideoAutoThumbnail(videoUrl: string, category?: string): string {
+  if (!videoUrl) {
+    return getCategoryFallbackImage(category);
+  }
+
+  const target = videoUrl.trim();
+
+  // 1. YouTube Identification
+  let youtubeId = '';
+  if (target.includes('youtube.com') || target.includes('youtu.be')) {
+    if (target.includes('youtube.com/embed/')) {
+      const parts = target.split('/embed/');
+      if (parts[1]) youtubeId = parts[1].split(/[?#]/)[0];
+    } else if (target.includes('youtube.com/watch')) {
+      const match = target.match(/[?&]v=([^&#]+)/);
+      if (match) youtubeId = match[1];
+    } else if (target.includes('youtu.be/')) {
+      const parts = target.split('youtu.be/');
+      if (parts[1]) youtubeId = parts[1].split(/[?#]/)[0];
+    }
+  } else if (target.startsWith('<iframe') || target.startsWith('<')) {
+    const matchHref = target.match(/src=["']([^"']+)["']/i);
+    if (matchHref && (matchHref[1].includes('youtube.com') || matchHref[1].includes('youtu.be'))) {
+      const embedUrl = matchHref[1];
+      if (embedUrl.includes('youtube.com/embed/')) {
+        const parts = embedUrl.split('/embed/');
+        if (parts[1]) youtubeId = parts[1].split(/[?#]/)[0];
+      }
+    }
+  }
+
+  if (youtubeId) {
+    return `https://img.youtube.com/vi/${youtubeId}/hqdefault.jpg`;
+  }
+
+  // 2. Cloudflare Stream Identification
+  if (target.includes('cloudflarestream.com') || target.includes('videodelivery.net')) {
+    try {
+      const hexIdMatch = target.match(/([a-fA-F0-9]{32})/);
+      if (hexIdMatch) {
+        const videoId = hexIdMatch[1];
+        const customerMatch = target.match(/customer-([a-zA-Z0-9]+)\.cloudflarestream\.com/);
+        if (customerMatch) {
+          const customerId = customerMatch[1];
+          return `https://customer-${customerId}.cloudflarestream.com/${videoId}/thumbnails/thumbnail.jpg?time=2s&height=600`;
+        }
+        return `https://videodelivery.net/${videoId}/thumbnails/thumbnail.jpg?time=2s&height=600`;
+      }
+    } catch (e) {
+      console.warn("Failed to parse Cloudflare stream thumbnail ID", e);
+    }
+  }
+
+  // Fallback to Category Images
+  return getCategoryFallbackImage(category);
+}

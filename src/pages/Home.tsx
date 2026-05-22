@@ -112,15 +112,15 @@ export default function Home() {
       <section className="mt-4 relative z-10 max-w-[1600px] mx-auto px-4">
         <div className="flex md:flex-wrap items-center gap-4 md:justify-between overflow-x-auto pb-4 md:pb-0 hide-scrollbar px-2">
           {[
-            { name: 'Football', label: 'FB', color: 'text-[#00ff88]', bg: 'bg-[#00ff88]/10' },
             { name: 'Cricket', label: 'CK', color: 'text-[#ff9900]', bg: 'bg-[#ff9900]/10' },
+            { name: 'Kabaddi', label: 'KB', color: 'text-[#ff6600]', bg: 'bg-[#ff6600]/10' },
+            { name: 'Boxing', label: 'BX', color: 'text-[#ffff00]', bg: 'bg-[#ffff00]/10' },
+            { name: 'Football', label: 'FB', color: 'text-[#00ff88]', bg: 'bg-[#00ff88]/10' },
             { name: 'Basketball', label: 'BK', color: 'text-[#3399ff]', bg: 'bg-[#3399ff]/10' },
             { name: 'Tennis', label: 'TN', color: 'text-[#cc33ff]', bg: 'bg-[#cc33ff]/10' },
             { name: 'F1', label: 'F1', color: 'text-[#ff3333]', bg: 'bg-[#ff3333]/10' },
-            { name: 'Boxing', label: 'BX', color: 'text-[#ffff00]', bg: 'bg-[#ffff00]/10' },
             { name: 'Golf', label: 'GF', color: 'text-[#00cc66]', bg: 'bg-[#00cc66]/10' },
             { name: 'Esports', label: 'ES', color: 'text-[#00ffff]', bg: 'bg-[#00ffff]/10' },
-            { name: 'Kabaddi', label: 'KB', color: 'text-[#ff6600]', bg: 'bg-[#ff6600]/10' },
             { name: 'Hockey', label: 'HK', color: 'text-text-base', bg: 'bg-slate-500/15 dark:bg-white/10' },
           ].map((cat) => (
             <Link

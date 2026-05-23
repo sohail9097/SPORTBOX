@@ -278,38 +278,6 @@ export default function Login() {
             </p>
           </div>
 
-          {/* Demo Account Instant Access Card */}
-          <motion.div
-            initial={{ opacity: 0, y: 15 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="p-5 bg-white/5 border border-white/10 hover:border-brand/40 rounded-2xl flex flex-col gap-3 relative overflow-hidden transition-all duration-300"
-          >
-            <div className="absolute top-0 right-0 bg-brand text-white text-[7px] font-black uppercase tracking-widest px-3 py-1 rounded-bl-xl italic">
-              Elite Premium Mode
-            </div>
-            <div className="flex items-center gap-2">
-              <Trophy className="w-4 h-4 text-brand animate-pulse" />
-              <span className="text-[10px] sm:text-xs font-black uppercase tracking-widest text-text-base">Instant Test Account</span>
-            </div>
-            <p className="text-[10px] sm:text-[11px] text-text-muted leading-relaxed">
-              Bypass registration steps & sign in instantly with a fully unlocked Elite Premium subscription to explore live streams, premium videos, and interactive shots.
-            </p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-1.5 items-center">
-              <div className="text-[9px] font-mono text-white/50 bg-black/40 p-2.5 rounded-xl border border-white/5">
-                <span className="text-brand font-bold">Email:</span> demo@sportsbox.com
-                <br />
-                <span className="text-brand font-bold">Pass:</span> sportsbox123
-              </div>
-              <button
-                type="button"
-                onClick={handleDemoLogin}
-                disabled={loading}
-                className="h-10 bg-brand hover:brightness-110 text-white font-black uppercase tracking-widest text-[10px] rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer font-sans"
-              >
-                {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin mx-auto" /> : 'One-Click Sign-In'}
-              </button>
-            </div>
-          </motion.div>
 
           {error && (
             <motion.div 

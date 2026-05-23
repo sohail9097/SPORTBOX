@@ -60,7 +60,7 @@ const Legal = () => {
           <section className="space-y-4 pt-6 border-t border-white/5">
             <h3 className="text-[14px] md:text-xl font-black uppercase italic tracking-tighter text-brand">Contact</h3>
             <p className="text-white/50 text-[9px] md:text-sm italic">
-              For privacy-related concerns, contact us at: <span className="text-white font-bold">support@sportsbox.com</span>
+              For privacy-related concerns, contact us at: <span className="text-white font-bold">Hello@sportsbox.in</span>
             </p>
           </section>
         </div>
@@ -126,7 +126,7 @@ const Legal = () => {
           <section className="space-y-4 pt-6 border-t border-white/5">
             <h3 className="text-[14px] md:text-xl font-black uppercase italic tracking-tighter text-brand">Contact</h3>
             <p className="text-white/50 text-[9px] md:text-sm italic">
-              For questions regarding these terms: <span className="text-white font-bold">support@sportsbox.com</span>
+              For questions regarding these terms: <span className="text-white font-bold">Hello@sportsbox.in</span>
             </p>
           </section>
         </div>
@@ -185,7 +185,7 @@ const Legal = () => {
           <section className="space-y-4 pt-6 border-t border-white/5">
             <h3 className="text-[14px] md:text-xl font-black uppercase italic tracking-tighter text-brand">Contact</h3>
             <p className="text-white/50 text-[9px] md:text-sm italic">
-              For any cookie-related questions: <span className="text-white font-bold">support@sportsbox.com</span>
+              For any cookie-related questions: <span className="text-white font-bold">Hello@sportsbox.in</span>
             </p>
           </section>
         </div>

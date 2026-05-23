@@ -339,7 +339,7 @@ export default function Layout({ children }: { children: ReactNode }) {
                 <h4 className="font-display text-[10px] md:text-sm uppercase tracking-widest mb-4 md:mb-6 text-text-base">Support</h4>
                 <p className="text-[10px] md:text-sm text-text-muted leading-loose uppercase tracking-widest font-bold">
                   Support @:
-                  <span className="text-text-base block mt-1 text-[11px] md:text-sm lowercase font-sans font-medium tracking-normal">support@sportsbox.com</span>
+                  <span className="text-text-base block mt-1 text-[11px] md:text-sm lowercase font-sans font-medium tracking-normal">Hello@sportsbox.in</span>
                 </p>
               </div>
             </div>

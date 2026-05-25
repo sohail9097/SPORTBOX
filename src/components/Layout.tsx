@@ -6,7 +6,7 @@ import { auth, db } from '../lib/firebase';
 import { 
   LayoutDashboard, Play, LogOut, User, Crown, 
   Search, Menu, X, Sun, Moon, Home, Tv, 
-  Calendar, UserCircle, Bell, Clock, Flame, BookOpen
+  Calendar, UserCircle, Bell, Clock, Flame, BookOpen, Trophy
 } from 'lucide-react';
 import { doc, onSnapshot, query, collection, where } from 'firebase/firestore';
 import { motion, AnimatePresence } from 'motion/react';
@@ -54,6 +54,7 @@ export default function Layout({ children }: { children: ReactNode }) {
     { name: 'Live', path: '/live', icon: Play },
     { name: 'Football', path: '/category/football' },
     { name: 'Cricket', path: '/category/cricket' },
+    { name: 'Olympics', path: '/olympics' },
     { name: 'Sport Shots', path: '/shorts' },
     { name: 'Plans', path: '/plans', icon: Crown },
     { name: 'Blogs', path: '/blogs' },
@@ -62,8 +63,8 @@ export default function Layout({ children }: { children: ReactNode }) {
   const mobileNavLinks = [
     { name: 'Home', path: '/', icon: Home },
     { name: 'Search', path: '/search', icon: Search },
+    { name: 'Olympics', path: '/olympics', icon: Trophy },
     { name: 'Sport Shots', path: '/shorts', icon: Flame },
-    { name: 'Blog', path: '/blogs', icon: BookOpen },
     { name: 'List', path: '/account', icon: Clock },
     { name: 'Live', path: '/live', icon: Tv },
   ];

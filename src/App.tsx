@@ -14,6 +14,7 @@ import Legal from './pages/Legal';
 import DataDeletion from './pages/DataDeletion';
 import Shots from './pages/Shots';
 import Blogs from './pages/Blogs';
+import Olympics from './pages/Olympics';
 import { ThemeProvider } from './lib/ThemeContext';
 import { AuthProvider } from './hooks/useAuth';
 
@@ -39,6 +40,7 @@ function App() {
               <Route path="/admin" element={<Admin />} />
               <Route path="/search" element={<Search />} />
               <Route path="/blogs" element={<Blogs />} />
+              <Route path="/olympics" element={<Olympics />} />
               <Route path="/legal/privacy" element={<Legal />} />
               <Route path="/legal/terms" element={<Legal />} />
               <Route path="/legal/cookies" element={<Legal />} />

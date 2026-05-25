@@ -3,10 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { db, handleFirestoreError, OperationType, auth } from '../lib/firebase';
 import { collection, addDoc, getDocs, getDoc, deleteDoc, doc, updateDoc, query, orderBy, setDoc, onSnapshot } from 'firebase/firestore';
 import { SportsContent, Category, ContentType, ContentSection, SliderElement, VideoPromoSettings, SiteConfig, PlayerSettings, SubscriptionPlan, BlogPost } from '../types';
-import { Plus, Trash2, Edit2, Play, LayoutDashboard, Film, Users, Settings, Save, X, Eye, Radio, Crown, Layers, MoveUp, MoveDown, CheckSquare, Square, Image as ImageIcon, Upload, Library, ShieldCheck, ShieldAlert, Zap, Percent, Trophy, ChevronRight, Activity, Heart, Dribbble, CircleDot, Target, Disc, Flag, Gamepad2, Folder, ChevronLeft, BookOpen, Scissors, Waves, Flame, Compass } from 'lucide-react';
+import { Plus, Trash2, Edit2, Play, LayoutDashboard, Film, Users, Settings, Save, X, Eye, Radio, Crown, Layers, MoveUp, MoveDown, CheckSquare, Square, Image as ImageIcon, Upload, Library, ShieldCheck, ShieldAlert, Zap, Percent, Trophy, ChevronRight, Activity, Heart, Dribbble, CircleDot, Target, Disc, Flag, Gamepad2, Folder, ChevronLeft, BookOpen, Scissors, Waves, Flame, Compass, Award } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn, formatDate, transformGDriveUrl, getVideoAutoThumbnail } from '../lib/utils';
 import { useAuth } from '../hooks/useAuth';
+import { IndianMedalist, INDIAN_MEDALISTS } from './Olympics';
 import MediaManager from '../components/MediaManager';
 import StadiumPlayer from '../components/StadiumPlayer';
 import { toast } from 'sonner';
@@ -76,7 +77,39 @@ function ApiStatusIndicator() {
 export default function Admin() {
   const { user, isAdmin, loading: authLoading } = useAuth();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'content' | 'live' | 'sections' | 'categories' | 'slider' | 'users' | 'settings' | 'media' | 'plans' | 'trending' | 'likes' | 'domain_setup' | 'shots' | 'blogs'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'content' | 'live' | 'sections' | 'categories' | 'slider' | 'users' | 'settings' | 'media' | 'plans' | 'trending' | 'likes' | 'domain_setup' | 'shots' | 'blogs' | 'olympics'>('dashboard');
+
+  // Olympic Medalists state for Admin
+  const [adminMedalists, setAdminMedalists] = useState<IndianMedalist[]>(() => {
+    const stored = localStorage.getItem('custom_indian_medalists');
+    if (stored) {
+      try {
+        return JSON.parse(stored);
+      } catch (e) {
+        return INDIAN_MEDALISTS;
+      }
+    }
+    return INDIAN_MEDALISTS;
+  });
+
+  const [editingMedalist, setEditingMedalist] = useState<IndianMedalist | null>(null);
+  const [isAddingMedalist, setIsAddingMedalist] = useState(false);
+
+  // Form state for creating/editing medalist
+  const [medalistForm, setMedalistForm] = useState({
+    name: '',
+    sport: '',
+    category: '',
+    avatar: '🏅',
+    image: '',
+    bio: '',
+    quote: '',
+    funFact: '',
+    longDetails: '',
+    medals: [] as { year: string; type: 'gold' | 'silver' | 'bronze'; detail: string }[],
+    moments: [] as { title: string; description: string; image: string }[],
+    timeline: [] as { year: string; title: string; description: string }[]
+  });
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [content, setContent] = useState<SportsContent[]>([]);
   const [mediaItems, setMediaItems] = useState<any[]>([]);
@@ -1270,6 +1303,7 @@ export default function Admin() {
           <SidebarLink icon={Library} label="Media Uploads" active={activeTab === 'media'} onClick={() => setActiveTab('media')} />
           <SidebarLink icon={Scissors} label="Sport Shots" active={activeTab === 'shots'} onClick={() => setActiveTab('shots')} />
           <SidebarLink icon={BookOpen} label="Manage Blogs" active={activeTab === 'blogs'} onClick={() => setActiveTab('blogs')} />
+          <SidebarLink icon={Award} label="Olympic Medalists" active={activeTab === 'olympics'} onClick={() => setActiveTab('olympics')} />
         </div>
       </div>
 
@@ -1660,7 +1694,7 @@ export default function Admin() {
                         </div>
                       </button>
 
-                      {['cricket', 'football', 'wrestling', 'boxing', 'kabaddi', 'watersports', 'stunts', 'polo', 'others'].map((cat) => {
+                      {['cricket', 'football', 'wrestling', 'boxing', 'kabaddi', 'watersports', 'stunts', 'polo', 'olympics', 'others'].map((cat) => {
                         const Icon = cat === 'football' ? Dribbble : 
                                      cat === 'cricket' ? Trophy : 
                                      cat === 'wrestling' ? Activity : 
@@ -1668,6 +1702,7 @@ export default function Admin() {
                                      cat === 'kabaddi' ? Zap :
                                      cat === 'watersports' ? Waves :
                                      cat === 'stunts' ? Flame :
+                                     cat === 'olympics' ? Trophy :
                                      cat === 'polo' ? Compass : Activity;
                         return (
                           <button
@@ -2911,10 +2946,10 @@ export default function Admin() {
                   {!currentFolder && (
                     <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-5 gap-4">
                       {folders.filter(f => !f.parentId).map(folder => (
-                        <button
+                        <div
                           key={folder.id}
                           onClick={() => { setCurrentFolder(folder.id); setCurrentFolderName(folder.name); }}
-                          className="bg-[#0a0c10] border border-white/5 p-8 group flex flex-col items-center justify-center text-center gap-5 hover:border-brand/40 hover:bg-brand/5 transition-all aspect-square rounded-[32px] relative"
+                          className="bg-[#0a0c10] border border-white/5 p-8 group flex flex-col items-center justify-center text-center gap-5 hover:border-brand/40 hover:bg-brand/5 transition-all aspect-square rounded-[32px] relative cursor-pointer select-none"
                         >
                           <div className="w-20 h-20 flex items-center justify-center transition-all group-hover:scale-110">
                             <Folder className="w-12 h-12 text-brand fill-brand/10" strokeWidth={1.5} />
@@ -2925,12 +2960,12 @@ export default function Admin() {
                           <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
                             <button 
                               onClick={(e) => { e.stopPropagation(); deleteFolder(folder.id, folder.name); }}
-                              className="p-2 text-white/10 hover:text-red-500 transition-colors"
+                              className="p-2 text-white/10 hover:text-red-500 transition-colors cursor-pointer"
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
                           </div>
-                        </button>
+                        </div>
                       ))}
                     </div>
                   )}
@@ -3218,6 +3253,624 @@ export default function Admin() {
               )}
             </motion.div>
           )}
+
+          {activeTab === 'olympics' && (
+            <motion.div key="olympics" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} className="space-y-8 font-sans">
+              
+              {/* Form state for adding/editing */}
+              {(isAddingMedalist || editingMedalist) ? (
+                <div className="bg-surface border border-border rounded-3xl p-6 md:p-8 space-y-6">
+                  <div className="border-b border-border pb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                    <div>
+                      <h2 className="text-2xl font-black uppercase italic tracking-tighter text-white flex items-center gap-2">
+                        <Award className="w-6 h-6 text-brand" />
+                        {editingMedalist ? `Edit Profile: ${medalistForm.name}` : "Create New Olympic Medalist"}
+                      </h2>
+                      <p className="text-text-muted text-[11px] font-bold uppercase mt-1">Configure athletes, medals, profile pictures, timeline milestones, and historic stories</p>
+                    </div>
+                    
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsAddingMedalist(false);
+                          setEditingMedalist(null);
+                        }}
+                        className="px-4 py-2 bg-surface hover:bg-surface-hover hover:text-white border border-border text-xs font-bold text-white rounded-xl transition-all shadow-md cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          if (!medalistForm.name.trim()) {
+                            toast.error("Please enter a name for the medalist");
+                            return;
+                          }
+
+                          const newMedalists = [...adminMedalists];
+                          const dynamicId = editingMedalist ? editingMedalist.id : medalistForm.name.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-');
+
+                          const targetMedalist: IndianMedalist = {
+                            id: dynamicId,
+                            name: medalistForm.name,
+                            sport: medalistForm.sport,
+                            category: medalistForm.category,
+                            avatar: medalistForm.avatar || '🏅',
+                            image: medalistForm.image || 'https://images.unsplash.com/photo-1541252260730-0412e8e2108e?q=80&w=800',
+                            bio: medalistForm.bio,
+                            quote: medalistForm.quote,
+                            funFact: medalistForm.funFact,
+                            longDetails: medalistForm.longDetails.split('\n').filter(line => line.trim().length > 0),
+                            medals: medalistForm.medals || [],
+                            moments: medalistForm.moments || [],
+                            timeline: medalistForm.timeline || []
+                          };
+
+                          if (editingMedalist) {
+                            const index = adminMedalists.findIndex(m => m.id === editingMedalist.id);
+                            if (index !== -1) {
+                              newMedalists[index] = targetMedalist;
+                            }
+                          } else {
+                            newMedalists.push(targetMedalist);
+                          }
+
+                          setAdminMedalists(newMedalists);
+                          localStorage.setItem('custom_indian_medalists', JSON.stringify(newMedalists));
+                          toast.success(editingMedalist ? "Medalist profile saved successfully!" : "New medalist profile added!");
+                          setIsAddingMedalist(false);
+                          setEditingMedalist(null);
+                        }}
+                        className="px-5 py-2 bg-brand hover:bg-brand/90 text-white border border-brand/20 text-xs font-bold rounded-xl transition-all shadow-md shadow-brand/20 cursor-pointer flex items-center gap-1.5"
+                      >
+                        <CheckSquare className="w-4 h-4" />
+                        Save Profile
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Editor Forms */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    {/* Column Left: Base metadata */}
+                    <div className="space-y-5">
+                      <div>
+                        <label className="block text-[10px] font-black uppercase text-brand tracking-widest mb-1.5 font-sans">Athlete Full Name</label>
+                        <input
+                          type="text"
+                          value={medalistForm.name}
+                          onChange={(e) => setMedalistForm({ ...medalistForm, name: e.target.value })}
+                          className="block w-full px-4 py-2.5 bg-surface-alt border border-border rounded-xl text-xs text-white outline-none focus:border-brand/50 transition-all font-semibold"
+                          placeholder="e.g., Neeraj Chopra"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-[10px] font-black uppercase text-brand tracking-widest mb-1.5 font-sans">Sport / Discipline Event</label>
+                          <input
+                            type="text"
+                            value={medalistForm.sport}
+                            onChange={(e) => setMedalistForm({ ...medalistForm, sport: e.target.value })}
+                            className="block w-full px-4 py-2.5 bg-surface-alt border border-border rounded-xl text-xs text-white outline-none focus:border-brand/50 transition-all font-semibold"
+                            placeholder="e.g., Athletics (Javelin Throw)"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-black uppercase text-brand tracking-widest mb-1.5 font-sans">Sport Category</label>
+                          <input
+                            type="text"
+                            value={medalistForm.category}
+                            onChange={(e) => setMedalistForm({ ...medalistForm, category: e.target.value })}
+                            className="block w-full px-4 py-2.5 bg-surface-alt border border-border rounded-xl text-xs text-white outline-none focus:border-brand/50 transition-all font-semibold"
+                            placeholder="e.g., Athletics or Wrestling"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-4 gap-2">
+                        <div className="col-span-1">
+                          <label className="block text-[10px] font-black uppercase text-brand tracking-widest mb-1.5 font-sans">Emoji Representation</label>
+                          <input
+                            type="text"
+                            value={medalistForm.avatar}
+                            onChange={(e) => setMedalistForm({ ...medalistForm, avatar: e.target.value })}
+                            className="block w-full text-center px-2 py-2.5 bg-surface-alt border border-border rounded-xl text-xs text-white outline-none focus:border-brand/50 transition-all font-semibold"
+                            placeholder="🏅"
+                          />
+                        </div>
+                        <div className="col-span-3">
+                          <label className="block text-[10px] font-black uppercase text-brand tracking-widest mb-1.5 font-sans">Main Portrait / Profile Image URL</label>
+                          <input
+                            type="text"
+                            value={medalistForm.image}
+                            onChange={(e) => setMedalistForm({ ...medalistForm, image: e.target.value })}
+                            className="block w-full px-4 py-2.5 bg-surface-alt border border-border rounded-xl text-xs text-white outline-none focus:border-brand/50 transition-all font-semibold"
+                            placeholder="Paste direct link (https://images.unsplash.com/photo-...)"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-black uppercase text-brand tracking-widest mb-1.5 font-sans">Catchphrase / Brief Highlight (1-2 sentences)</label>
+                        <textarea
+                          value={medalistForm.bio}
+                          onChange={(e) => setMedalistForm({ ...medalistForm, bio: e.target.value })}
+                          className="block w-full h-20 px-4 py-2.5 bg-surface-alt border border-border rounded-xl text-xs text-white outline-none focus:border-brand/50 transition-all font-semibold resize-none"
+                          placeholder="Summary of athlete's historic impact"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-black uppercase text-brand tracking-widest mb-1.5 font-sans font-medium">Inspiring Quote</label>
+                        <textarea
+                          value={medalistForm.quote}
+                          onChange={(e) => setMedalistForm({ ...medalistForm, quote: e.target.value })}
+                          className="block w-full h-16 px-4 py-2.5 bg-surface-alt border border-border rounded-xl text-xs text-white outline-none focus:border-brand/50 transition-all font-semibold italic resize-none"
+                          placeholder="Famous quote by the athlete"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-black uppercase text-brand tracking-widest mb-1.5 font-sans">Interesting Fun Fact / Did You Know?</label>
+                        <textarea
+                          value={medalistForm.funFact}
+                          onChange={(e) => setMedalistForm({ ...medalistForm, funFact: e.target.value })}
+                          className="block w-full h-16 px-4 py-2.5 bg-surface-alt border border-border rounded-xl text-xs text-white outline-none focus:border-brand/50 transition-all font-semibold resize-none"
+                          placeholder="Cool background detail of the athlete"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-black uppercase text-brand tracking-widest mb-1.5 font-sans">Full Biography Narrative (One paragraph per line)</label>
+                        <textarea
+                          value={medalistForm.longDetails}
+                          onChange={(e) => setMedalistForm({ ...medalistForm, longDetails: e.target.value })}
+                          className="block w-full h-36 px-4 py-2.5 bg-surface-alt border border-border rounded-xl text-xs text-white outline-none focus:border-brand/50 transition-all font-semibold leading-relaxed"
+                          placeholder="Write key background and journey stories of the athlete. Hit Enter for new paragraphs."
+                        />
+                      </div>
+                    </div>
+
+                    {/* Column Right: Array datasets (Medals, Moments, Timeline) */}
+                    <div className="space-y-6">
+                      
+                      {/* Medals Manager */}
+                      <div className="border border-border bg-surface-alt rounded-2xl p-4 space-y-3">
+                        <div className="flex justify-between items-center pb-2 border-b border-border/60">
+                          <span className="text-[10px] font-black uppercase text-brand tracking-widest">Olympic Medals Collection</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setMedalistForm({
+                                ...medalistForm,
+                                medals: [...medalistForm.medals, { year: '', type: 'gold', detail: '' }]
+                              });
+                            }}
+                            className="px-2 py-1 bg-brand/10 hover:bg-brand text-brand hover:text-white rounded-lg border border-brand/20 text-[9px] font-bold uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer"
+                          >
+                            <Plus className="w-3.5 h-3.5" /> Medal
+                          </button>
+                        </div>
+                        
+                        <div className="space-y-3 max-h-[140px] overflow-y-auto pr-1">
+                          {medalistForm.medals.map((medal, mIdx) => (
+                            <div key={`form-m-${mIdx}`} className="bg-surface p-2.5 rounded-xl border border-border relative flex items-center gap-2 font-sans">
+                              <select
+                                value={medal.type}
+                                onChange={(e) => {
+                                  const updated = [...medalistForm.medals];
+                                  updated[mIdx].type = e.target.value as 'gold' | 'silver' | 'bronze';
+                                  setMedalistForm({ ...medalistForm, medals: updated });
+                                }}
+                                className="bg-surface-alt text-xs border border-border text-white px-1.5 py-1 rounded shadow-inner"
+                              >
+                                <option value="gold">🥇 Gold</option>
+                                <option value="silver">🥈 Silver</option>
+                                <option value="bronze">🥉 Bronze</option>
+                              </select>
+                              <input
+                                type="text"
+                                value={medal.year}
+                                onChange={(e) => {
+                                  const updated = [...medalistForm.medals];
+                                  updated[mIdx].year = e.target.value;
+                                  setMedalistForm({ ...medalistForm, medals: updated });
+                                }}
+                                className="bg-surface-alt text-xs border border-border text-white px-2 py-1 rounded w-20 font-bold"
+                                placeholder="Year"
+                              />
+                              <input
+                                type="text"
+                                value={medal.detail}
+                                onChange={(e) => {
+                                  const updated = [...medalistForm.medals];
+                                  updated[mIdx].detail = e.target.value;
+                                  setMedalistForm({ ...medalistForm, medals: updated });
+                                }}
+                                className="bg-surface-alt text-xs border border-border text-white px-2 py-1 rounded flex-grow font-semibold"
+                                placeholder="Detail (e.g. 87.58m throw)"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setMedalistForm({
+                                    ...medalistForm,
+                                    medals: medalistForm.medals.filter((_, idx) => idx !== mIdx)
+                                  });
+                                }}
+                                className="p-1 text-text-muted hover:text-red-500 rounded bg-surface border border-white/5 transition-colors cursor-pointer"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          ))}
+                          {medalistForm.medals.length === 0 && (
+                            <p className="text-[10px] text-center text-text-muted font-bold py-2">No medals listed. Click "+ Medal" to add accomplishments.</p>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Moments Gallery Manager */}
+                      <div className="border border-border bg-surface-alt rounded-2xl p-4 space-y-3">
+                        <div className="flex justify-between items-center pb-2 border-b border-border/60">
+                          <span className="text-[10px] font-black uppercase text-brand tracking-widest">Historic Moments Gallery</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setMedalistForm({
+                                ...medalistForm,
+                                moments: [...medalistForm.moments, { title: '', description: '', image: '' }]
+                              });
+                            }}
+                            className="px-2 py-1 bg-brand/10 hover:bg-brand text-brand hover:text-white rounded-lg border border-brand/20 text-[9px] font-bold uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer"
+                          >
+                            <Plus className="w-3.5 h-3.5" /> Moment
+                          </button>
+                        </div>
+
+                        <div className="space-y-3 max-h-[180px] overflow-y-auto pr-1">
+                          {medalistForm.moments.map((moment, mIdx) => (
+                            <div key={`form-moment-${mIdx}`} className="bg-surface p-3 rounded-xl border border-border space-y-2 relative">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setMedalistForm({
+                                    ...medalistForm,
+                                    moments: medalistForm.moments.filter((_, idx) => idx !== mIdx)
+                                  });
+                                }}
+                                className="absolute right-2 top-2 p-1 text-text-muted hover:text-red-500 rounded bg-surface border border-white/5 cursor-pointer"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+
+                              <div className="grid grid-cols-2 gap-2 pr-6">
+                                <input
+                                  type="text"
+                                  value={moment.title}
+                                  onChange={(e) => {
+                                    const updated = [...medalistForm.moments];
+                                    updated[mIdx].title = e.target.value;
+                                    setMedalistForm({ ...medalistForm, moments: updated });
+                                  }}
+                                  placeholder="Moment Title"
+                                  className="bg-surface-alt text-xs border border-border text-white px-2 py-1 rounded font-bold"
+                                />
+                                <input
+                                  type="text"
+                                  value={moment.image}
+                                  onChange={(e) => {
+                                    const updated = [...medalistForm.moments];
+                                    updated[mIdx].image = e.target.value;
+                                    setMedalistForm({ ...medalistForm, moments: updated });
+                                  }}
+                                  placeholder="Moment Image URL"
+                                  className="bg-surface-alt text-xs border border-border text-white px-2 py-1 rounded"
+                                />
+                              </div>
+                              <textarea
+                                value={moment.description}
+                                onChange={(e) => {
+                                  const updated = [...medalistForm.moments];
+                                  updated[mIdx].description = e.target.value;
+                                  setMedalistForm({ ...medalistForm, moments: updated });
+                                }}
+                                placeholder="Describe this specific historical moment..."
+                                className="w-full h-11 bg-surface-alt text-xs border border-border text-white px-2 py-1 rounded resize-none"
+                              />
+                            </div>
+                          ))}
+                          {medalistForm.moments.length === 0 && (
+                            <p className="text-[10px] text-center text-text-muted font-bold py-2">No key moments added. Click "+ Moment" to append achievements.</p>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Timeline Milestones Manager */}
+                      <div className="border border-border bg-surface-alt rounded-2xl p-4 space-y-3">
+                        <div className="flex justify-between items-center pb-2 border-b border-border/60">
+                          <span className="text-[10px] font-black uppercase text-brand tracking-widest">Career Timeline Accolades</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setMedalistForm({
+                                ...medalistForm,
+                                timeline: [...medalistForm.timeline, { year: '', title: '', description: '' }]
+                              });
+                            }}
+                            className="px-2 py-1 bg-brand/10 hover:bg-brand text-brand hover:text-white rounded-lg border border-brand/20 text-[9px] font-bold uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer"
+                          >
+                            <Plus className="w-3.5 h-3.5" /> Timeline
+                          </button>
+                        </div>
+
+                        <div className="space-y-3 max-h-[160px] overflow-y-auto pr-1">
+                          {medalistForm.timeline.map((item, tIdx) => (
+                            <div key={`form-time-${tIdx}`} className="bg-surface p-2.5 rounded-xl border border-border space-y-2 relative flex items-start gap-2">
+                              <div className="space-y-1.5 flex-grow">
+                                <div className="grid grid-cols-3 gap-2">
+                                  <input
+                                    type="text"
+                                    value={item.year}
+                                    onChange={(e) => {
+                                      const updated = [...medalistForm.timeline];
+                                      updated[tIdx].year = e.target.value;
+                                      setMedalistForm({ ...medalistForm, timeline: updated });
+                                    }}
+                                    placeholder="Year"
+                                    className="col-span-1 bg-surface-alt text-xs border border-border text-white px-2 py-1 rounded font-bold"
+                                  />
+                                  <input
+                                    type="text"
+                                    value={item.title}
+                                    onChange={(e) => {
+                                      const updated = [...medalistForm.timeline];
+                                      updated[tIdx].title = e.target.value;
+                                      setMedalistForm({ ...medalistForm, timeline: updated });
+                                    }}
+                                    placeholder="Title / Milestone"
+                                    className="col-span-2 bg-surface-alt text-xs border border-border text-white px-2 py-1 rounded font-bold"
+                                  />
+                                </div>
+                                <input
+                                  type="text"
+                                  value={item.description}
+                                  onChange={(e) => {
+                                    const updated = [...medalistForm.timeline];
+                                    updated[tIdx].description = e.target.value;
+                                    setMedalistForm({ ...medalistForm, timeline: updated });
+                                  }}
+                                  placeholder="Brief milestone summary..."
+                                  className="w-full bg-surface-alt text-xs border border-border text-white px-2 py-1 rounded font-semibold"
+                                />
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setMedalistForm({
+                                    ...medalistForm,
+                                    timeline: medalistForm.timeline.filter((_, idx) => idx !== tIdx)
+                                  });
+                                }}
+                                className="p-1 text-text-muted hover:text-red-500 rounded bg-surface border border-white/5 transition-colors self-center cursor-pointer"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          ))}
+                          {medalistForm.timeline.length === 0 && (
+                            <p className="text-[10px] text-center text-text-muted font-bold py-2">No timeline points added. Click "+ Timeline" to construct timeline.</p>
+                          )}
+                        </div>
+                      </div>
+
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end gap-3 pt-4 border-t border-border">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsAddingMedalist(false);
+                        setEditingMedalist(null);
+                      }}
+                      className="px-5 py-2.5 bg-surface hover:bg-surface-hover hover:text-white border border-border text-xs font-bold text-white rounded-xl transition-all shadow-md cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        if (!medalistForm.name.trim()) {
+                          toast.error("Please enter a name for the medalist");
+                          return;
+                        }
+
+                        const newMedalists = [...adminMedalists];
+                        const dynamicId = editingMedalist ? editingMedalist.id : medalistForm.name.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-');
+
+                        const targetMedalist: IndianMedalist = {
+                          id: dynamicId,
+                          name: medalistForm.name,
+                          sport: medalistForm.sport,
+                          category: medalistForm.category,
+                          avatar: medalistForm.avatar || '🏅',
+                          image: medalistForm.image || 'https://images.unsplash.com/photo-1541252260730-0412e8e2108e?q=80&w=800',
+                          bio: medalistForm.bio,
+                          quote: medalistForm.quote,
+                          funFact: medalistForm.funFact,
+                          longDetails: medalistForm.longDetails.split('\n').filter(line => line.trim().length > 0),
+                          medals: medalistForm.medals || [],
+                          moments: medalistForm.moments || [],
+                          timeline: medalistForm.timeline || []
+                        };
+
+                        if (editingMedalist) {
+                          const index = adminMedalists.findIndex(m => m.id === editingMedalist.id);
+                          if (index !== -1) {
+                            newMedalists[index] = targetMedalist;
+                          }
+                        } else {
+                          newMedalists.push(targetMedalist);
+                        }
+
+                        setAdminMedalists(newMedalists);
+                        localStorage.setItem('custom_indian_medalists', JSON.stringify(newMedalists));
+                        toast.success(editingMedalist ? "Medalist profile saved successfully!" : "New medalist profile added!");
+                        setIsAddingMedalist(false);
+                        setEditingMedalist(null);
+                      }}
+                      className="px-6 py-2.5 bg-brand hover:bg-brand/90 text-white border border-brand/20 text-xs font-black uppercase tracking-widest rounded-xl transition-all shadow-md shadow-brand/20 cursor-pointer flex items-center gap-1.5"
+                    >
+                      <CheckSquare className="w-4 h-4" />
+                      Save Challenger Profile
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                // Table / Gallery list view
+                <div className="space-y-6">
+                  <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                    <div className="space-y-2">
+                      <h1 className="text-5xl font-black uppercase italic tracking-tighter">Olympic Medalists</h1>
+                      <p className="text-text-muted font-medium font-sans">Add, modify, and delete the legendary Indian Athletes shown on the Olympics tab.</p>
+                    </div>
+                    <button 
+                      onClick={() => {
+                        setMedalistForm({
+                          name: '',
+                          sport: '',
+                          category: '',
+                          avatar: '🏅',
+                          image: 'https://images.unsplash.com/photo-1599058917212-d750089bc07e?q=80&w=800',
+                          bio: '',
+                          quote: '',
+                          funFact: '',
+                          longDetails: '',
+                          medals: [],
+                          moments: [],
+                          timeline: []
+                        });
+                        setEditingMedalist(null);
+                        setIsAddingMedalist(true);
+                      }}
+                      className="px-6 py-3 bg-brand text-white text-xs font-black uppercase italic hover:bg-brand/80 transition-all flex items-center gap-2 rounded-2xl"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Add Athlete Profile
+                    </button>
+                  </div>
+
+                  <div className="glass-card overflow-hidden">
+                    <div className="overflow-x-auto font-sans">
+                      <table className="w-full text-left border-collapse font-sans">
+                        <thead>
+                          <tr className="border-b border-white/10 text-[10px] font-black uppercase tracking-widest bg-white/5 text-text-muted font-sans">
+                            <th className="p-5">Athlete details</th>
+                            <th className="p-5">Sport / Event</th>
+                            <th className="p-5">Category</th>
+                            <th className="p-5">Olympic Medals Collection</th>
+                            <th className="p-5 text-right">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-white/5 font-sans">
+                          {adminMedalists.map((athlete) => (
+                            <tr key={`adm-ath-${athlete.id}`} className="hover:bg-white/5 transition-colors text-xs text-text-muted font-medium font-sans">
+                              <td className="p-5 flex gap-4 items-center">
+                                <div className="relative w-12 h-12 rounded-lg bg-black overflow-hidden flex-shrink-0 border border-white/10">
+                                  <img 
+                                    src={athlete.image} 
+                                    alt={athlete.name} 
+                                    className="w-full h-full object-cover" 
+                                    referrerPolicy="no-referrer"
+                                  />
+                                  <span className="absolute bottom-1 right-1 text-xs select-none">
+                                    {athlete.avatar || '🏅'}
+                                  </span>
+                                </div>
+                                <div>
+                                  <h4 className="font-bold text-white uppercase tracking-wider line-clamp-1">{athlete.name}</h4>
+                                  <p className="text-text-muted text-[10px] line-clamp-1 mt-0.5">{athlete.bio}</p>
+                                </div>
+                              </td>
+                              <td className="p-5 font-bold text-white/95 uppercase font-sans">
+                                {athlete.sport}
+                              </td>
+                              <td className="p-5 uppercase tracking-widest text-[11px] font-black text-brand font-mono">
+                                {athlete.category}
+                              </td>
+                              <td className="p-5">
+                                <div className="flex flex-wrap gap-1 font-sans">
+                                  {athlete.medals.map((medal, mIdx) => (
+                                    <span 
+                                      key={mIdx} 
+                                      className="inline-flex items-center gap-1 bg-surface-alt border border-border px-2 py-0.5 rounded text-[10px] text-white/95 uppercase font-bold"
+                                      title={medal.detail}
+                                    >
+                                      <span>{medal.type === 'gold' ? '🥇' : medal.type === 'silver' ? '🥈' : '🥉'}</span>
+                                      <span>{medal.year}</span>
+                                    </span>
+                                  ))}
+                                  {athlete.medals.length === 0 && (
+                                    <span className="text-[10px] text-text-muted font-bold font-sans">No medals listed</span>
+                                  )}
+                                </div>
+                              </td>
+                              <td className="p-5 text-right font-sans">
+                                <div className="flex gap-2 justify-end font-sans">
+                                  <button 
+                                    onClick={() => {
+                                      setMedalistForm({
+                                        name: athlete.name,
+                                        sport: athlete.sport,
+                                        category: athlete.category,
+                                        avatar: athlete.avatar || '🏅',
+                                        image: athlete.image,
+                                        bio: athlete.bio,
+                                        quote: athlete.quote || '',
+                                        funFact: athlete.funFact || '',
+                                        longDetails: athlete.longDetails.join('\n'),
+                                        medals: athlete.medals ? athlete.medals.map(m => ({ ...m })) : [],
+                                        moments: athlete.moments ? athlete.moments.map(m => ({ ...m })) : [],
+                                        timeline: athlete.timeline ? athlete.timeline.map(m => ({ ...m })) : []
+                                      });
+                                      setEditingMedalist(athlete);
+                                      setIsAddingMedalist(true);
+                                    }}
+                                    className="p-2 bg-white/5 hover:bg-brand/10 border border-white/10 hover:text-brand text-white transition-all rounded-lg cursor-pointer"
+                                    title="Edit Profile Details"
+                                  >
+                                    <Edit2 className="w-4 h-4" />
+                                  </button>
+                                  <button 
+                                    onClick={() => {
+                                      if (window.confirm(`Are you sure you want to delete the medalist profile for "${athlete.name}"?`)) {
+                                        const updated = adminMedalists.filter(m => m.id !== athlete.id);
+                                        setAdminMedalists(updated);
+                                        localStorage.setItem('custom_indian_medalists', JSON.stringify(updated));
+                                        toast.success(`Removed medalist: ${athlete.name}`);
+                                      }
+                                    }}
+                                    className="p-2 bg-red-500/10 hover:bg-red-500 hover:text-white border border-red-500/10 text-red-500 transition-all rounded-lg cursor-pointer"
+                                    title="Delete Athlete Profile"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </motion.div>
+          )}
         </AnimatePresence>
       </div>
 
@@ -3251,6 +3904,7 @@ export default function Admin() {
                       <option value="watersports">Water Sport</option>
                       <option value="stunts">Stunt</option>
                       <option value="polo">Polo</option>
+                      <option value="olympics">Olympics</option>
                       <option value="others">Others</option>
                     </select>
                   </div>
@@ -3429,6 +4083,7 @@ export default function Admin() {
                       <option value="watersports">Water Sport Category</option>
                       <option value="stunts">Stunt Category</option>
                       <option value="polo">Polo Category</option>
+                      <option value="olympics">Olympics Category</option>
                       <option value="others">Others Category</option>
                     </select>
                   </div>
@@ -3632,6 +4287,7 @@ export default function Admin() {
                     <option value="watersports">Water Sport Category</option>
                     <option value="stunts">Stunt Category</option>
                     <option value="polo">Polo Category</option>
+                    <option value="olympics">Olympics Category</option>
                     <option value="others">Others Category</option>
                   </select>
                 </div>
@@ -3843,6 +4499,7 @@ export default function Admin() {
                       <option value="watersports">Water Sport</option>
                       <option value="stunts">Stunt</option>
                       <option value="polo">Polo</option>
+                      <option value="olympics">Olympics</option>
                       <option value="others">Others</option>
                     </select>
                   </div>

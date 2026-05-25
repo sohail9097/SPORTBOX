@@ -60,6 +60,8 @@ export function getCategoryFallbackImage(category?: string): string {
       return 'https://images.unsplash.com/photo-1568285519808-115fef54e8ab?q=80&w=800&auto=format&fit=crop';
     case 'polo':
       return 'https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?q=80&w=800&auto=format&fit=crop';
+    case 'olympics':
+      return 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?q=80&w=800&auto=format&fit=crop';
     default:
       return 'https://images.unsplash.com/photo-1574629810360-7efbbe195018?q=80&w=800&auto=format&fit=crop';
   }

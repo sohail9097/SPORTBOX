@@ -20,6 +20,7 @@ const CategoryLabelMap: Record<string, { label: string, color: string, bg: strin
   watersports: { label: 'WS', color: 'text-[#00ccff]', bg: 'bg-[#00ccff]/10 border-[#00ccff]/20' },
   stunts: { label: 'ST', color: 'text-[#ff1aff]', bg: 'bg-[#ff1aff]/10 border-[#ff1aff]/20' },
   polo: { label: 'PL', color: 'text-[#d4af37]', bg: 'bg-[#d4af37]/10 border-[#d4af37]/20' },
+  olympics: { label: 'OL', color: 'text-[#00ffff]', bg: 'bg-[#00ffff]/10 border-[#00ffff]/20' },
 };
 
 export default function CategoryPage() {

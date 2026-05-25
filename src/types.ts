@@ -1,4 +1,4 @@
-export type Category = 'football' | 'cricket' | 'wrestling' | 'boxing' | 'others' | 'kabaddi' | 'watersports' | 'stunts' | 'polo';
+export type Category = 'football' | 'cricket' | 'wrestling' | 'boxing' | 'others' | 'kabaddi' | 'watersports' | 'stunts' | 'polo' | 'olympics';
 export type ContentType = 'live' | 'replay' | 'highlight' | 'short';
 export type Status = 'scheduled' | 'live' | 'ended';
 

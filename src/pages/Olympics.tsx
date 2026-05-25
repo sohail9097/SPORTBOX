@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { collection, query, where, onSnapshot, addDoc, deleteDoc, doc, updateDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, addDoc, deleteDoc, doc, updateDoc, setDoc } from 'firebase/firestore';
 import { SportsContent } from '../types';
 import { 
   Trophy, Play, Plus, Trash2, Flame, Award, Calendar, Timer, 
@@ -597,17 +597,7 @@ export default function Olympics() {
   const [newDuration, setNewDuration] = useState('2:15');
 
   // Indian Medalists interactive filters & custom medalist list state
-  const [medalists, setMedalists] = useState<IndianMedalist[]>(() => {
-    const stored = localStorage.getItem('custom_indian_medalists');
-    if (stored) {
-      try {
-        return JSON.parse(stored);
-      } catch (e) {
-        return INDIAN_MEDALISTS;
-      }
-    }
-    return INDIAN_MEDALISTS;
-  });
+  const [medalists, setMedalists] = useState<IndianMedalist[]>(INDIAN_MEDALISTS);
 
   const [medalFilter, setMedalFilter] = useState<'all' | 'gold' | 'silver' | 'bronze'>('all');
   const [sportFilter, setSportFilter] = useState<string>('all');
@@ -643,7 +633,7 @@ export default function Olympics() {
 
   // Sync / Load logic
   useEffect(() => {
-    // 1. Calculate time remaining to Milano Cortina 2026 (Starts Feb 6, 2026) -> Wait, since local time is May 25, 2026 in metadata, let's countdown to Los Angeles 2028 (Starts July 14, 2028)
+    // 1. Calculate time remaining to Los Angeles 2028 (Starts July 14, 2028)
     const targetDate = new Date('2028-07-14T20:00:00').getTime();
 
     const interval = setInterval(() => {
@@ -663,19 +653,6 @@ export default function Olympics() {
       }
     }, 1000);
 
-    // 2. Fetch or initialize Custom Videos from LocalStorage
-    const stored = localStorage.getItem('custom_olympic_videos');
-    if (stored) {
-      try {
-        setCustomVideos(JSON.parse(stored));
-      } catch (e) {
-        setCustomVideos(DEFAULT_VIDEOS);
-      }
-    } else {
-      localStorage.setItem('custom_olympic_videos', JSON.stringify(DEFAULT_VIDEOS));
-      setCustomVideos(DEFAULT_VIDEOS);
-    }
-
     // Set first video as default display
     setSelectedVideo({
       id: 'olympic-archery',
@@ -686,9 +663,16 @@ export default function Olympics() {
       likes: 8520
     });
 
-    // 3. Real-time sub to database content belonging to category 'olympics'
+    return () => {
+      clearInterval(interval);
+    };
+  }, []);
+
+  // Real-time Database Subscriptions
+  useEffect(() => {
+    // 1. Subscribe to Content Video collection under category 'olympics'
     const qContent = query(collection(db, 'content'), where('category', '==', 'olympics'));
-    const unsubscribe = onSnapshot(qContent, (snapshot) => {
+    const unsubscribeContent = onSnapshot(qContent, (snapshot) => {
       const list = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
@@ -698,11 +682,48 @@ export default function Olympics() {
       console.warn("Firestore Olympic category query disabled or offline:", err);
     });
 
+    // 2. Subscribe to olympic_medalists collection
+    const qMedalists = query(collection(db, 'olympic_medalists'));
+    const unsubscribeMedalists = onSnapshot(qMedalists, (snapshot) => {
+      if (snapshot.empty) {
+        if (isAdmin) {
+          console.log("Seeding olympic_medalists to Firestore...");
+          INDIAN_MEDALISTS.forEach(async (m) => {
+            try {
+              await setDoc(doc(db, 'olympic_medalists', m.id), m);
+            } catch (err) {
+              console.error("Error seeding medalist:", err);
+            }
+          });
+        } else {
+          setMedalists(INDIAN_MEDALISTS);
+        }
+      } else {
+        const list = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        } as IndianMedalist));
+
+        // Sort to match default ordering
+        const orderMap = new Map(INDIAN_MEDALISTS.map((m, idx) => [m.id, idx]));
+        list.sort((a, b) => {
+          const indexA = orderMap.get(a.id) ?? 999;
+          const indexB = orderMap.get(b.id) ?? 999;
+          return indexA - indexB;
+        });
+
+        setMedalists(list);
+      }
+    }, (err) => {
+      console.warn("Firestore medalists query disabled or offline:", err);
+      setMedalists(INDIAN_MEDALISTS);
+    });
+
     return () => {
-      clearInterval(interval);
-      unsubscribe();
+      unsubscribeContent();
+      unsubscribeMedalists();
     };
-  }, []);
+  }, [isAdmin]);
 
   // Sync to local storage
   const saveCustomVideos = (updatedList: CustomOlympicVideo[]) => {
@@ -768,38 +789,35 @@ export default function Olympics() {
     }
 
     try {
-      if (id.startsWith('custom-olympic-') || DEFAULT_VIDEOS.some(v => v.id === id)) {
-        const filtered = customVideos.filter(v => v.id !== id);
-        saveCustomVideos(filtered);
-        if (selectedVideo?.id === id) {
-          setSelectedVideo(filtered[0] || null);
-        }
-        toast.info('Video removed from checklist/playlist');
-      } else {
-        await deleteDoc(doc(db, 'content', id));
-        toast.success('Video removed from database!');
-        if (selectedVideo?.id === id) {
-          setSelectedVideo(null);
-        }
+      if (DEFAULT_VIDEOS.some(v => v.id === id)) {
+        toast.info('Default preloaded clips are read-only.');
+        return;
+      }
+      await deleteDoc(doc(db, 'content', id));
+      toast.success('Video removed from database!');
+      if (selectedVideo?.id === id) {
+        setSelectedVideo(null);
       }
     } catch (err) {
       handleFirestoreError(err, OperationType.DELETE, `content/${id}`);
     }
   };
 
-  const handleLikeVideo = () => {
+  const handleLikeVideo = async () => {
     if (!selectedVideo) return;
     toast.success('Liked! Added to recommendation algorithm.');
     
-    // update state
-    if (selectedVideo.id.startsWith('custom-olympic-') || DEFAULT_VIDEOS.some(v => v.id === selectedVideo.id)) {
-      const updated = customVideos.map(v => {
-        if (v.id === selectedVideo.id) {
-          return { ...v, likes: v.likes + 1 };
-        }
-        return v;
-      });
-      saveCustomVideos(updated);
+    const videoId = selectedVideo.id;
+    const isDefault = DEFAULT_VIDEOS.some(v => v.id === videoId);
+
+    if (!isDefault) {
+      try {
+        await updateDoc(doc(db, 'content', videoId), {
+          likes: (selectedVideo.likes || 1) + 1
+        });
+      } catch (err) {
+        console.warn("Failed to update likes in database:", err);
+      }
     }
     setSelectedVideo({ ...selectedVideo, likes: (selectedVideo.likes || 0) + 1 });
   };
@@ -835,7 +853,7 @@ export default function Olympics() {
     setQuizFinished(false);
   };
 
-  const handleSaveAthlete = () => {
+  const handleSaveAthlete = async () => {
     if (!isAdmin) {
       toast.error('Only administrators can edit medalist profiles.');
       return;
@@ -844,37 +862,32 @@ export default function Olympics() {
       toast.error('Athlete Name is required.');
       return;
     }
+    if (!selectedAthlete?.id) return;
 
-    const updatedMedalists = medalists.map(m => {
-      if (m.id === selectedAthlete?.id) {
-        return {
-          ...m,
-          name: editAthleteName.trim(),
-          sport: editAthleteSport.trim(),
-          category: editAthleteCategory.trim(),
-          image: editAthleteImage.trim(),
-          avatar: editAthleteAvatar.trim(),
-          bio: editAthleteBio.trim(),
-          quote: editAthleteQuote.trim(),
-          funFact: editAthleteFunFact.trim(),
-          longDetails: editAthleteLongDetails.split('\n').filter(p => p.trim() !== ''),
-          moments: editAthleteMoments.filter(mo => mo.title.trim() !== '')
-        };
-      }
-      return m;
-    });
+    try {
+      const updatedData = {
+        id: selectedAthlete.id,
+        name: editAthleteName.trim(),
+        sport: editAthleteSport.trim(),
+        category: editAthleteCategory.trim(),
+        image: editAthleteImage.trim(),
+        avatar: editAthleteAvatar.trim(),
+        bio: editAthleteBio.trim(),
+        quote: editAthleteQuote.trim(),
+        funFact: editAthleteFunFact.trim(),
+        longDetails: editAthleteLongDetails.split('\n').filter(p => p.trim() !== ''),
+        moments: editAthleteMoments.filter(mo => mo.title.trim() !== '')
+      };
 
-    setMedalists(updatedMedalists);
-    localStorage.setItem('custom_indian_medalists', JSON.stringify(updatedMedalists));
-    
-    // Update selectedAthlete state in live time view
-    const updatedModel = updatedMedalists.find(m => m.id === selectedAthlete?.id);
-    if (updatedModel) {
-      setSelectedAthlete(updatedModel);
+      await setDoc(doc(db, 'olympic_medalists', selectedAthlete.id), updatedData);
+      
+      setSelectedAthlete(prev => prev ? { ...prev, ...updatedData } : null);
+      setIsEditingAthlete(false);
+      toast.success('Medalist profile successfully updated in database!');
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to update medalist in database.');
     }
-    
-    setIsEditingAthlete(false);
-    toast.success('Medalist profile successfully updated!');
   };
 
   // Indian Medalists filtration logic computed live on render cycles
@@ -1252,119 +1265,85 @@ export default function Olympics() {
                   )}
                 </div>
 
-                {/* Sidebar Playlist */}
-                <div className="lg:col-span-4 space-y-4 max-h-[800px] overflow-y-auto pr-1">
-                  <div className="flex justify-between items-center pb-2 border-b border-border">
-                    <span className="text-xs font-black uppercase tracking-widest text-text-muted">Olympic Clips Pool</span>
-                    <span className="px-2 py-0.5 rounded bg-surface border border-border text-[10px] font-mono font-bold text-white">
-                      {(customVideos.length + firestoreVideos.length)} Items
-                    </span>
-                  </div>
+                 {/* Sidebar Playlist */}
+                 {(() => {
+                   const allClips: any[] = [
+                     ...firestoreVideos,
+                     ...DEFAULT_VIDEOS.filter(dv => !firestoreVideos.some(fv => fv.videoUrl === dv.videoUrl || fv.title === dv.title))
+                   ];
+                   return (
+                     <div className="lg:col-span-4 space-y-4 max-h-[800px] overflow-y-auto pr-1">
+                       <div className="flex justify-between items-center pb-2 border-b border-border">
+                         <span className="text-xs font-black uppercase tracking-widest text-text-muted">Olympic Clips Pool</span>
+                         <span className="px-2 py-0.5 rounded bg-surface border border-border text-[10px] font-mono font-bold text-white">
+                           {allClips.length} Items
+                         </span>
+                       </div>
 
-                  <div className="space-y-3">
-                    {/* Render Firestore sourced Content Category==='olympics' first if any exists */}
-                    {firestoreVideos.length > 0 && (
-                      <div className="space-y-2.5">
-                        <span className="text-[9px] uppercase font-bold text-brand tracking-wider block">Real-time Stream/Video Feeds</span>
-                        {firestoreVideos.map((vid) => (
-                          <div
-                            key={vid.id}
-                            onClick={() => setSelectedVideo({
-                              id: vid.id,
-                              title: vid.title,
-                              description: vid.description,
-                              videoUrl: vid.videoUrl,
-                              thumbnailUrl: vid.thumbnailUrl,
-                              likes: vid.likes || 0
-                            })}
-                            className={`p-3 rounded-xl border transition-all cursor-pointer text-left flex gap-3 relative group ${
-                              selectedVideo?.id === vid.id 
-                                ? 'bg-brand/10 border-brand' 
-                                : 'bg-surface border-border hover:bg-surface-hover hover:border-white/10'
-                            }`}
-                          >
-                            <div className="w-16 h-12 bg-black rounded overflow-hidden flex-shrink-0 relative">
-                              <img src={vid.thumbnailUrl || 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?q=80&w=200&auto=format&fit=crop'} alt="" className="w-full h-full object-cover opacity-80" />
-                              <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                                <Play className="w-3.5 h-3.5 text-white fill-white" />
-                              </div>
-                            </div>
-                            <div className="flex-grow min-w-0 space-y-1 pr-6">
-                              <span className="inline-block bg-brand/20 text-brand px-1 py-0.5 rounded text-[8px] font-bold uppercase tracking-widest mb-0.5">Database Video</span>
-                              <h4 className="text-xs font-bold text-white truncate">{vid.title}</h4>
-                              <p className="text-[10px] text-text-muted font-mono line-clamp-1">{vid.description}</p>
-                            </div>
-                            
-                            {/* Allow deleting from database for Admin */}
-                            {isAdmin && (
-                              <button
-                                onClick={async (e) => {
-                                  e.stopPropagation();
-                                  if (window.confirm(`Are you sure you want to delete "${vid.title}" from the database?`)) {
-                                    try {
-                                      await deleteDoc(doc(db, 'content', vid.id));
-                                      toast.success('Video removed from database successfully!');
-                                      if (selectedVideo?.id === vid.id) {
-                                        setSelectedVideo(null);
-                                      }
-                                    } catch (err) {
-                                      handleFirestoreError(err, OperationType.DELETE, `content/${vid.id}`);
-                                    }
-                                  }
-                                }}
-                                className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-text-muted hover:text-red-500 rounded-lg bg-surface hover:bg-red-500/10 border border-border opacity-0 group-hover:opacity-100 transition-opacity z-10"
-                                title="Delete from Database"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    {/* Custom Upload Playlist */}
-                    <div className="space-y-2.5">
-                      <span className="text-[9px] uppercase font-bold text-text-muted tracking-wider block">Local Replays Playlists</span>
-                      {customVideos.map((vid) => (
-                        <div
-                          key={vid.id}
-                          onClick={() => setSelectedVideo(vid)}
-                          className={`p-3 rounded-xl border transition-all cursor-pointer text-left flex gap-3 relative group ${
-                            selectedVideo?.id === vid.id 
-                              ? 'bg-brand/10 border-brand' 
-                              : 'bg-surface border-border hover:bg-surface-hover hover:border-white/10'
-                          }`}
-                        >
-                          <div className="w-16 h-12 bg-black rounded overflow-hidden flex-shrink-0 relative">
-                            <img src="https://images.unsplash.com/photo-1508098682722-e99c43a406b2?q=80&w=200&auto=format&fit=crop" alt="" className="w-full h-full object-cover opacity-65" />
-                            <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
-                              <Play className="w-4 h-4 text-white fill-white" />
-                            </div>
-                            <span className="absolute bottom-1 right-1 bg-black/80 px-1 rounded text-[8px] font-mono text-white/90">{vid.duration}</span>
-                          </div>
-
-                          <div className="flex-grow min-w-0 space-y-0.5 pr-6">
-                            <h4 className="text-xs font-semibold text-white truncate">{vid.title}</h4>
-                            <p className="text-[10px] text-text-muted font-sans line-clamp-1">{vid.description}</p>
-                            <span className="text-[9px] text-text-muted font-mono">{(vid.views || 5000).toLocaleString()} Views</span>
-                          </div>
-
-                          {/* Allow deleting custom non-default videos */}
-                          {isAdmin && !DEFAULT_VIDEOS.some(df => df.id === vid.id) && (
-                            <button
-                              onClick={(e) => handleDeleteVideo(vid.id, e)}
-                              className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-text-muted hover:text-red-500 rounded-lg bg-surface hover:bg-red-500/10 border border-border opacity-0 group-hover:opacity-100 transition-opacity"
-                              title="Delete Video"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
+                       <div className="space-y-3">
+                         {allClips.map((vid) => {
+                           const isDefault = DEFAULT_VIDEOS.some(df => df.id === vid.id);
+                           return (
+                             <div
+                               key={vid.id}
+                               onClick={() => setSelectedVideo({
+                                 id: vid.id,
+                                 title: vid.title,
+                                 description: vid.description,
+                                 videoUrl: vid.videoUrl,
+                                 thumbnailUrl: vid.thumbnailUrl,
+                                 likes: vid.likes || 0
+                               })}
+                               className={`p-3 rounded-xl border transition-all cursor-pointer text-left flex gap-3 relative group ${
+                                 selectedVideo?.id === vid.id 
+                                   ? 'bg-brand/10 border-brand' 
+                                   : 'bg-surface border-border hover:bg-surface-hover hover:border-white/10'
+                               }`}
+                             >
+                               <div className="w-16 h-12 bg-black rounded overflow-hidden flex-shrink-0 relative">
+                                 <img src={vid.thumbnailUrl || 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?q=80&w=200&auto=format&fit=crop'} alt="" className="w-full h-full object-cover opacity-80" />
+                                 <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                                   <Play className="w-3.5 h-3.5 text-white fill-white" />
+                                 </div>
+                               </div>
+                               <div className="flex-grow min-w-0 space-y-1 pr-6">
+                                 <span className="inline-block bg-brand/20 text-brand px-1 py-0.5 rounded text-[8px] font-bold uppercase tracking-widest mb-0.5">
+                                   {isDefault ? 'Preloaded Clip' : 'Database Stream'}
+                                 </span>
+                                 <h4 className="text-xs font-bold text-white truncate">{vid.title}</h4>
+                                 <p className="text-[10px] text-text-muted font-mono line-clamp-1">{vid.description}</p>
+                               </div>
+                               
+                               {/* Allow deleting from database for Admin */}
+                               {isAdmin && !isDefault && (
+                                 <button
+                                   onClick={async (e) => {
+                                     e.stopPropagation();
+                                     if (window.confirm(`Are you sure you want to delete "${vid.title}" from the database?`)) {
+                                       try {
+                                         await deleteDoc(doc(db, 'content', vid.id));
+                                         toast.success('Video removed from database successfully!');
+                                         if (selectedVideo?.id === vid.id) {
+                                           setSelectedVideo(null);
+                                         }
+                                       } catch (err) {
+                                         handleFirestoreError(err, OperationType.DELETE, `content/${vid.id}`);
+                                       }
+                                     }
+                                   }}
+                                   className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-text-muted hover:text-red-500 rounded-lg bg-surface hover:bg-red-500/10 border border-border opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                                   title="Delete from Database"
+                                 >
+                                   <Trash2 className="w-3.5 h-3.5" />
+                                 </button>
+                               )}
+                             </div>
+                           );
+                         })}
+                       </div>
+                     </div>
+                   );
+                 })()}
               </div>
             </motion.div>
           )}

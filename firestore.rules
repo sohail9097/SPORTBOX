@@ -33,6 +33,12 @@ service cloud.firestore {
       }
     }
 
+    // Olympic Medalists: everyone can read, only admin can write
+    match /olympic_medalists/{medalistId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
     // Slider: read for all, write for admin
     match /slider/{slideId} {
       allow read: if true;

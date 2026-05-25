@@ -80,17 +80,7 @@ export default function Admin() {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'content' | 'live' | 'sections' | 'categories' | 'slider' | 'users' | 'settings' | 'media' | 'plans' | 'trending' | 'likes' | 'domain_setup' | 'shots' | 'blogs' | 'olympics'>('dashboard');
 
   // Olympic Medalists state for Admin
-  const [adminMedalists, setAdminMedalists] = useState<IndianMedalist[]>(() => {
-    const stored = localStorage.getItem('custom_indian_medalists');
-    if (stored) {
-      try {
-        return JSON.parse(stored);
-      } catch (e) {
-        return INDIAN_MEDALISTS;
-      }
-    }
-    return INDIAN_MEDALISTS;
-  });
+  const [adminMedalists, setAdminMedalists] = useState<IndianMedalist[]>(INDIAN_MEDALISTS);
 
   const [editingMedalist, setEditingMedalist] = useState<IndianMedalist | null>(null);
   const [isAddingMedalist, setIsAddingMedalist] = useState(false);
@@ -458,11 +448,27 @@ export default function Admin() {
         }
       }, (err) => console.warn("[Admin] Plans sync offline:", err.message));
 
+      const unsubMedalists = onSnapshot(collection(db, 'olympic_medalists'), (snap) => {
+        if (!snap.empty) {
+          const list = snap.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as IndianMedalist));
+          const orderMap = new Map(INDIAN_MEDALISTS.map((m, idx) => [m.id, idx]));
+          list.sort((a, b) => {
+            const indexA = orderMap.get(a.id) ?? 999;
+            const indexB = orderMap.get(b.id) ?? 999;
+            return indexA - indexB;
+          });
+          setAdminMedalists(list);
+        } else {
+          setAdminMedalists(INDIAN_MEDALISTS);
+        }
+      }, (err) => console.warn("[Admin] Medalists sync offline:", err.message));
+
       return () => {
         unsubConfig();
         unsubPromo();
         unsubPlayer();
         unsubPlans();
+        unsubMedalists();
       };
     }
   }, [isAdmin]);
@@ -3282,14 +3288,13 @@ export default function Admin() {
                       </button>
                       <button
                         type="button"
-                        onClick={(e) => {
+                        onClick={async (e) => {
                           e.preventDefault();
                           if (!medalistForm.name.trim()) {
                             toast.error("Please enter a name for the medalist");
                             return;
                           }
 
-                          const newMedalists = [...adminMedalists];
                           const dynamicId = editingMedalist ? editingMedalist.id : medalistForm.name.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-');
 
                           const targetMedalist: IndianMedalist = {
@@ -3308,20 +3313,15 @@ export default function Admin() {
                             timeline: medalistForm.timeline || []
                           };
 
-                          if (editingMedalist) {
-                            const index = adminMedalists.findIndex(m => m.id === editingMedalist.id);
-                            if (index !== -1) {
-                              newMedalists[index] = targetMedalist;
-                            }
-                          } else {
-                            newMedalists.push(targetMedalist);
+                          try {
+                            await setDoc(doc(db, 'olympic_medalists', targetMedalist.id), targetMedalist);
+                            toast.success(editingMedalist ? "Medalist profile saved successfully inside database!" : "New medalist profile added to database!");
+                            setIsAddingMedalist(false);
+                            setEditingMedalist(null);
+                          } catch (err) {
+                            console.error(err);
+                            toast.error("Failed to save medalist profile to Firestore database.");
                           }
-
-                          setAdminMedalists(newMedalists);
-                          localStorage.setItem('custom_indian_medalists', JSON.stringify(newMedalists));
-                          toast.success(editingMedalist ? "Medalist profile saved successfully!" : "New medalist profile added!");
-                          setIsAddingMedalist(false);
-                          setEditingMedalist(null);
                         }}
                         className="px-5 py-2 bg-brand hover:bg-brand/90 text-white border border-brand/20 text-xs font-bold rounded-xl transition-all shadow-md shadow-brand/20 cursor-pointer flex items-center gap-1.5"
                       >
@@ -3682,14 +3682,13 @@ export default function Admin() {
                     </button>
                     <button
                       type="button"
-                      onClick={(e) => {
+                      onClick={async (e) => {
                         e.preventDefault();
                         if (!medalistForm.name.trim()) {
                           toast.error("Please enter a name for the medalist");
                           return;
                         }
 
-                        const newMedalists = [...adminMedalists];
                         const dynamicId = editingMedalist ? editingMedalist.id : medalistForm.name.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-');
 
                         const targetMedalist: IndianMedalist = {
@@ -3708,20 +3707,15 @@ export default function Admin() {
                           timeline: medalistForm.timeline || []
                         };
 
-                        if (editingMedalist) {
-                          const index = adminMedalists.findIndex(m => m.id === editingMedalist.id);
-                          if (index !== -1) {
-                            newMedalists[index] = targetMedalist;
-                          }
-                        } else {
-                          newMedalists.push(targetMedalist);
+                        try {
+                          await setDoc(doc(db, 'olympic_medalists', targetMedalist.id), targetMedalist);
+                          toast.success(editingMedalist ? "Challenger profile saved successfully inside database!" : "New challenger profile added to database!");
+                          setIsAddingMedalist(false);
+                          setEditingMedalist(null);
+                        } catch (err) {
+                          console.error(err);
+                          toast.error("Failed to save medalist profile to Firestore database.");
                         }
-
-                        setAdminMedalists(newMedalists);
-                        localStorage.setItem('custom_indian_medalists', JSON.stringify(newMedalists));
-                        toast.success(editingMedalist ? "Medalist profile saved successfully!" : "New medalist profile added!");
-                        setIsAddingMedalist(false);
-                        setEditingMedalist(null);
                       }}
                       className="px-6 py-2.5 bg-brand hover:bg-brand/90 text-white border border-brand/20 text-xs font-black uppercase tracking-widest rounded-xl transition-all shadow-md shadow-brand/20 cursor-pointer flex items-center gap-1.5"
                     >
@@ -3846,12 +3840,15 @@ export default function Admin() {
                                     <Edit2 className="w-4 h-4" />
                                   </button>
                                   <button 
-                                    onClick={() => {
+                                    onClick={async () => {
                                       if (window.confirm(`Are you sure you want to delete the medalist profile for "${athlete.name}"?`)) {
-                                        const updated = adminMedalists.filter(m => m.id !== athlete.id);
-                                        setAdminMedalists(updated);
-                                        localStorage.setItem('custom_indian_medalists', JSON.stringify(updated));
-                                        toast.success(`Removed medalist: ${athlete.name}`);
+                                        try {
+                                          await deleteDoc(doc(db, 'olympic_medalists', athlete.id));
+                                          toast.success(`Removed medalist from database: ${athlete.name}`);
+                                        } catch (err) {
+                                          console.error(err);
+                                          toast.error("Failed to delete medalist from database.");
+                                        }
                                       }
                                     }}
                                     className="p-2 bg-red-500/10 hover:bg-red-500 hover:text-white border border-red-500/10 text-red-500 transition-all rounded-lg cursor-pointer"

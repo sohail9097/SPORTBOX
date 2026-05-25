@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { db } from '../lib/firebase';
-import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { db, handleFirestoreError, OperationType } from '../lib/firebase';
+import { collection, query, where, onSnapshot, addDoc, deleteDoc, doc, updateDoc } from 'firebase/firestore';
 import { SportsContent } from '../types';
 import { 
   Trophy, Play, Plus, Trash2, Flame, Award, Calendar, Timer, 
@@ -711,7 +711,7 @@ export default function Olympics() {
   };
 
   // Add custom video
-  const handleAddVideoSubmit = (e: React.FormEvent) => {
+  const handleAddVideoSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isAdmin) {
       toast.error('Only administrators can add Olympic videos.');
@@ -724,41 +724,67 @@ export default function Olympics() {
 
     // Format url to treat drive patterns or raw mp4s properly, or support standard format
     let cleanUrl = newUrl.trim();
-    const newVid: CustomOlympicVideo = {
-      id: `custom-olympic-${Date.now()}`,
-      title: newTitle.trim(),
-      description: newDesc.trim() || 'Custom added Olympic Games highlights.',
-      videoUrl: cleanUrl,
-      duration: newDuration || '2:30',
-      views: 1,
-      likes: 1
-    };
-
-    const updated = [newVid, ...customVideos];
-    saveCustomVideos(updated);
-    setSelectedVideo(newVid);
     
-    // reset form
-    setNewTitle('');
-    setNewUrl('');
-    setNewDesc('');
-    setIsAddingVideo(false);
-    toast.success('Olympic video added successfully!');
+    try {
+      const docData = {
+        title: newTitle.trim(),
+        description: newDesc.trim() || 'Custom added Olympic Games highlights.',
+        videoUrl: cleanUrl,
+        category: 'olympics' as const,
+        type: 'highlight' as const,
+        status: 'ended' as const,
+        isPremium: false,
+        viewCount: 1,
+        likes: 1,
+        createdAt: new Date().toISOString(),
+        isCustomOlympic: true,
+        duration: newDuration || '2:30'
+      };
+
+      const docRef = await addDoc(collection(db, 'content'), docData);
+      
+      setSelectedVideo({
+        id: docRef.id,
+        ...docData
+      });
+
+      // reset form
+      setNewTitle('');
+      setNewUrl('');
+      setNewDesc('');
+      setIsAddingVideo(false);
+      toast.success('Olympic video added to Firestore database successfully!');
+    } catch (err) {
+      handleFirestoreError(err, OperationType.CREATE, 'content');
+    }
   };
 
   // Delete custom video
-  const handleDeleteVideo = (id: string, e: React.MouseEvent) => {
+  const handleDeleteVideo = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     if (!isAdmin) {
       toast.error('Only administrators can remove Olympic videos.');
       return;
     }
-    const filtered = customVideos.filter(v => v.id !== id);
-    saveCustomVideos(filtered);
-    if (selectedVideo?.id === id) {
-      setSelectedVideo(filtered[0] || null);
+
+    try {
+      if (id.startsWith('custom-olympic-') || DEFAULT_VIDEOS.some(v => v.id === id)) {
+        const filtered = customVideos.filter(v => v.id !== id);
+        saveCustomVideos(filtered);
+        if (selectedVideo?.id === id) {
+          setSelectedVideo(filtered[0] || null);
+        }
+        toast.info('Video removed from checklist/playlist');
+      } else {
+        await deleteDoc(doc(db, 'content', id));
+        toast.success('Video removed from database!');
+        if (selectedVideo?.id === id) {
+          setSelectedVideo(null);
+        }
+      }
+    } catch (err) {
+      handleFirestoreError(err, OperationType.DELETE, `content/${id}`);
     }
-    toast.info('Video removed from checklist/playlist');
   };
 
   const handleLikeVideo = () => {
@@ -1081,7 +1107,7 @@ export default function Olympics() {
                   >
                     <div className="flex justify-between items-center pb-3 border-b border-border">
                       <h4 className="text-xs font-black uppercase tracking-widest text-brand flex items-center gap-2">
-                        <Plus className="w-4 h-4" /> Add Custom Olympic Video (stored locally)
+                        <Plus className="w-4 h-4" /> Add Custom Olympic Video (Real-time Database Sync)
                       </h4>
                       <button type="button" onClick={() => setIsAddingVideo(false)} className="text-text-muted hover:text-white p-1">
                         <X className="w-4 h-4" />
@@ -1239,7 +1265,7 @@ export default function Olympics() {
                     {/* Render Firestore sourced Content Category==='olympics' first if any exists */}
                     {firestoreVideos.length > 0 && (
                       <div className="space-y-2.5">
-                        <span className="text-[9px] uppercase font-bold text-brand tracking-wider block">Live Stream Feeds (Admin Panel)</span>
+                        <span className="text-[9px] uppercase font-bold text-brand tracking-wider block">Real-time Stream/Video Feeds</span>
                         {firestoreVideos.map((vid) => (
                           <div
                             key={vid.id}
@@ -1251,23 +1277,47 @@ export default function Olympics() {
                               thumbnailUrl: vid.thumbnailUrl,
                               likes: vid.likes || 0
                             })}
-                            className={`p-3 rounded-xl border transition-all cursor-pointer text-left flex gap-3 ${
+                            className={`p-3 rounded-xl border transition-all cursor-pointer text-left flex gap-3 relative group ${
                               selectedVideo?.id === vid.id 
                                 ? 'bg-brand/10 border-brand' 
                                 : 'bg-surface border-border hover:bg-surface-hover hover:border-white/10'
                             }`}
                           >
                             <div className="w-16 h-12 bg-black rounded overflow-hidden flex-shrink-0 relative">
-                              <img src={vid.thumbnailUrl || 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?q=80&w=200&auto=format&fit=crop'} alt="" className="w-full h-full object-cover" />
+                              <img src={vid.thumbnailUrl || 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?q=80&w=200&auto=format&fit=crop'} alt="" className="w-full h-full object-cover opacity-80" />
                               <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
                                 <Play className="w-3.5 h-3.5 text-white fill-white" />
                               </div>
                             </div>
-                            <div className="flex-grow min-w-0 space-y-1">
-                              <span className="inline-block bg-red-600 px-1 py-0.5 rounded text-[8px] font-bold text-white uppercase uppercase-widest mb-0.5">Admin Stream</span>
+                            <div className="flex-grow min-w-0 space-y-1 pr-6">
+                              <span className="inline-block bg-brand/20 text-brand px-1 py-0.5 rounded text-[8px] font-bold uppercase tracking-widest mb-0.5">Database Video</span>
                               <h4 className="text-xs font-bold text-white truncate">{vid.title}</h4>
-                              <p className="text-[10px] text-text-muted font-mono">{vid.type}</p>
+                              <p className="text-[10px] text-text-muted font-mono line-clamp-1">{vid.description}</p>
                             </div>
+                            
+                            {/* Allow deleting from database for Admin */}
+                            {isAdmin && (
+                              <button
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  if (window.confirm(`Are you sure you want to delete "${vid.title}" from the database?`)) {
+                                    try {
+                                      await deleteDoc(doc(db, 'content', vid.id));
+                                      toast.success('Video removed from database successfully!');
+                                      if (selectedVideo?.id === vid.id) {
+                                        setSelectedVideo(null);
+                                      }
+                                    } catch (err) {
+                                      handleFirestoreError(err, OperationType.DELETE, `content/${vid.id}`);
+                                    }
+                                  }
+                                }}
+                                className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-text-muted hover:text-red-500 rounded-lg bg-surface hover:bg-red-500/10 border border-border opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                                title="Delete from Database"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
                           </div>
                         ))}
                       </div>

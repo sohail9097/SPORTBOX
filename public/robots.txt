@@ -1,0 +1,9 @@
+# https://www.robotstxt.org/robotstxt.html
+User-agent: *
+Allow: /
+
+# Exclude admin dashboard from crawling
+Disallow: /admin
+Disallow: /account
+
+Sitemap: https://sportsbox.in/sitemap.xml

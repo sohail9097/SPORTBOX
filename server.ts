@@ -456,6 +456,34 @@ async function startServer() {
   // Mount API router
   app.use('/api', apiRouter);
 
+  // Serve static SEO assets explicitly to bypass SPA routing
+  app.get('/sitemap.xml', (req, res) => {
+    const sitemapPath = path.join(process.cwd(), 'public', 'sitemap.xml');
+    if (fs.existsSync(sitemapPath)) {
+      res.header('Content-Type', 'application/xml');
+      return res.sendFile(sitemapPath);
+    }
+    const distSitemapPath = path.join(process.cwd(), 'dist', 'sitemap.xml');
+    if (fs.existsSync(distSitemapPath)) {
+      res.header('Content-Type', 'application/xml');
+      return res.sendFile(distSitemapPath);
+    }
+    return res.status(404).send('Sitemap not found');
+  });
+
+  app.get('/robots.txt', (req, res) => {
+    const robotsPath = path.join(process.cwd(), 'public', 'robots.txt');
+    if (fs.existsSync(robotsPath)) {
+      res.header('Content-Type', 'text/plain');
+      return res.sendFile(robotsPath);
+    }
+    const distRobotsPath = path.join(process.cwd(), 'dist', 'robots.txt');
+    if (fs.existsSync(distRobotsPath)) {
+      res.header('Content-Type', 'text/plain');
+      return res.sendFile(distRobotsPath);
+    }
+    return res.status(404).send('Robots.txt not found');
+  });
 
   // 2. VITE / STATIC / SPA FALLBACK (MOVE TO AFTER API ROUTES)
   if (process.env.NODE_ENV !== 'production') {

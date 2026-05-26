@@ -1,9 +1,21 @@
 {
   "version": 2,
   "rewrites": [
-    { "source": "/__/auth/:path*", "destination": "https://sportsbox-1.firebaseapp.com/__/auth/:path*" },
-    { "source": "/api", "destination": "/api/index.ts" },
-    { "source": "/api/(.*)", "destination": "/api/index.ts" },
-    { "source": "/((?!api|sitemap|robots|logo|.*\\.).*)", "destination": "/index.html" }
+    { 
+      "source": "/__/auth/:path*", 
+      "destination": "https://sportsbox-1.firebaseapp.com/__/auth/:path*" 
+    },
+    { 
+      "source": "/api", 
+      "destination": "/api/index.ts" 
+    },
+    { 
+      "source": "/api/(.*)", 
+      "destination": "/api/index.ts" 
+    },
+    { 
+      "source": "/((?!api|sitemap|robots|logo|.*\\.).*)", 
+      "destination": "/index.html" 
+    }
   ]
 }

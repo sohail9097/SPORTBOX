@@ -14,7 +14,7 @@
       "destination": "/api/index.ts" 
     },
     { 
-      "source": "/((?!api|sitemap|robots|logo|.*\\.).*)", 
+      "source": "/((?!api|__/auth|sitemap|robots|logo|.*\\.).*)", 
       "destination": "/index.html" 
     }
   ]

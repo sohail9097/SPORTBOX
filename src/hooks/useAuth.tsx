@@ -37,6 +37,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // Cross-Tab Session Synchronization via BroadcastChannel
     const authChannel = typeof window !== 'undefined' ? new BroadcastChannel('sportsbox_auth_session_sync') : null;
+    let isCleanedUp = false;
 
     // Setup active observers for state transitions
     const handleUserTransition = async (currentUser: User | null) => {
@@ -72,16 +73,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         });
 
         // Broadcast to other tabs that login was successful
-        if (authChannel) {
-          authChannel.postMessage({ type: 'SYNC_AUTH_STATE', uid: currentUser.uid });
+        if (authChannel && !isCleanedUp) {
+          try {
+            authChannel.postMessage({ type: 'SYNC_AUTH_STATE', uid: currentUser.uid });
+          } catch (err) {
+            console.warn("[AuthSync] Failed to postMessage (active channels may have closed):", err);
+          }
         }
       } else {
         setProfile(null);
         setLoading(false);
         
         // Broadcast to other tabs that logout occurred
-        if (authChannel) {
-          authChannel.postMessage({ type: 'SYNC_AUTH_STATE', uid: null });
+        if (authChannel && !isCleanedUp) {
+          try {
+            authChannel.postMessage({ type: 'SYNC_AUTH_STATE', uid: null });
+          } catch (err) {
+            console.warn("[AuthSync] Failed to postMessage (active channels may have closed):", err);
+          }
         }
       }
     };
@@ -149,10 +158,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     return () => {
+      isCleanedUp = true;
       unsubscribeAuth();
       unsubscribeToken();
       if (unsubscribeProfile) unsubscribeProfile();
-      if (authChannel) authChannel.close();
+      if (authChannel) {
+        try {
+          authChannel.close();
+        } catch (_) {}
+      }
       window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('focus', handleWindowFocus);
     };

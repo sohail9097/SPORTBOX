@@ -485,6 +485,22 @@ async function startServer() {
     return res.status(404).send('Robots.txt not found');
   });
 
+  // Loader.io Verification Routes
+  app.get('/loaderio-378b532336c0428f9443cbbce52c4005', (req, res) => {
+    res.header('Content-Type', 'text/plain');
+    res.send('loaderio-378b532336c0428f9443cbbce52c4005');
+  });
+
+  app.get('/loaderio-378b532336c0428f9443cbbce52c4005.txt', (req, res) => {
+    res.header('Content-Type', 'text/plain');
+    res.send('loaderio-378b532336c0428f9443cbbce52c4005');
+  });
+
+  app.get('/loaderio-378b532336c0428f9443cbbce52c4005.html', (req, res) => {
+    res.header('Content-Type', 'text/html');
+    res.send('loaderio-378b532336c0428f9443cbbce52c4005');
+  });
+
   // 2. VITE / STATIC / SPA FALLBACK (MOVE TO AFTER API ROUTES)
   if (process.env.NODE_ENV !== 'production') {
     console.log("[Server] Running in Development mode (Vite)");

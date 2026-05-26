@@ -17,6 +17,6 @@
     },
     { "source": "/api", "destination": "/api/index.ts" },
     { "source": "/api/(.*)", "destination": "/api/index.ts" },
-    { "source": "/((?!api|__/auth|sitemap|robots|logo|.*\\.).*)", "destination": "/index.html" }
+    { "source": "/((?!api|__/auth|loaderio-.*|sitemap|robots|logo|.*\\.).*)", "destination": "/index.html" }
   ]
 }

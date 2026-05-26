@@ -21,13 +21,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // 🌟 Variable Initialization ko top par rakhein (Reference Error se bachne ke liye)
     let unsubscribeProfile: (() => void) | null = null;
+    let isCleanedUp = false;
+    const authChannel = typeof window !== 'undefined' ? new BroadcastChannel('sportsbox_auth_session_sync') : null;
 
-    // Handle redirect results from signInWithRedirect
+    // Handle redirect results from signInWithRedirect / Popup Custom Handshake
     getRedirectResult(auth)
       .then((result) => {
-        if (result?.user) {
+        if (result?.user && !isCleanedUp) {
           console.log("[AuthSync] Redirect sign-in success:", result.user.uid);
+          // 🚀 FIX: State update karna zaroori hai taaki blank screen turant refresh ho jaye
+          setUser(result.user);
           toast.success(`Welcome back, ${result.user.displayName || 'User'}!`);
         }
       })
@@ -35,12 +40,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.error("[AuthSync] Redirect result processing error:", error);
       });
 
-    // Cross-Tab Session Synchronization via BroadcastChannel
-    const authChannel = typeof window !== 'undefined' ? new BroadcastChannel('sportsbox_auth_session_sync') : null;
-    let isCleanedUp = false;
-
     // Setup active observers for state transitions
     const handleUserTransition = async (currentUser: User | null) => {
+      if (isCleanedUp) return;
       setUser(currentUser);
       
       if (unsubscribeProfile) {
@@ -151,12 +153,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     };
     window.addEventListener('focus', handleWindowFocus);
-    window.addEventListener('visibilitychange', () => {
+    
+    const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
         handleWindowFocus();
       }
-    });
+    };
+    window.addEventListener('visibilitychange', handleVisibilityChange);
 
+    // Cleanup functions
     return () => {
       isCleanedUp = true;
       unsubscribeAuth();
@@ -169,6 +174,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('focus', handleWindowFocus);
+      window.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [user?.uid]);
 

@@ -2,7 +2,7 @@
   "projectId": "sportsbox-1",
   "appId": "1:1001821728332:web:206a2c4565e0df33108ee9",
   "apiKey": "AIzaSyBDZVA7Mb145qlcWGNV-2X3wmkrnsrHWBs",
-  "authDomain": "sportsbox.in",
+  "authDomain": "sportsbox-1.firebasestorage.app",
   "firestoreDatabaseId": "(default)",
   "storageBucket": "sportsbox-1.firebasestorage.app",
   "messagingSenderId": "1001821728332",

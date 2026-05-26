@@ -501,6 +501,21 @@ async function startServer() {
     res.send('loaderio-378b532336c0428f9443cbbce52c4005');
   });
 
+  app.get('/loaderio-c9cbe19d7f3f88ed1dac558d20e9ae41', (req, res) => {
+    res.header('Content-Type', 'text/plain');
+    res.send('loaderio-c9cbe19d7f3f88ed1dac558d20e9ae41');
+  });
+
+  app.get('/loaderio-c9cbe19d7f3f88ed1dac558d20e9ae41.txt', (req, res) => {
+    res.header('Content-Type', 'text/plain');
+    res.send('loaderio-c9cbe19d7f3f88ed1dac558d20e9ae41');
+  });
+
+  app.get('/loaderio-c9cbe19d7f3f88ed1dac558d20e9ae41.html', (req, res) => {
+    res.header('Content-Type', 'text/html');
+    res.send('loaderio-c9cbe19d7f3f88ed1dac558d20e9ae41');
+  });
+
   // 2. VITE / STATIC / SPA FALLBACK (MOVE TO AFTER API ROUTES)
   if (process.env.NODE_ENV !== 'production') {
     console.log("[Server] Running in Development mode (Vite)");

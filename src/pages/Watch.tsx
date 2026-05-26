@@ -204,7 +204,9 @@ export default function Watch() {
   if (loading && !content) return <LoadingScreen />;
   if (!content) return <div className="h-screen flex flex-col items-center justify-center">Content not found. <Link to="/" className="text-brand mt-4">Back Home</Link></div>;
 
-  const isLocked = (!profile || profile.subscriptionTier === 'free') && !isAdmin;
+  const isLocked = (content?.status === 'live' || content?.type === 'live')
+    ? false
+    : (!profile || profile.subscriptionTier === 'free') && !isAdmin;
 
   const isIframeUrl = (url: string) => {
     if (!url) return false;

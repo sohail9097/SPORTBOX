@@ -451,13 +451,19 @@ export default function Admin() {
       const unsubMedalists = onSnapshot(collection(db, 'olympic_medalists'), (snap) => {
         if (!snap.empty) {
           const list = snap.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as IndianMedalist));
+          
+          // Merge any statically defined medalists that are not yet in Firestore (ensures instant availability)
+          const existingIds = new Set(list.map(m => m.id));
+          const missingDefaults = INDIAN_MEDALISTS.filter(m => !existingIds.has(m.id));
+          const mergedList = [...list, ...missingDefaults];
+
           const orderMap = new Map(INDIAN_MEDALISTS.map((m, idx) => [m.id, idx]));
-          list.sort((a, b) => {
+          mergedList.sort((a, b) => {
             const indexA = orderMap.get(a.id) ?? 999;
             const indexB = orderMap.get(b.id) ?? 999;
             return indexA - indexB;
           });
-          setAdminMedalists(list);
+          setAdminMedalists(mergedList);
         } else {
           setAdminMedalists(INDIAN_MEDALISTS);
         }

@@ -93,6 +93,37 @@ export interface IndianMedalist {
 
 export const INDIAN_MEDALISTS: IndianMedalist[] = [
   {
+    id: "norman-pritchard",
+    name: "Norman Pritchard",
+    sport: "Athletics (200m & 200m Hurdles)",
+    medals: [
+      { year: "Paris 1900", type: "silver", detail: "Men's 200m Silver Medal" },
+      { year: "Paris 1900", type: "silver", detail: "Men's 200m Hurdles Silver Medal" }
+    ],
+    avatar: "🏃‍♂️",
+    category: "Athletics",
+    bio: "The first Asian-born athlete to win an Olympic medal, securing two historic silvers at Paris 1900.",
+    image: "https://images.unsplash.com/photo-1461896836934-ffe607ba8211?q=80&w=800&auto=format&fit=crop",
+    longDetails: [
+      "Norman Pritchard was a British-Indian athlete and actor who wrote the very first chapter of India's Olympic legacy. Born in Calcutta, he was an extraordinary sprinter and hurdler.",
+      "At the Paris 1900 Games, Pritchard competed representing India. He stormed his way to the finals of both the Men's 200m and the Men's 200m Hurdles, winning a brilliant Silver medal in both events.",
+      "With these achievements, Pritchard became the first athlete representing an Asian nation to win an Olympic medal, establishing a historic milestone."
+    ],
+    quote: "To run is to feel the heartbeat of history, pushing the boundary of human speed.",
+    funFact: "After his athletic career, Pritchard moved to the United States where he became a successful silent Hollywood film actor under the screen name Colin Clive!",
+    moments: [
+      {
+        title: "Paris 1900 Milestone",
+        description: "Competing on the absolute world athletic stage, setting the speed bar for future generations.",
+        image: "https://images.unsplash.com/photo-1502224562085-639556652f33?q=80&w=600&auto=format&fit=crop"
+      }
+    ],
+    timeline: [
+      { year: "1900", title: "Paris Olympic Dual Silver", description: "Claims silver in both the Men's 200m sprint and 200m Hurdles representing India." },
+      { year: "1905", title: "Hollywood Journey", description: "Emigrates to the United States to pursue a career in movies and Broadway theater." }
+    ]
+  },
+  {
     id: "neeraj-chopra",
     name: "Neeraj Chopra",
     sport: "Athletics (Javelin Throw)",
@@ -272,11 +303,21 @@ export const INDIAN_MEDALISTS: IndianMedalist[] = [
     name: "Indian Men's Hockey Team",
     sport: "Field Hockey",
     medals: [
-      { year: "Paris 2024", type: "bronze", detail: "Thrilling victory over Spain (2-1)" },
-      { year: "Tokyo 2020", type: "bronze", detail: "Ended a 40-year Olympic medal drought" },
-      { year: "Moscow 1980", type: "gold", detail: "India's 8th historic Olympic Hockey Gold" }
+      { year: "Paris 2024", type: "bronze", detail: "Consecutive bronze, defeated Spain 2-1" },
+      { year: "Tokyo 2020", type: "bronze", detail: "Ended 40-year Olympic hockey medal drought" },
+      { year: "Moscow 1980", type: "gold", detail: "8th historic Gold, defeated Spain 4-3 in final" },
+      { year: "Munich 1972", type: "bronze", detail: "Bronze medal finish, defeated Netherlands 2-1" },
+      { year: "Mexico City 1968", type: "bronze", detail: "Bronze medal finish, defeated West Germany 2-1" },
+      { year: "Tokyo 1964", type: "gold", detail: "7th Gold, defeated Pakistan 1-0 in tight final" },
+      { year: "Rome 1960", type: "silver", detail: "Silver medal podium finish, close 0-1 vs Pakistan" },
+      { year: "Melbourne 1956", type: "gold", detail: "6th Gold, defeated Pakistan 1-0 in final" },
+      { year: "Helsinki 1952", type: "gold", detail: "5th Gold, Balbir Singh Sr. scored 5 in 6-1 final vs Netherlands" },
+      { year: "London 1948", type: "gold", detail: "4th Gold, first as independent nation, 4-0 vs Great Britain" },
+      { year: "Berlin 1936", type: "gold", detail: "3rd Gold under wizard Major Dhyan Chand, 8-1 vs Germany" },
+      { year: "Los Angeles 1932", type: "gold", detail: "2nd Gold, record-breaking 24-1 victory over USA" },
+      { year: "Amsterdam 1928", type: "gold", detail: "1st Olympic Gold, debuted with flawless zero goals conceded" }
     ],
-    avatar: "",
+    avatar: "🏑",
     category: "Hockey",
     bio: "The most successful hockey team in Olympic history, with an unparalleled record of 8 gold medals.",
     image: "https://images.unsplash.com/photo-1580748141549-71748d60bdc5?q=80&w=800&auto=format&fit=crop",
@@ -300,10 +341,18 @@ export const INDIAN_MEDALISTS: IndianMedalist[] = [
       }
     ],
     timeline: [
-      { year: "1928-1956", title: "Six Consecutive Golds", description: "Absolute global domination with unmatched records." },
-      { year: "1980", title: "Moscow Gold Medal", description: "The eighth historic Olympic Field Hockey Gold." },
-      { year: "2021", title: "Tokyo Comeback Bronze", description: "Nerve-wracking 5-4 victory over Germany to end the 40-year medal gap." },
-      { year: "2024", title: "Paris Double Bronze", description: "Securing back-to-back Olympic medals for field hockey." }
+      { year: "1928", title: "Amsterdam Debut Gold", description: "India enters gold arena with zero goals conceded throughout tournament." },
+      { year: "1932", title: "Los Angeles Record", description: "Secures second gold with an outstanding 24-1 victory against USA." },
+      { year: "1936", title: "Berlin Hat-Trick", description: "Led by Major Dhyan Chand, securing a historic third gold with 8-1 vs Germany." },
+      { year: "1948", title: "London Independent Gold", description: "Wins first Olympic Gold for Independent India, defeating Great Britain 4-0 at Wembley." },
+      { year: "1952", title: "Helsinki Glory", description: "Balbir Singh Sr. scores 5 goals in final to claim fifth consecutive gold." },
+      { year: "1956", title: "Melbourne Six-in-a-row", description: "Clinched sixth consecutive Olympic Gold defeating Pakistan 1-0." },
+      { year: "1960", title: "Rome Olympic Silver", description: "Secures silver after a close finale encounter." },
+      { year: "1964", title: "Tokyo Gold Recovery", description: "Regains the Gold title in Tokyo after beating Pakistan 1-0." },
+      { year: "1968-1972", title: "Mexico & Munich Bronzes", description: "Stays on the podium with back-to-back dynamic third-place finishes." },
+      { year: "1980", title: "Moscow Eighth Gold", description: "The ultimate historic eighth Gold medal under captain Vasudevan Baskaran." },
+      { year: "2021", title: "Tokyo Comeback Bronze", description: "Thrilling 5-4 victory over Germany to break the 40-year medal drought." },
+      { year: "2024", title: "Paris Double Bronze", description: "Back-to-back Bronze, crowning Sreejesh's legendary goalkeeping career." }
     ]
   },
   {
@@ -545,6 +594,280 @@ export const INDIAN_MEDALISTS: IndianMedalist[] = [
       { year: "2016", title: "Rio Olympics Bronze", description: "First Indian female wrestler to claim an Olympic medal." },
       { year: "2022", title: "Commonwealth Games Gold", description: "Claims the top prize in Birmingham with beautiful fights." }
     ]
+  },
+  {
+    id: "rajyavardhan-rathore",
+    name: "Rajyavardhan Singh Rathore",
+    sport: "Shooting (Double Trap)",
+    medals: [
+      { year: "Athens 2004", type: "silver", detail: "India's first individual post-1900 Olympic silver" }
+    ],
+    avatar: "🎯",
+    category: "Shooting",
+    bio: "First individual silver medalist for independent India, paving the way for the nation's elite shooting revolution.",
+    image: "https://images.unsplash.com/photo-1595152772835-219674b2a8a6?q=80&w=800&auto=format&fit=crop",
+    longDetails: [
+      "Colonel Rajyavardhan Singh Rathore created historic waves at the Athens 2004 Games. A career army officer, his discipline, laser-like focus, and incredible reaction speeds redefined Indian sports.",
+      "In the Men's Double Trap shooting competition, he shot a brilliant score of 179 out of 200 targets to claim a breathtaking Silver medal. It was India's first individual Olympic silver medal since independence.",
+      "His landmark silver was the catalyst that proved Indian athletes could compete and conquer at the grandest Olympic stages, setting off a golden era for Indian shooting."
+    ],
+    quote: "Success is not a destination, it is the spirit of tireless journey and extreme focus under high fire.",
+    funFact: "Rathore is a highly decorated army officer who served in the Indian Army's elite Grenadiers regiment before dedicating himself completely to shooting sports.",
+    moments: [
+      {
+        title: "Athens 2004 Milestone",
+        description: "Holding the Indian flag high with pride on the Olympic podium with the historic silver.",
+        image: "https://images.unsplash.com/photo-1461896836934-ffe607ba8211?q=80&w=600&auto=format&fit=crop"
+      }
+    ],
+    timeline: [
+      { year: "2004", title: "Athens Olympic Silver", description: "Wins India's first individual post-independence silver medal in Double Trap." },
+      { year: "2006", title: "Commonwealth & Asian Glory", description: "Kicks off multiple Gold sweeps across Commonwealth and Asian games." }
+    ]
+  },
+  {
+    id: "vijay-kumar",
+    name: "Vijay Kumar",
+    sport: "Shooting (25m Rapid Fire Pistol)",
+    medals: [
+      { year: "London 2012", type: "silver", detail: "25m Rapid Fire Pistol silver finish" }
+    ],
+    avatar: "🎯",
+    category: "Shooting",
+    bio: "A cool and calculated marksman who delivered a stunning silver medal under intense heat in London 2012.",
+    image: "https://images.unsplash.com/photo-1504221507732-5246c045949b?q=80&w=800&auto=format&fit=crop",
+    longDetails: [
+      "Subedar Major Vijay Kumar, hailing from Himachal Pradesh, is an Indian shooter from the army's elite Dogra Regiment who holds an extraordinary record of calm precision.",
+      "In London 2012, while the nation had its eyes on other high-profile shootists, Vijay delivered standard excellence in the 25m Rapid Fire Pistol. In a grueling final against world-class targets, he maintained a steady pulse, hitting 30 scores to win the Silver medal.",
+      "Known for his quiet demeanor, Vijay Kumar remains one of the most underrated yet clinical Olympic heroes of Indian sports history."
+    ],
+    quote: "When you are on the range, the crowd's noise disappears. It is just your pulse, your sight, and the trigger.",
+    funFact: "Vijay was awarded the honorary rank of Lieutenant in the Indian Army in recognition of his outstanding achievements at the Olympic Games.",
+    moments: [
+      {
+        title: "London 2012 Rapid Fire Clash",
+        description: "An epic target-bursting final round that sealed India's glorious silver medal.",
+        image: "https://images.unsplash.com/photo-1508098682722-e99c43a406b2?q=80&w=600&auto=format&fit=crop"
+      }
+    ],
+    timeline: [
+      { year: "2010", title: "Commonwealth Games Haul", description: "Clinches three gold medals and one silver at Delhi Commonwealth Games." },
+      { year: "2012", title: "London Olympics Silver", description: "Scores a magnificent second-place podium finish in 25m Rapid Fire Pistol." }
+    ]
+  },
+  {
+    id: "kd-jadhav",
+    name: "Kashaba Dadasaheb Jadhav",
+    sport: "Wrestling (Men's Bantamweight)",
+    medals: [
+      { year: "Helsinki 1952", type: "bronze", detail: "Men's Bantamweight Freestyle 1952" }
+    ],
+    avatar: "🤼‍♂️",
+    category: "Wrestling",
+    bio: "The legendary pioneer who won the first ever individual Olympic medal for independent India at Helsinki 1952.",
+    image: "https://images.unsplash.com/photo-1599058917212-d750089bc07e?q=80&w=800&auto=format&fit=crop",
+    longDetails: [
+      "Kashaba Dadasaheb Jadhav, fondly known as 'Pocket Dynamo', was an extraordinary wrestling prodigy from Maharashtra who carved independent India's name on the Olympic podium.",
+      "At the Helsinki 1952 Games, battling lack of funds and unfamiliar mat mats (having trained mostly in dirt akharas), he displayed pure tactical mastery in the flyweight/bantamweight wrestling division.",
+      "His historic bronze medal was the absolute first individual medal for free India and inspired generations of indigenous wrestlers to aim for absolute global glory."
+    ],
+    quote: "He who has grease on his body and mud on his heart can conquer any mat on the planet.",
+    funFact: "To fund his Olympic travel to Helsinki, Jadhav's college principal mortgaged his own home, and local villagers in Goleshwar contributed whatever tiny amounts they could save.",
+    moments: [
+      {
+        title: "Helsinki 1952 Breakthrough",
+        description: "Beating seasoned wrestlers with lightning-fast leg-trips and pure grit to clinch bronze.",
+        image: "https://images.unsplash.com/photo-1599586120429-48281b6f0ece?q=80&w=600&auto=format&fit=crop"
+      }
+    ],
+    timeline: [
+      { year: "1948", title: "London Debut", description: "First Olympic appearance, finishing a respectworthy 6th on the world stage." },
+      { year: "1952", title: "Helsinki Bronze Medal", description: "Wins India's first individual Olympic medal post-independence." }
+    ]
+  },
+  {
+    id: "vijender-singh",
+    name: "Vijender Singh",
+    sport: "Boxing (Middleweight)",
+    medals: [
+      { year: "Beijing 2008", type: "bronze", detail: "India's first Olympic boxing medal in history" }
+    ],
+    avatar: "🥊",
+    category: "Boxing",
+    bio: "The sensational middleweight boxer who triggered India's modern boxing revolution by winning bronze at Beijing 2008.",
+    image: "https://images.unsplash.com/photo-1549719386-74dfcbf7dbed?q=80&w=800&auto=format&fit=crop",
+    longDetails: [
+      "Vijender Singh, hailing from Kaluwas in Haryana, brought swagger, power, and high popularity to Indian amateur boxing.",
+      "At Beijing 2008, competing in the 75kg middleweight category, his devastating hooks and ironclad guard drove him straight into the semi-finals, securing a historic first-ever boxing bronze medal for India.",
+      "His victory transformed Bhiwani into India's 'Little Cuba' and propelled ringside sports into mainstream prime-time television national attention."
+    ],
+    quote: "A single blow in the ring can change your life. You just need to keep your eyes open and strike when they drop guard.",
+    funFact: "Vijender initially took up boxing seriously to follow his elder brother's footsteps and ultimately support his family financially.",
+    moments: [
+      {
+        title: "Beijing 2008 Medal Round",
+        description: "Defeating Carlos Góngora of Ecuador 9-4 in the quarter-final to guarantee India's first boxing medal.",
+        image: "https://images.unsplash.com/photo-1509563268479-0f004cf3f58b?q=80&w=600&auto=format&fit=crop"
+      }
+    ],
+    timeline: [
+      { year: "2006", title: "Melbourne Silver", description: "Wins silver at the Commonwealth Games, announcing his arrival globally." },
+      { year: "2008", title: "Beijing Bronze Medal", description: "Becomes the first Indian boxer to win an Olympic medal." },
+      { year: "2009", title: "World No. 1 Ranking", description: "Reaches the absolute top rank in the international middleweight boxing standings." }
+    ]
+  },
+  {
+    id: "gagan-narang",
+    name: "Gagan Narang",
+    sport: "Shooting (10m Air Rifle)",
+    medals: [
+      { year: "London 2012", type: "bronze", detail: "10m Air Rifle bronze with high-pressure score" }
+    ],
+    avatar: "🎯",
+    category: "Shooting",
+    bio: "Precision marksman who shot an outstanding bronze medal at the London 2012 Olympic Games.",
+    image: "https://images.unsplash.com/photo-1595152772835-219674b2a8a6?q=80&w=800&auto=format&fit=crop",
+    longDetails: [
+      "Gagan Narang is a stellar rifle shooter who proved his mettle by rising under colossal expectations in Shooting venues.",
+      "In the London 2012 Games, Gagan qualified for the 10m Air Rifle final with extreme focus. Under deafening applause, he Shot a score of 701.1 to seize a well-deserved Bronze medal.",
+      "Narang's consistency and calm breathing under the heaviest tournament fire cemented shooting as India's premier individual sport."
+    ],
+    quote: "You don't think about the target; you think about your breath, your trigger release, and the circle of light.",
+    funFact: "At the 2010 Commonwealth Games, Gagan had a flawless campaign, winning 4 Gold Medals and setting a new world record score of 703.6.",
+    moments: [
+      {
+        title: "London 2012 Shoot-out",
+        description: "Hitting the bullseye on consecutive high-pressure final shots to finish third in matching standard.",
+        image: "https://images.unsplash.com/photo-1511512578047-dfb367046420?q=80&w=600&auto=format&fit=crop"
+      }
+    ],
+    timeline: [
+      { year: "2006", title: "World Cup Gold", description: "Secures first place in Guangzhou World Cup with excellent shooting." },
+      { year: "2010", title: "Commonwealth Clean Sweep", description: "Wins 4 Gold medals at the Commonwealth Games in Delhi." },
+      { year: "2012", title: "London Olympic Bronze", description: "Brings home the bronze medal in the Men's 10m Air Rifle event." }
+    ]
+  },
+  {
+    id: "yogeshwar-dutt",
+    name: "Yogeshwar Dutt",
+    sport: "Wrestling (Men's 60kg Freestyle)",
+    medals: [
+      { year: "London 2012", type: "bronze", detail: "Men's 60kg freestyle bronze in intense repechage" }
+    ],
+    avatar: "🤼‍♂️",
+    category: "Wrestling",
+    bio: "The legendary warrior wrestler who overcame multiple knee injuries to pull off three historic victories in less than an hour for London 2012 bronze.",
+    image: "https://images.unsplash.com/photo-1526506118085-60ce8714f8c5?q=80&w=800&auto=format&fit=crop",
+    longDetails: [
+      "Yogeshwar Dutt, from Haryana's Sonipat, represents untamed spirit and absolute grit. His wrestling career was plagued by career-threatening knee injuries, but his loyalty to the sport remained supreme.",
+      "At the London 2012 Olympics, after a devastating initial defeat, he entered the repechage stage. With the clock ticking and displaying superhuman leg-tackles, Yogeshwar won three consecutive high-density matches in less than an hour to claim a heroic Bronze medal."
+    ],
+    quote: "Hard work beats all talent if talent does not wrestle with absolute fire every single hour on the dirt.",
+    funFact: "Yogeshwar's signature move was the 'Phirni' (a high-intensity leg-lock rotatory twist) which he used to pin down several world-class opponents in the London repechage round.",
+    moments: [
+      {
+        title: "The Magic 'Phirni' Move",
+        description: "Executing his trademark leg-lock spin to turn his opponent over and seal the bronze medal in London.",
+        image: "https://images.unsplash.com/photo-1517838277536-f5f99be501cd?q=80&w=600&auto=format&fit=crop"
+      }
+    ],
+    timeline: [
+      { year: "2006", title: "Doha Asian Bronze", description: "Wins a bronze medal at the Asian Games despite losing his father just days before departure." },
+      { year: "2010", title: "Commonwealth Gold", description: "Clinches a stellar gold at his home games in New Delhi." },
+      { year: "2012", title: "London Olympic Bronze", description: "Achieves ultimate glory with his relentless repechage runs on London mats." }
+    ]
+  },
+  {
+    id: "bajrang-punia",
+    name: "Bajrang Punia",
+    sport: "Wrestling (Men's 65kg Freestyle)",
+    medals: [
+      { year: "Tokyo 2020", type: "bronze", detail: "Dominant 8-0 victory in the medal match" }
+    ],
+    avatar: "🤼‍♂️",
+    category: "Wrestling",
+    bio: "Powerhouse grappler who shut out his opponent 8-0 in the Tokyo 2020 medal match to stand on the podium.",
+    image: "https://images.unsplash.com/photo-1599058917212-d750089bc07e?q=80&w=800&auto=format&fit=crop",
+    longDetails: [
+      "Bajrang Punia of Khudan, Haryana, is widely regarded as one of India's most powerful, relentless, and physically imposing freestyle wrestlers.",
+      "At Tokyo 2020, competing under high-pressure expectations and carrying a knee-injury bandage, Bajrang fought passionately. In the Bronze medal clash, he completely dominated Daulet Niyazbekov with an undisputed 8-0 scoreline to win the bronze."
+    ],
+    quote: "Wrestling is not a sport of anger; it is the absolute celebration of relentless physical craft, strategy, and pure stamina.",
+    funFact: "As a young kid, Bajrang's favorite play activity was wrestling in the muddy fields of his village; he skipped school classes just to watch local village dangals.",
+    moments: [
+      {
+        title: "Tokyo 2020 Shutout",
+        description: "A commanding and flawless performance to win the bronze medal 8-0.",
+        image: "https://images.unsplash.com/photo-1599586120429-48281b6f0ece?q=80&w=600&auto=format&fit=crop"
+      }
+    ],
+    timeline: [
+      { year: "2018", title: "Asian Games Gold", description: "Stands on top of the podium in Jakarta in the 65kg freestyle class." },
+      { year: "2019", title: "World silver", description: "Wins a silver medal in Nur-Sultan World Wrestling Championships." },
+      { year: "2021", title: "Tokyo Olympics Bronze", description: "Clenches the coveted bronze medal despite carrying a recurring knee issue." }
+    ]
+  },
+  {
+    id: "swapnil-kusale",
+    name: "Swapnil Kusale",
+    sport: "Shooting (50m Rifle 3 Positions)",
+    medals: [
+      { year: "Paris 2024", type: "bronze", detail: "Men's 50m Rifle 3 Positions bronze" }
+    ],
+    avatar: "🎯",
+    category: "Shooting",
+    bio: "Cool-headed marksman who delivered a historic bronze medal in the grueling 50m Rifle 3 Positions event at Paris 2024.",
+    image: "https://images.unsplash.com/photo-1504221507732-5246c045949b?q=80&w=800&auto=format&fit=crop",
+    longDetails: [
+      "Swapnil Kusale, born in Kolhapur, Maharashtra, wrote a stunning chapter in Indian shooting sports history during the Paris 2024 Olympics.",
+      "In the highly technical and grueling 50m Rifle 3 Positions (Kneeling, Prone, and Standing), which tests endurance over hours, Swapnil maintained standard composure. He scored a stellar 451.4 in the high-stakes final to land third and secure the Bronze medal.",
+      "He became the first ever Indian shooter to qualify for and win an Olympic medal in the Men's 50m Rifle 3 Positions category."
+    ],
+    quote: "In the 3 Positions event, you need to be versatile, calm, and adapt your muscle memory to three completely different shooting postures.",
+    funFact: "Swapnil works as a ticket collector for the Indian Railways and got inspired to shoot precisely after watching legendary sports profiles.",
+    moments: [
+      {
+        title: "Paris 2024 Standing Shoot",
+        description: "Delivering a clutch series of high-precision standing shots to secure his dream podium finish.",
+        image: "https://images.unsplash.com/photo-1560089000-7433a4ebbd64?q=80&w=600&auto=format&fit=crop"
+      }
+    ],
+    timeline: [
+      { year: "2015", title: "National Junior Champion", description: "Wins first major national title, establishing his shooting base." },
+      { year: "2023", title: "Baku World Cup Gold", description: "Claims mixed team gold at the ISSF World Cup." },
+      { year: "2024", title: "Paris Olympics Bronze", description: "Achieves historic first-ever bronze for India in 50m Rifle 3 Positions." }
+    ]
+  },
+  {
+    id: "aman-sehrawat",
+    name: "Aman Sehrawat",
+    sport: "Wrestling (Men's 57kg Freestyle)",
+    medals: [
+      { year: "Paris 2024", type: "bronze", detail: "India's youngest individual Olympic medalist" }
+    ],
+    avatar: "🤼‍♂️",
+    category: "Wrestling",
+    bio: "Determined youngster who became the youngest individual Olympic medalist in Indian history by winning bronze at Paris 2024.",
+    image: "https://images.unsplash.com/photo-1517838277536-f5f99be501cd?q=80&w=800&auto=format&fit=crop",
+    longDetails: [
+      "Aman Sehrawat, born in Birohar, Haryana, is a wrestling sensation who conquered massive personal tragedies to write his name in Olympic folklore.",
+      "Orphaned at a tender age of 11, Aman found refuge and purpose in Delhi's legendary Chhatrasal Stadium. At just 21 years of age, he represented India at the Paris 2024 Games.",
+      "Displaying aggressive hand-fights and explosive pace, Aman defeated Puerto Rico's Darian Cruz 13-5 in a thrilling high-scoring bout to win the Bronze, becoming the youngest individual Olympic medalist from India in history."
+    ],
+    quote: "When you have nothing to lose, you bring your absolute best to the mat. I wrestled for my parents and my nation.",
+    funFact: "Aman slept on a simple wooden cot in a shared akhara room for years and adheres strictly to a disciplined wrestler lifestyle of zero distractions.",
+    moments: [
+      {
+        title: "Paris 2024 Bronze Bout",
+        description: "Securing a massive point-lead with aggressive takedowns in the second half of the bronze medal match.",
+        image: "https://images.unsplash.com/photo-1599586120429-48281b6f0ece?q=80&w=600&auto=format&fit=crop"
+      }
+    ],
+    timeline: [
+      { year: "2022", title: "World U23 Champion", description: "Wins gold in Pontevedra, becoming India's first-ever Under-23 World Wrestling Champion." },
+      { year: "2023", title: "Asian Champion Gold", description: "Claims gold at the Asian Championships in Astana." },
+      { year: "2024", title: "Paris Olympic Bronze", description: "Makes history at 21 as India's youngest individual medalist." }
+    ]
   }
 ];
 
@@ -616,6 +939,9 @@ export default function Olympics() {
   const [editAthleteFunFact, setEditAthleteFunFact] = useState('');
   const [editAthleteLongDetails, setEditAthleteLongDetails] = useState('');
   const [editAthleteMoments, setEditAthleteMoments] = useState<{ title: string; description: string; image: string }[]>([]);
+
+  // Compact list expanded state for medals
+  const [expandedMedals, setExpandedMedals] = useState<Record<string, boolean>>({});
 
   // Trivia Quiz state
   const [triviaIdx, setTriviaIdx] = useState(0);
@@ -704,15 +1030,35 @@ export default function Olympics() {
           ...doc.data()
         } as IndianMedalist));
 
+        // Auto-migration for Admins to always keep default database synchronized with any updates
+        if (isAdmin) {
+          INDIAN_MEDALISTS.forEach(async (defaultM) => {
+            const existing = list.find(m => m.id === defaultM.id);
+            if (!existing || !existing.medals || existing.medals.length < defaultM.medals.length) {
+              console.log(`Auto-updating/migrating ${defaultM.id} on Firestore...`);
+              try {
+                await setDoc(doc(db, 'olympic_medalists', defaultM.id), defaultM);
+              } catch (err) {
+                console.error("Error updating medalist:", err);
+              }
+            }
+          });
+        }
+
+        // Merge any statically defined medalists that are not yet in Firestore (ensures instant availability)
+        const existingIds = new Set(list.map(m => m.id));
+        const missingDefaults = INDIAN_MEDALISTS.filter(m => !existingIds.has(m.id));
+        const mergedList = [...list, ...missingDefaults];
+
         // Sort to match default ordering
         const orderMap = new Map(INDIAN_MEDALISTS.map((m, idx) => [m.id, idx]));
-        list.sort((a, b) => {
+        mergedList.sort((a, b) => {
           const indexA = orderMap.get(a.id) ?? 999;
           const indexB = orderMap.get(b.id) ?? 999;
           return indexA - indexB;
         });
 
-        setMedalists(list);
+        setMedalists(mergedList);
       }
     }, (err) => {
       console.warn("Firestore medalists query disabled or offline:", err);
@@ -904,6 +1250,38 @@ export default function Olympics() {
     const matchesMedal = medalFilter === 'all' || medalist.medals.some(m => m.type === medalFilter);
 
     return matchesSearch && matchesSport && matchesMedal;
+  }).sort((a, b) => {
+    // Determine the highest medal color of athlete A
+    const hasGoldA = a.medals.some(m => m.type === 'gold');
+    const hasSilverA = a.medals.some(m => m.type === 'silver');
+    const hasBronzeA = a.medals.some(m => m.type === 'bronze');
+    const tierA = hasGoldA ? 1 : hasSilverA ? 2 : hasBronzeA ? 3 : 4;
+
+    // Determine the highest medal color of athlete B
+    const hasGoldB = b.medals.some(m => m.type === 'gold');
+    const hasSilverB = b.medals.some(m => m.type === 'silver');
+    const hasBronzeB = b.medals.some(m => m.type === 'bronze');
+    const tierB = hasGoldB ? 1 : hasSilverB ? 2 : hasBronzeB ? 3 : 4;
+
+    if (tierA !== tierB) {
+      return tierA - tierB; // Gold (1) before Silver (2) before Bronze (3)
+    }
+
+    // Secondary sort: count of their highest medal tier
+    const bestType = tierA === 1 ? 'gold' : tierA === 2 ? 'silver' : 'bronze';
+    const countA = a.medals.filter(m => m.type === bestType).length;
+    const countB = b.medals.filter(m => m.type === bestType).length;
+    if (countB !== countA) {
+      return countB - countA; // More medals of highest tier first
+    }
+
+    // Tertiary sort: total medals count
+    if (b.medals.length !== a.medals.length) {
+      return b.medals.length - a.medals.length;
+    }
+
+    // Stable sort fallback by name
+    return a.name.localeCompare(b.name);
   });
 
   return (
@@ -1983,9 +2361,22 @@ export default function Olympics() {
 
                           {/* Displaying detailed medals list for each athlete */}
                           <div className="mt-5 pt-4 border-t border-border/50 space-y-2">
-                            <span className="text-[9px] font-black uppercase tracking-widest text-text-muted block">Podium Finishes</span>
+                            <div className="flex justify-between items-center">
+                              <span className="text-[9px] font-black uppercase tracking-widest text-text-muted block">Podium Finishes</span>
+                              {athlete.medals.length > 3 && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation(); // Stop opening athlete modal/profile view
+                                    setExpandedMedals(prev => ({ ...prev, [athlete.id]: !prev[athlete.id] }));
+                                  }}
+                                  className="text-[9px] font-black uppercase tracking-widest text-brand hover:text-brand/80 cursor-pointer bg-brand/5 hover:bg-brand/10 px-2 py-0.5 rounded border border-brand/10 transition-colors"
+                                >
+                                  {expandedMedals[athlete.id] ? "Show Less" : `+ ${athlete.medals.length - 3} More`}
+                                </button>
+                              )}
+                            </div>
                             <div className="flex flex-wrap gap-2">
-                              {athlete.medals.map((m, mIdx) => (
+                              {(expandedMedals[athlete.id] ? athlete.medals : athlete.medals.slice(0, 3)).map((m, mIdx) => (
                                 <div 
                                   key={mIdx} 
                                   className={`px-3 py-1.5 rounded-xl border flex items-center gap-2 text-[10px] font-bold ${

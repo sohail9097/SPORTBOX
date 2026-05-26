@@ -1,9 +1,8 @@
 import { Link } from 'react-router-dom';
-import { Play } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 interface BrandLogoProps {
-  logoUrl?: string;
+  logoUrl?: string; // Kept for interface backward compatibility
   className?: string;
   imageClassName?: string;
   textClassName?: string;
@@ -13,7 +12,6 @@ interface BrandLogoProps {
 }
 
 export default function BrandLogo({ 
-  logoUrl, 
   className, 
   imageClassName, 
   textClassName,
@@ -23,46 +21,79 @@ export default function BrandLogo({
 }: BrandLogoProps) {
   
   const sizeClasses = {
-    sm: 'w-5 h-5 text-sm',
-    md: 'w-8 h-8 text-xl',
-    lg: 'w-10 h-10 text-2xl',
-    xl: 'w-12 h-12 text-3xl',
-    '2xl': 'w-16 h-16 text-4xl'
+    sm: {
+      container: 'gap-2',
+      icon: 'w-6 h-6 rounded-[24%] text-sm',
+      text: 'text-sm md:text-base'
+    },
+    md: {
+      container: 'gap-3',
+      icon: 'w-9 h-9 md:w-10 md:h-10 rounded-[26%] text-xl md:text-2xl',
+      text: 'text-xl md:text-2xl'
+    },
+    lg: {
+      container: 'gap-4',
+      icon: 'w-12 h-12 md:w-14 md:h-14 rounded-[28%] text-3xl md:text-4xl',
+      text: 'text-3xl md:text-4xl'
+    },
+    xl: {
+      container: 'gap-5',
+      icon: 'w-16 h-16 md:w-20 md:h-20 rounded-[28%] text-4xl md:text-5xl',
+      text: 'text-4xl md:text-5xl'
+    },
+    '2xl': {
+      container: 'gap-6',
+      icon: 'w-24 h-24 md:w-28 md:h-28 rounded-[28%] text-6xl md:text-7xl',
+      text: 'text-6xl md:text-7xl'
+    }
   };
 
-  const iconSize = {
-    sm: 'text-xs',
-    md: 'text-lg',
-    lg: 'text-xl',
-    xl: 'text-2xl',
-    '2xl': 'text-4xl'
-  };
+  const currentSize = sizeClasses[size];
 
+  // Exact Match Brand App Logo Icon: Solid Rounded Red Squircle with white uppercase italic 'S'
   const logoContent = showIcon && (
     <div className={cn(
-      "bg-[#ee3e38] rounded-[22%] flex items-center justify-center transition-transform", 
-      sizeClasses[size].split(' ')[0], 
-      sizeClasses[size].split(' ')[1],
+      "bg-[#ee3e38] flex items-center justify-center transition-all select-none duration-250 active:scale-95 shrink-0 shadow-lg shadow-black/10", 
+      currentSize.icon,
       imageClassName
     )}>
-      <span className={cn(
-        "text-white leading-none font-black italic", 
-        iconSize[size]
-      )}>S</span>
+      <span 
+        className="text-white font-sans leading-none flex items-center justify-center select-none"
+        style={{
+          fontFamily: '"Impact", "Bebas Neue", "Arial Black", "Inter", sans-serif',
+          fontStyle: 'italic',
+          fontWeight: 900,
+          transform: 'translateX(0.5px)'
+        }}
+      >
+        S
+      </span>
     </div>
   );
 
   return (
-    <Link to="/" className={cn("flex items-center gap-2 group inline-flex", className)}>
+    <Link to="/" className={cn("flex items-center group inline-flex select-none leading-none", currentSize.container, className)}>
       {logoContent}
       {showText && (
-        <span className={cn(
-          "font-black italic uppercase tracking-tighter text-white select-none whitespace-nowrap", 
-          sizeClasses[size].split(' ')[2],
-          textClassName
-        )}>
-          SPORTS<span className="text-[#ee3e38]">BOX</span>
-        </span>
+        <div className="flex flex-col items-start leading-none justify-center">
+          {/* Wordmark: "SPORTSBOX" - italic heavy sans-serif where SPORTS is white and BOX is red-orange */}
+          <span 
+            className={cn(
+              "uppercase whitespace-nowrap leading-none flex items-center select-none", 
+              currentSize.text,
+              textClassName
+            )}
+            style={{
+              fontFamily: '"Impact", "Bebas Neue", "Arial Black", "Inter", sans-serif',
+              fontStyle: 'italic',
+              fontWeight: 900,
+              letterSpacing: '-0.015em'
+            }}
+          >
+            <span className="text-white">SPORTS</span>
+            <span className="text-[#ee3e38]">BOX</span>
+          </span>
+        </div>
       )}
     </Link>
   );

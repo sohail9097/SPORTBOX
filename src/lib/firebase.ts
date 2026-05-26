@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getAnalytics, isSupported } from 'firebase/analytics';
-import { getAuth, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
+import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult } from 'firebase/auth';
 import { 
   getFirestore, 
   doc, 
@@ -40,19 +40,45 @@ export const analytics = isSupported().then(yes => yes ? getAnalytics(app) : nul
 
 googleProvider.setCustomParameters({ prompt: 'select_account' });
 
-export async function signInWithGoogle() {
+export async function signInWithGoogle(useRedirectFallback = true) {
   try {
+    console.log("[AuthSync] Initiating signInWithPopup with Custom Domain: ", firebaseConfig.authDomain);
     const result = await signInWithPopup(auth, googleProvider);
+    
+    // Broadcast auth state synchronization trigger via localStorage for instant cross-tab capture
+    try {
+      localStorage.setItem('sportsbox_auth_trigger', Date.now().toString());
+    } catch (_) {}
+
     toast.success(`Welcome, ${result.user.displayName || 'User'}!`);
     return result.user;
   } catch (error: any) {
+    console.warn("[AuthSync] signInWithPopup encountered error:", error.code, error.message);
+    
     if (error.code === 'auth/popup-blocked') {
-      toast.error("Popups blocked! Please enable popups to sign in.");
+      if (useRedirectFallback) {
+        console.log("[AuthSync] Popup blocked. Falling back securely to signInWithRedirect...");
+        toast.info("Popups are blocked. Redirecting securely to sign-in page...");
+        await signInWithRedirect(auth, googleProvider);
+      } else {
+        toast.error("Popups blocked! Please enable popups to sign in.");
+      }
     } else if (error.code === 'auth/cancelled-popup-request') {
-      // User closed the popup
+      // User closed the popup manually
+      console.log("[AuthSync] Popup request cancelled by user.");
     } else if (error.code === 'auth/unauthorized-domain') {
-       toast.error("Auth domain not authorized. Check Firebase settings.");
+       toast.error("Auth domain not authorized. Check Firebase console settings.");
+    } else if (error.code === 'auth/network-request-failed') {
+       toast.error("Network request failed. Please check internet connection.");
     } else {
+      // For cross-origin blocked environments during local development or if popup was closed/blocked silently,
+      // offer a safe fallback redirection
+      if (useRedirectFallback && (error.message?.includes('closed') || error.message?.includes('cross-origin') || error.code === 'auth/popup-closed-by-user')) {
+        console.log("[AuthSync] Popup failure or closure. Falling back securely to redirection...");
+        toast.info("Signing in via secure redirect...");
+        await signInWithRedirect(auth, googleProvider);
+        return;
+      }
       console.error('Login failed:', error);
       toast.error(`Login Error: ${error.message || 'Unknown error'}`);
     }

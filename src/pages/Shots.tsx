@@ -39,7 +39,7 @@ export default function Shots() {
   const [shorts, setShorts] = useState<SportsContent[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [isMuted, setIsMuted] = useState(false);
+  const [isMuted, setIsMuted] = useState(true);
   const [isPlaying, setIsPlaying] = useState(true);
   const [likesState, setLikesState] = useState<{ [id: string]: { liked: boolean, count: number } }>({});
   
@@ -275,7 +275,7 @@ export default function Shots() {
           if (isPlaying) {
             video.play().catch(e => {
               console.log("Video auto play prevented:", e);
-              setIsPlaying(false);
+              // Do not toggle isPlaying to false on transient buffer errors
             });
           } else {
             video.pause();
@@ -571,39 +571,75 @@ export default function Shots() {
                     key={short.id} 
                     className="w-full h-full snap-start snap-always relative flex-shrink-0 flex items-center justify-center bg-black overflow-hidden"
                   >
-                    {youtubeId ? (
-                      <div className="w-full h-full relative overflow-hidden bg-black flex items-center justify-center">
-                        <iframe
-                          ref={(el) => { iframeRefs.current[idx] = el; }}
-                          src={`https://www.youtube.com/embed/${youtubeId}?autoplay=${isCurrent && isPlaying ? 1 : 0}&mute=${isMuted ? 1 : 0}&loop=1&playlist=${youtubeId}&controls=0&modestbranding=1&playsinline=1&rel=0&enablejsapi=1&origin=${window.location.origin}`}
-                          className="w-[316.05%] h-full max-w-none border-0 absolute left-1/2 -translate-x-1/2 select-none pointer-events-none"
-                          allow="autoplay; encrypted-media; picture-in-picture"
-                        />
-                        {/* Overlay to intercept click and allow interactive play/pause */}
-                        <div 
-                          className="absolute inset-0 cursor-pointer z-10"
+                    {isCurrent ? (
+                      youtubeId ? (
+                        <div className="w-full h-full relative overflow-hidden bg-black flex items-center justify-center">
+                          <iframe
+                            ref={(el) => { iframeRefs.current[idx] = el; }}
+                            src={`https://www.youtube.com/embed/${youtubeId}?autoplay=${isPlaying ? 1 : 0}&mute=${isMuted ? 1 : 0}&loop=1&playlist=${youtubeId}&controls=0&modestbranding=1&playsinline=1&rel=0&enablejsapi=1&origin=${window.location.origin}`}
+                            className="w-[316.05%] h-full max-w-none border-0 absolute left-1/2 -translate-x-1/2 select-none pointer-events-none"
+                            allow="autoplay; encrypted-media; picture-in-picture"
+                          />
+                          {/* Overlay to intercept click and allow interactive play/pause */}
+                          <div 
+                            className="absolute inset-0 cursor-pointer z-10"
+                            onClick={() => setIsPlaying(prev => !prev)}
+                          />
+                        </div>
+                      ) : (
+                        /* Vertical Video Element - rendered only for active short to prevent parallel media request spamming */
+                        <video
+                          ref={(el) => { 
+                            videoRefs.current[idx] = el; 
+                            if (el) {
+                              el.muted = isMuted;
+                              if (isPlaying && el.paused) {
+                                el.play().catch(e => console.log("Ref active play prevented:", e));
+                              }
+                            }
+                          }}
+                          src={transformedVideoUrl}
+                          poster={transformedPosterUrl}
+                          muted={isMuted}
+                          autoPlay={isPlaying}
+                          preload="auto"
+                          loop={true}
+                          playsInline
                           onClick={() => setIsPlaying(prev => !prev)}
-                        />
-                      </div>
-                    ) : (
-                      /* Vertical Video Element */
-                      <video
-                        ref={(el) => { videoRefs.current[idx] = el; }}
-                        src={transformedVideoUrl}
-                        poster={transformedPosterUrl}
-                        muted={isMuted}
-                        loop={false}
-                        playsInline
-                        onClick={() => setIsPlaying(prev => !prev)}
-                        onEnded={() => {
-                          if (idx === currentIndex) {
+                          onCanPlay={(e) => {
+                            if (isPlaying && e.currentTarget.paused) {
+                              e.currentTarget.play().catch(err => {
+                                console.log("video element onCanPlay play prevented:", err);
+                              });
+                            }
+                          }}
+                          onLoadedData={(e) => {
+                            if (isPlaying && e.currentTarget.paused) {
+                              e.currentTarget.play().catch(err => {
+                                console.log("video element onLoadedData play prevented:", err);
+                              });
+                            }
+                          }}
+                          onEnded={() => {
                             handleNext();
-                          }
-                        }}
-                        className={`w-full h-full cursor-pointer bg-neutral-955 ${
-                          short.cropCenter !== false ? 'object-cover scale-100' : 'object-contain'
-                        }`}
-                      />
+                          }}
+                          className="w-full h-full cursor-pointer bg-neutral-950 object-cover object-center scale-100"
+                        />
+                      )
+                    ) : (
+                      /* High-Quality Poster Image with Blur and Play icon for beautiful landscape transition list-loading */
+                      <div className="w-full h-full relative flex items-center justify-center bg-black overflow-hidden">
+                        <img 
+                          src={transformedPosterUrl} 
+                          alt={short.title} 
+                          className="w-full h-full object-cover object-center select-none opacity-85 blur-sm scale-105"
+                        />
+                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                          <div className="w-16 h-16 bg-white/10 rounded-full flex items-center justify-center backdrop-blur-md hover:bg-white/20 transition-all cursor-pointer">
+                            <Play className="w-6 h-6 fill-white text-white ml-0.5 opacity-80" />
+                          </div>
+                        </div>
+                      </div>
                     )}
 
                     {/* Play / Pause overlay flash indicator */}

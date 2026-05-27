@@ -18,10 +18,11 @@ export default function ContentCard({
   aspectRatio?: 'landscape' | 'portrait',
   hideDetails?: boolean
 }) {
-  const { profile, isAdmin } = useAuth();
-  const isLocked = (content.status === 'live' || content.type === 'live')
-    ? false
-    : (!profile || profile.subscriptionTier === 'free') && !isAdmin;
+  const { profile, isAdmin, user } = useAuth();
+  const isLocked = !isAdmin && (
+    !user || 
+    (content.isPremium && (!profile || profile.subscriptionTier === 'free' || profile.subscriptionStatus !== 'active'))
+  );
 
   const displayThumbnail = content.thumbnailUrl && content.thumbnailUrl.trim() !== ''
     ? content.thumbnailUrl
@@ -93,7 +94,9 @@ export default function ContentCard({
                 <div className="w-12 h-12 bg-white/10 backdrop-blur-md rounded-full flex items-center justify-center border border-white/20">
                   <Lock className="w-6 h-6 text-white" />
                 </div>
-                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white bg-black/40 px-3 py-1 rounded-full backdrop-blur-sm">Subscription Required</span>
+                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white bg-black/40 px-3 py-1 rounded-full backdrop-blur-sm">
+                  {!user ? "Login Required" : "Subscription Required"}
+                </span>
               </div>
             ) : (
               <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-2xl scale-75 opacity-0 group-hover:opacity-100 group-hover:scale-100 transition-all">

@@ -25,16 +25,31 @@ export default function VideoPromoBanner({ title, description, videoUrl, embedCo
     const video = videoRef.current;
     if (!video || !videoUrl) return;
 
+    let isCancelled = false;
+    let playPromise: Promise<void> | null = null;
+
     const handlePlay = async () => {
       try {
         if (isInView) {
-          playPromiseRef.current = video.play();
-          await playPromiseRef.current;
+          playPromise = video.play();
+          playPromiseRef.current = playPromise;
+          if (playPromise !== undefined) {
+            playPromise.catch(e => {
+              console.log("VideoPromoBanner play promise caught safely:", e);
+            });
+          }
+          await playPromise;
         } else {
           if (playPromiseRef.current) {
-            await playPromiseRef.current;
+            try {
+              await playPromiseRef.current;
+            } catch (err) {
+              // Ignore play error when pausing
+            }
           }
-          video.pause();
+          if (!isCancelled) {
+            video.pause();
+          }
         }
       } catch (e) {
         console.log("Autoplay interaction handled:", e);
@@ -42,6 +57,17 @@ export default function VideoPromoBanner({ title, description, videoUrl, embedCo
     };
 
     handlePlay();
+
+    return () => {
+      isCancelled = true;
+      if (video) {
+        try {
+          video.pause();
+        } catch (e) {
+          // Ignore pause error during unmount
+        }
+      }
+    };
   }, [isInView, videoUrl]);
 
   // Function to process embed code to add autoplay/mute if it's a URL-based iframe

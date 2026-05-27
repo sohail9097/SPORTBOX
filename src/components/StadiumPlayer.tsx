@@ -69,7 +69,7 @@ export default function StadiumPlayer({ url, poster, isLive, useIframe: initialU
     videoRef.current.appendChild(videoElement);
 
     const player = playerRef.current = videojs(videoElement, {
-      autoplay: config.autoplay,
+      autoplay: false, // programmatic play on ready to prevent unhandled rejections
       muted: config.muted,
       loop: config.loop,
       controls: false, // We'll build custom controls
@@ -84,6 +84,17 @@ export default function StadiumPlayer({ url, poster, isLive, useIframe: initialU
         src: url,
         type: url.includes('m3u8') ? 'application/x-mpegURL' : (url.includes('drive.google.com') || url.includes('mp4')) ? 'video/mp4' : 'video/mp4'
       }]
+    });
+
+    player.ready(() => {
+      if (config.autoplay) {
+        const playPromise = player.play();
+        if (playPromise !== undefined) {
+          playPromise.catch((e: any) => {
+            console.log("StadiumPlayer autoplay interaction handled safely or aborted:", e);
+          });
+        }
+      }
     });
 
     player.on('play', () => setIsPlaying(true));

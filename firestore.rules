@@ -1,13 +1,19 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // helpers
+    // Helpers
     function isSignedIn() { return request.auth != null; }
+    
     function isAdmin() { 
       return isSignedIn() && 
-             (request.auth.token.email.lower() == 'sohailgaji9097@gmail.com' ||
-              request.auth.token.email.lower() == 'tavish@dreamcatchers.tv');
+             request.auth.token != null &&
+             'email' in request.auth.token &&
+             (request.auth.token.email == 'sohailgaji9097@gmail.com' ||
+              request.auth.token.email == 'tavish@dreamcatchers.tv' ||
+              request.auth.token.email == 'Sohailgaji9097@gmail.com' ||
+              request.auth.token.email == 'Tavish@dreamcatchers.tv');
     }
+    
     function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
 
     // Users: owners/admins can read/write their own info
@@ -21,20 +27,14 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // Content/Videos/Streams: everyone can read, only admin can write
-    match /content/{contentId} {
+    // Settings: site configurations (videoPromo, siteConfig, playerConfig) - read for all, write for admin
+    match /settings/{settingId} {
       allow read: if true;
       allow write: if isAdmin();
-      
-      // Comments subcollection: signed-in users can read/write
-      match /comments/{commentId} {
-        allow read: if true;
-        allow write: if isSignedIn();
-      }
     }
 
-    // Olympic Medalists: everyone can read, only admin can write
-    match /olympic_medalists/{medalistId} {
+    // Subscription Plans: read for all, write for admin
+    match /subscription_plans/{planId} {
       allow read: if true;
       allow write: if isAdmin();
     }
@@ -55,6 +55,47 @@ service cloud.firestore {
     match /subscriptions/{subId} {
       allow read: if true;
       allow write: if isAdmin();
+    }
+
+    // Library and Library Folders: read/write for Admin only
+    match /library/{libId} {
+      allow read, write: if isAdmin();
+    }
+    match /library_folders/{folderId} {
+      allow read, write: if isAdmin();
+    }
+
+    // Olympic Medalists: everyone can read, only admin can write
+    match /olympic_medalists/{medalistId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Content/Videos/Streams: everyone can read, only admin can write (except dynamic increments of viewCount or likes on update)
+    match /content/{contentId} {
+      allow read: if true;
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin() || (
+        // Allow anyone to update viewCount or likes
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['viewCount', 'likes'])
+      );
+      
+      // Comments subcollection: signed-in users can read/write
+      match /comments/{commentId} {
+        allow read: if true;
+        allow write: if isSignedIn();
+      }
+
+      // Spectators subcollection: guest/anonymous read/write for real-time presence
+      match /spectators/{spectatorId} {
+        allow read, write: if true;
+      }
+
+      // Likes subcollection: anyone can verify/write their own likes under their uid
+      match /likes/{userId} {
+        allow read: if true;
+        allow write: if isOwner(userId) || isAdmin();
+      }
     }
   }
 }

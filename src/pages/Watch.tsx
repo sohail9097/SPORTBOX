@@ -1,10 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { doc, getDoc, updateDoc, increment, arrayUnion, arrayRemove, collection, query, where, limit, getDocs, setDoc, deleteDoc, onSnapshot } from 'firebase/firestore';
 import { SportsContent, PlayerSettings } from '../types';
 import { useAuth } from '../hooks/useAuth';
-import { Play, Share2, Heart, MessageSquare, Crown, Info, ChevronRight, Activity, PlusCircle, CheckCircle2 } from 'lucide-react';
+import { Play, Share2, Heart, MessageSquare, Crown, Info, ChevronRight, Activity, PlusCircle, CheckCircle2, Lock } from 'lucide-react';
 import { motion } from 'motion/react';
 import { cn, formatDate, transformGDriveUrl, getVideoAutoThumbnail } from '../lib/utils';
 import StadiumPlayer from '../components/StadiumPlayer';
@@ -22,8 +22,80 @@ export default function Watch() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isWatchLater, setIsWatchLater] = useState(false);
   const [playerConfig, setPlayerConfig] = useState<PlayerSettings | null>(null);
+  const nativeVideoRef = useRef<HTMLVideoElement | null>(null);
 
   const [hasLiked, setHasLiked] = useState(false);
+  const [spectatorsCount, setSpectatorsCount] = useState<number>(0);
+  const [spectatorsList, setSpectatorsList] = useState<{ id: string; uid: string | null; name: string }[]>([]);
+
+  // Real-Time Active Spectators Presence System
+  useEffect(() => {
+    if (!id) return;
+
+    // Generate a unique session identifier for this watcher
+    const sessionId = 'session_' + Math.random().toString(36).substring(2, 11) + '_' + Date.now();
+    const spectatorRef = doc(db, 'content', id, 'spectators', sessionId);
+
+    const updatePresence = async () => {
+      try {
+        const viewerName = profile?.displayName || user?.displayName || `Guest Fan #${sessionId.slice(-4)}`;
+        await setDoc(spectatorRef, {
+          uid: user?.uid || null,
+          name: viewerName,
+          lastActive: new Date().toISOString()
+        });
+      } catch (err) {
+        console.error("[Presence] Error writing heartbeat:", err);
+      }
+    };
+
+    // Register active viewer presence immediately
+    updatePresence();
+
+    // Heartbeat interval to refresh presence document every 12 seconds
+    const intervalId = setInterval(updatePresence, 12000);
+
+    // Live Snapshot Listener to sync active spectators in immediate real-time
+    const spectatorsCol = collection(db, 'content', id, 'spectators');
+    const unsubscribeSpectators = onSnapshot(spectatorsCol, (snapshot) => {
+      const now = Date.now();
+      const activeList: { id: string; uid: string | null; name: string }[] = [];
+
+      snapshot.docs.forEach(snapDoc => {
+        const data = snapDoc.data();
+        if (data.lastActive) {
+          const lastActiveTime = new Date(data.lastActive).getTime();
+          // Filter out stale spectators who haven't updated in the last 30 seconds
+          if (now - lastActiveTime < 30000) {
+            activeList.push({
+              id: snapDoc.id,
+              uid: data.uid || null,
+              name: data.name || 'Anonymous Guest'
+            });
+          }
+        }
+      });
+
+      setSpectatorsList(activeList);
+      setSpectatorsCount(activeList.length);
+    }, (error) => {
+      console.error("[Presence] Error watching spectators:", error);
+    });
+
+    // Clean up presence on unmount, tab close or channel change
+    const cleanupPresence = () => {
+      clearInterval(intervalId);
+      unsubscribeSpectators();
+      deleteDoc(spectatorRef).catch(() => {});
+    };
+
+    window.addEventListener('beforeunload', cleanupPresence);
+
+    return () => {
+      window.removeEventListener('beforeunload', cleanupPresence);
+      cleanupPresence();
+    };
+  }, [id, user, profile]);
 
   useEffect(() => {
     if (profile && id) {
@@ -124,6 +196,30 @@ export default function Watch() {
     }
   }, [id]);
 
+  // Handle play/pause and cleanup of the native video element securely
+  useEffect(() => {
+    const video = nativeVideoRef.current;
+    if (!video) return;
+
+    // Trigger programmatic autoplay but catch rejections safely (such as user interactions or unmount interrupts)
+    const playPromise = video.play();
+    if (playPromise !== undefined) {
+      playPromise.catch(err => {
+        console.log("Safe native video play execution handled:", err);
+      });
+    }
+
+    return () => {
+      if (video) {
+        try {
+          video.pause();
+        } catch (e) {
+          // Ignore any pause errors upon unmounting
+        }
+      }
+    };
+  }, [content?.videoUrl]);
+
   const toggleWatchLater = async () => {
     if (!user || !id) return;
     
@@ -204,9 +300,10 @@ export default function Watch() {
   if (loading && !content) return <LoadingScreen />;
   if (!content) return <div className="h-screen flex flex-col items-center justify-center">Content not found. <Link to="/" className="text-brand mt-4">Back Home</Link></div>;
 
-  const isLocked = (content?.status === 'live' || content?.type === 'live')
-    ? false
-    : (!profile || profile.subscriptionTier === 'free') && !isAdmin;
+  const isLocked = !isAdmin && (
+    !user || 
+    (content.isPremium && (!profile || profile.subscriptionTier === 'free' || profile.subscriptionStatus !== 'active'))
+  );
 
   const isIframeUrl = (url: string) => {
     if (!url) return false;
@@ -235,16 +332,22 @@ export default function Watch() {
                     whileInView={{ scale: 1, opacity: 1 }}
                     className="max-w-md text-center space-y-6"
                   >
-                    <Crown className="w-12 h-12 text-brand mx-auto" />
+                    {!user ? <Lock className="w-12 h-12 text-brand mx-auto" /> : <Crown className="w-12 h-12 text-brand mx-auto" />}
                     <div className="space-y-2">
-                      <h2 className="text-2xl font-black uppercase italic tracking-tighter">Stadium Pass Required</h2>
-                      <p className="text-text-muted text-xs font-medium">Join Stadium Pro to unlock this broadcast and support the teams.</p>
+                      <h2 className="text-2xl font-black uppercase italic tracking-tighter">
+                        {!user ? "Access Restricted" : "Stadium Pass Required"}
+                      </h2>
+                      <p className="text-text-muted text-xs font-medium">
+                        {!user 
+                          ? "Please sign in to view this content and start supporting your teams." 
+                          : "Join Stadium Pro to unlock this broadcast and support the teams."}
+                      </p>
                     </div>
                     <Link 
-                      to="/plans" 
+                      to={!user ? "/login" : "/plans"} 
                       className="inline-block px-8 py-3 bg-brand text-white font-black text-[10px] uppercase tracking-widest rounded-lg"
                     >
-                      Upgrade Now
+                      {!user ? "Login / Register" : "Upgrade Now"}
                     </Link>
                   </motion.div>
                 </div>
@@ -290,8 +393,8 @@ export default function Watch() {
                       />
                     ) : (
                       <video 
+                        ref={nativeVideoRef}
                         src={transformGDriveUrl(content.videoUrl, 'video')}
-                        autoPlay
                         controls
                         className="w-full h-full bg-black object-contain"
                         poster={(content.thumbnailUrl && content.thumbnailUrl.trim() !== '') ? transformGDriveUrl(content.thumbnailUrl, 'image') : getVideoAutoThumbnail(content.videoUrl || '', content.category)}
@@ -337,9 +440,14 @@ export default function Watch() {
                     {content.status === 'live' && (
                       <>
                         <span>•</span>
-                        <span>{content.viewCount?.toLocaleString()} Spectators</span>
+                        <span className="text-red-500 font-bold flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse shrink-0" />
+                          {spectatorsCount} Watching Now
+                        </span>
                       </>
                     )}
+                    <span>•</span>
+                    <span>{content.viewCount?.toLocaleString() || 0} Open Views</span>
                     <span>•</span>
                     <span>{content.likes || 0} Fans Reacted</span>
                   </div>
@@ -375,6 +483,51 @@ export default function Watch() {
                   />
                   <ActionButton icon={Share2} label="Share" onClick={handleShare} circle />
                 </div>
+
+                {/* Highly Polished Real-Time Concurrent Spectators Tracker */}
+                {content.status === 'live' && (
+                  <div className="bg-surface border border-border p-4 rounded-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-2xl my-3">
+                    <div className="flex items-center gap-3">
+                      <div className="relative">
+                        <span className="flex h-3.5 w-3.5">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-red-600"></span>
+                        </span>
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-black uppercase tracking-tight text-white">{spectatorsCount} Fans Watching Live</span>
+                          <span className="text-[9px] bg-red-500/10 border border-red-500/20 text-red-500 px-1.5 py-0.5 rounded font-black tracking-widest uppercase">Arena Live</span>
+                        </div>
+                        <p className="text-xs text-text-muted mt-0.5 font-medium leading-relaxed">
+                          {spectatorsList.length > 0 
+                            ? `Currently rooted in the stadium together: ${spectatorsList.slice(0, 3).map(s => s.name).join(', ')}${spectatorsList.length > 3 ? ` and ${spectatorsList.length - 3} other fans` : ''}` 
+                            : 'Joined the digital arena. Awaiting other fans to stream in.'}
+                        </p>
+                      </div>
+                    </div>
+                    
+                    {/* Visual Spectator Avatar Overlays */}
+                    {spectatorsList.length > 0 && (
+                      <div className="flex -space-x-2.5 overflow-hidden">
+                        {spectatorsList.slice(0, 6).map((spec) => (
+                          <div 
+                            key={spec.id} 
+                            className="w-8 h-8 rounded-full border-2 border-surface bg-brand/10 hover:border-brand hover:scale-105 transition-all flex items-center justify-center text-[10px] font-black uppercase tracking-tight text-brand shrink-0 text-center select-none"
+                            title={spec.name}
+                          >
+                            {spec.name.substring(0, 2).toUpperCase()}
+                          </div>
+                        ))}
+                        {spectatorsList.length > 6 && (
+                          <div className="w-8 h-8 rounded-full border-2 border-surface bg-surface-hover flex items-center justify-center text-[9px] font-black uppercase text-text-muted shrink-0 text-center select-none">
+                            +{spectatorsList.length - 6}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
 

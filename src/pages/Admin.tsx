@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { db, handleFirestoreError, OperationType, auth } from '../lib/firebase';
 import { collection, addDoc, getDocs, getDoc, deleteDoc, doc, updateDoc, query, orderBy, setDoc, onSnapshot } from 'firebase/firestore';
 import { SportsContent, Category, ContentType, ContentSection, SliderElement, VideoPromoSettings, SiteConfig, PlayerSettings, SubscriptionPlan, BlogPost } from '../types';
-import { Plus, Trash2, Edit2, Play, LayoutDashboard, Film, Users, Settings, Save, X, Eye, Radio, Crown, Layers, MoveUp, MoveDown, CheckSquare, Square, Image as ImageIcon, Upload, Library, ShieldCheck, ShieldAlert, Zap, Percent, Trophy, ChevronRight, Activity, Heart, Dribbble, CircleDot, Target, Disc, Flag, Gamepad2, Folder, ChevronLeft, BookOpen, Scissors, Waves, Flame, Compass, Award } from 'lucide-react';
+import { Plus, Trash2, Edit2, Play, LayoutDashboard, Film, Users, Settings, Save, X, Eye, Radio, Crown, Layers, MoveUp, MoveDown, CheckSquare, Square, Image as ImageIcon, Upload, Library, ShieldCheck, ShieldAlert, Zap, Percent, Trophy, ChevronRight, Activity, Heart, Dribbble, CircleDot, Target, Disc, Flag, Gamepad2, Folder, ChevronLeft, BookOpen, Scissors, Waves, Flame, Compass, Award, Sparkles, Wand2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn, formatDate, transformGDriveUrl, getVideoAutoThumbnail } from '../lib/utils';
 import { useAuth } from '../hooks/useAuth';
@@ -131,6 +131,13 @@ export default function Admin() {
     tagsInput: '',
     author: 'Admin'
   });
+
+  // AI Blog Auto Generator state
+  const [aiBlogTitle, setAiBlogTitle] = useState('');
+  const [aiBlogImageUrl, setAiBlogImageUrl] = useState('');
+  const [aiBlogImageFileBase64, setAiBlogImageFileBase64] = useState<string | null>(null);
+  const [isAiGeneratingBlog, setIsAiGeneratingBlog] = useState(false);
+  const [isAiModuleOpen, setIsAiModuleOpen] = useState(false);
   
   const [selectedContentLikes, setSelectedContentLikes] = useState<{ id: string, title: string, likers: any[] } | null>(null);
   const [likesLoading, setLikesLoading] = useState(false);
@@ -966,6 +973,78 @@ export default function Admin() {
       console.error("Error fetching blogs in Admin:", err);
     } finally {
       setBlogsLoading(false);
+    }
+  };
+
+  const handleAiBlogGenerate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!isAdmin) {
+      toast.error("Unauthorized: Only administrators are permitted to generate articles.");
+      return;
+    }
+    if (!aiBlogTitle.trim()) {
+      toast.error("Please enter a blog title to guide the AI generator.");
+      return;
+    }
+
+    const toastId = toast.loading("✨ Gemini AI is analyzing inputs and drafting a comprehensive sports article...");
+    setIsAiGeneratingBlog(true);
+
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        throw new Error("You must be authenticated as an administrator to run AI automation.");
+      }
+      const idToken = await currentUser.getIdToken();
+
+      // Determine correct image payload (either base64 upload or typed url)
+      const imagePayload = aiBlogImageFileBase64 || aiBlogImageUrl.trim() || 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?q=80&w=800';
+
+      const response = await fetch('/api/admin/generate-blog', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}`
+        },
+        body: JSON.stringify({
+          title: aiBlogTitle.trim(),
+          image: imagePayload
+        })
+      });
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || `Server response error: ${response.status}`);
+      }
+
+      const responseData = await response.json();
+      if (!responseData.success || !responseData.blog) {
+        throw new Error("Invalid response received from the SportsBox blog automated API.");
+      }
+
+      const generatedBlog: BlogPost = {
+        ...responseData.blog,
+        id: `blog-ai-${Date.now()}`
+      };
+
+      // Direct write to sport blogs collection
+      await setDoc(doc(db, 'blogs', generatedBlog.id), generatedBlog);
+
+      toast.success(`✨ Sport Article "${generatedBlog.title}" successfully drafted, categorised to ${generatedBlog.category.toUpperCase()} and published!`, { id: toastId });
+      
+      // Cleanup States
+      setAiBlogTitle('');
+      setAiBlogImageUrl('');
+      setAiBlogImageFileBase64(null);
+      setIsAiModuleOpen(false);
+
+      // Fetch freshly added blog post
+      fetchBlogs();
+    } catch (error: any) {
+      console.error("[AI Generation Error]:", error);
+      toast.error(`Auto-generation failed: ${error.message || 'Unknown error occurred'}`, { id: toastId });
+    } finally {
+      setIsAiGeneratingBlog(false);
     }
   };
 
@@ -3158,27 +3237,171 @@ export default function Admin() {
                   <h1 className="text-5xl font-black uppercase italic tracking-tighter">Manage Blogs</h1>
                   <p className="text-text-muted font-medium">Publish, edit or delete articles, news, and match analyses.</p>
                 </div>
-                <button 
-                  onClick={() => {
-                    setBlogForm({
-                      title: '',
-                      excerpt: '',
-                      content: '',
-                      category: 'football',
-                      imageUrl: 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?q=80&w=800',
-                      readTime: '5 min read',
-                      tagsInput: '',
-                      author: 'Admin'
-                    });
-                    setEditingBlogId(null);
-                    setIsAddingBlog(true);
-                  }}
-                  className="px-6 py-3 bg-brand text-white text-xs font-black uppercase italic hover:bg-brand/80 transition-all flex items-center gap-2 rounded-2xl"
-                >
-                  <Plus className="w-4 h-4" />
-                  New Blog Post
-                </button>
+                <div className="flex flex-wrap items-center gap-3">
+                  <button 
+                    onClick={() => setIsAiModuleOpen(!isAiModuleOpen)}
+                    className="px-6 py-3 bg-white/5 border border-white/10 hover:border-brand/40 text-brand text-xs font-black uppercase italic hover:bg-white/10 transition-all flex items-center gap-2 rounded-2xl cursor-pointer"
+                  >
+                    <Sparkles className="w-4 h-4 text-brand animate-pulse" />
+                    AI Blog Generator
+                  </button>
+                  <button 
+                    onClick={() => {
+                      setBlogForm({
+                        title: '',
+                        excerpt: '',
+                        content: '',
+                        category: 'football',
+                        imageUrl: 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?q=80&w=800',
+                        readTime: '5 min read',
+                        tagsInput: '',
+                        author: 'Admin'
+                      });
+                      setEditingBlogId(null);
+                      setIsAddingBlog(true);
+                    }}
+                    className="px-6 py-3 bg-brand text-white text-xs font-black uppercase italic hover:bg-brand/80 transition-all flex items-center gap-2 rounded-2xl cursor-pointer"
+                  >
+                    <Plus className="w-4 h-4" />
+                    New Blog Post
+                  </button>
+                </div>
               </div>
+
+              {isAiModuleOpen && (
+                <motion.div 
+                  initial={{ opacity: 0, height: 0 }} 
+                  animate={{ opacity: 1, height: 'auto' }} 
+                  exit={{ opacity: 0, height: 0 }}
+                  className="bg-surface/90 border border-white/5 p-8 rounded-[32px] space-y-6 relative overflow-hidden shadow-2xl"
+                >
+                  <div className="absolute top-0 right-0 w-80 h-80 bg-brand/5 rounded-full blur-3xl pointer-events-none -mr-20 -mt-20"></div>
+
+                  <div className="flex items-center justify-between border-b border-white/5 pb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2.5 bg-brand/10 rounded-xl text-brand">
+                        <Wand2 className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-black uppercase tracking-wider italic text-white flex items-center gap-2">
+                          Gemini Automated Sports Column Generator
+                          <span className="text-[9px] bg-brand text-white font-mono uppercase tracking-widest font-normal px-2 py-0.5 rounded italic">Power-up</span>
+                        </h3>
+                        <p className="text-text-muted text-[11px] font-medium mt-0.5">Simply provide a headline title and an image, and Gemini will automatically analyze, draft, categorize, and publish a detailed 5-paragraph sport column.</p>
+                      </div>
+                    </div>
+                    <button 
+                      onClick={() => setIsAiModuleOpen(false)} 
+                      className="p-1.5 hover:bg-white/5 rounded-lg text-text-muted hover:text-white transition-colors"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  <form onSubmit={handleAiBlogGenerate} className="grid grid-cols-1 md:grid-cols-2 gap-6 relative z-10">
+                    <div className="space-y-4">
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-text-muted">Target Column Title / Headline</label>
+                        <input 
+                          type="text" 
+                          required
+                          value={aiBlogTitle}
+                          onChange={e => setAiBlogTitle(e.target.value)}
+                          placeholder="e.g. Football Academy: Next Gen Talents"
+                          className="w-full bg-black/40 border border-white/10 focus:border-brand/65 p-3.5 rounded-xl outline-none text-xs text-white placeholder-white/30 transition-all font-sans"
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-text-muted">Option A: Direct Image Web Link (Unsplash, Picsum, etc.)</label>
+                        <input 
+                          type="text" 
+                          value={aiBlogImageUrl}
+                          onChange={e => {
+                            setAiBlogImageUrl(e.target.value);
+                            setAiBlogImageFileBase64(null);
+                          }}
+                          placeholder="Paste image URL (e.g. https://images.unsplash.com/photo-...)"
+                          className="w-full bg-black/40 border border-white/10 focus:border-brand/65 p-3.5 rounded-xl outline-none text-xs text-white placeholder-white/30 transition-all font-sans"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-4 flex flex-col justify-between">
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-text-muted">Option B: Upload Cover Image (Drag & Drop or click)</label>
+                        <div className="relative border-2 border-dashed border-white/10 hover:border-brand/40 rounded-xl p-6 flex flex-col items-center justify-center text-center cursor-pointer bg-black/20 hover:bg-black/40 transition-all group">
+                          <input 
+                            type="file" 
+                            accept="image/*"
+                            className="absolute inset-0 opacity-0 cursor-pointer"
+                            onChange={e => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                const reader = new FileReader();
+                                reader.onloadend = () => {
+                                  setAiBlogImageFileBase64(reader.result as string);
+                                  setAiBlogImageUrl('');
+                                };
+                                reader.readAsDataURL(file);
+                              }
+                            }}
+                          />
+                          {aiBlogImageFileBase64 ? (
+                            <div className="flex items-center gap-3">
+                              <img src={aiBlogImageFileBase64} alt="Preview" className="w-16 h-12 object-cover rounded-lg bg-black border border-white/10" />
+                              <div className="text-left">
+                                <span className="text-xs font-bold text-white block">Image Ready!</span>
+                                <span className="text-[10px] text-brand block mt-0.5">Will be analyzed by Gemini</span>
+                              </div>
+                            </div>
+                          ) : (
+                            <>
+                              <Upload className="w-6 h-6 text-white/20 group-hover:text-brand transition-colors mb-2" />
+                              <span className="text-xs font-bold text-white">Select Cover Photo</span>
+                              <span className="text-[10px] text-text-muted mt-1">Accepts PNG, JPG, WEBP (analyzed on server)</span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex gap-3 justify-end pt-4">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setAiBlogTitle('');
+                            setAiBlogImageUrl('');
+                            setAiBlogImageFileBase64(null);
+                          }}
+                          className="px-5 py-3 border border-white/5 hover:bg-white/5 text-text-muted font-black text-[10px] uppercase tracking-widest rounded-xl transition-all"
+                        >
+                          Reset Inputs
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={isAiGeneratingBlog || !aiBlogTitle.trim()}
+                          className={cn(
+                            "px-6 py-3 bg-brand text-white font-black text-[10px] uppercase tracking-widest rounded-xl transition-all flex items-center gap-2 shadow-lg shadow-brand/10 cursor-pointer",
+                            (isAiGeneratingBlog || !aiBlogTitle.trim()) ? "opacity-60 cursor-not-allowed" : "hover:bg-brand/80"
+                          )}
+                        >
+                          {isAiGeneratingBlog ? (
+                            <>
+                              <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                              <span>Generating...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Sparkles className="w-3.5 h-3.5" />
+                              <span>Draft & Auto-Publish</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  </form>
+                </motion.div>
+              )}
 
               {blogsLoading ? (
                 <div className="py-20 flex flex-col items-center justify-center gap-3 animate-pulse">

@@ -268,6 +268,19 @@ export default function Shots() {
       }).catch(err => console.log('Silent view count error:', err));
     }
 
+    return () => {
+      Object.keys(videoRefs.current).forEach((key) => {
+        const idx = parseInt(key, 10);
+        const video = videoRefs.current[idx];
+        if (video) {
+          try {
+            video.pause();
+          } catch (e) {
+            // silent catch
+          }
+        }
+      });
+    };
   }, [currentIndex, isPlaying, shorts]);
 
   // Navigate to next short

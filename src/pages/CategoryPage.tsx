@@ -138,12 +138,33 @@ export default function CategoryPage() {
           </div>
         )}
 
+        {/* Category Library & Archives */}
+        {content.length > 0 && (
+          <section key="archive-section" className="mb-12">
+            <SectionHeader title={`${categoryName} Library & Highlights`} icon={Trophy} />
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2 md:gap-3.5 pt-2">
+              {content.map((item, i) => (
+                <ContentCard key={`archive-${item.id}`} content={item} index={i} />
+              ))}
+            </div>
+          </section>
+        )}
 
         {loading && content.length === 0 && (
-          <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-1">
+          <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-1 mb-12">
             {[...Array(4)].map((_, i) => (
               <div key={`skeleton-archive-${i}`} className="aspect-video bg-white/5 rounded-[2px] animate-pulse" />
             ))}
+          </div>
+        )}
+
+        {!loading && content.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-20 text-center space-y-4 rounded-xl border border-dashed border-border bg-surface/20 mb-12">
+            <Trophy className="w-12 h-12 text-text-muted opacity-30" />
+            <div className="space-y-1">
+              <h3 className="font-bold text-base uppercase tracking-wider">No Cataloged Content</h3>
+              <p className="text-xs text-text-muted max-w-sm mx-auto font-medium">There are currently no active broadcasts or recorded replays cataloged for the {categoryName} arena.</p>
+            </div>
           </div>
         )}
       </div>

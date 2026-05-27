@@ -4,6 +4,10 @@ import path from 'path';
 import fs from 'fs';
 import cors from 'cors';
 import { GoogleGenAI, Type } from '@google/genai';
+import dotenv from 'dotenv';
+
+// Load environment variables from .env
+dotenv.config();
 
 // Initialize Express
 const app = express();

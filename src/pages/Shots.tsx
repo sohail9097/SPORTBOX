@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
+import { transformGDriveUrl, getVideoAutoThumbnail } from '../lib/utils';
 
 // Empty array as we cleared all dummy content
 const MOCK_SHORTS: SportsContent[] = [];
@@ -79,9 +80,30 @@ export default function Shots() {
 
   const activeShort = shorts[currentIndex];
 
-  // Video references for play/pause control
+  // Video and iframe references for play/pause control
   const videoRefs = useRef<{ [index: number]: HTMLVideoElement | null }>({});
+  const iframeRefs = useRef<{ [index: number]: HTMLIFrameElement | null }>({});
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Helper to extract YouTube ID
+  const getYouTubeId = (url: string): string | null => {
+    if (!url) return null;
+    const target = url.trim();
+    let youtubeId = '';
+    if (target.includes('youtube.com') || target.includes('youtu.be')) {
+      if (target.includes('youtube.com/embed/')) {
+        const parts = target.split('/embed/');
+        if (parts[1]) youtubeId = parts[1].split(/[?#]/)[0];
+      } else if (target.includes('youtube.com/watch')) {
+        const match = target.match(/[?&]v=([^&#]+)/);
+        if (match) youtubeId = match[1];
+      } else if (target.includes('youtu.be/')) {
+        const parts = target.split('youtu.be/');
+        if (parts[1]) youtubeId = parts[1].split(/[?#]/)[0];
+      }
+    }
+    return youtubeId || null;
+  };
 
   // Load Shorts
   const fetchShorts = async () => {
@@ -239,24 +261,51 @@ export default function Shots() {
     };
   }, [currentIndex, activeShort]);
 
-  // Handle current video play state based on active short index
+  // Handle current video play/pause and mute/unmute state based on active short index
   useEffect(() => {
     if (shorts.length === 0) return;
 
-    // Play current video, pause others
+    // Direct video element playback check
     Object.keys(videoRefs.current).forEach((key) => {
       const idx = parseInt(key, 10);
       const video = videoRefs.current[idx];
       if (video) {
         if (idx === currentIndex) {
+          video.muted = isMuted;
           if (isPlaying) {
-            video.play().catch(e => console.log("Video auto play prevented:", e));
+            video.play().catch(e => {
+              console.log("Video auto play prevented:", e);
+              setIsPlaying(false);
+            });
           } else {
             video.pause();
           }
         } else {
           video.pause();
           video.currentTime = 0;
+        }
+      }
+    });
+
+    // YouTube Iframe element playback and mute status synchronization
+    Object.keys(iframeRefs.current).forEach((key) => {
+      const idx = parseInt(key, 10);
+      const iframe = iframeRefs.current[idx];
+      if (iframe && iframe.contentWindow) {
+        try {
+          if (idx === currentIndex) {
+            if (isPlaying) {
+              iframe.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'playVideo', args: '' }), '*');
+            } else {
+              iframe.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'pauseVideo', args: '' }), '*');
+            }
+            // Control volume/mute
+            iframe.contentWindow.postMessage(JSON.stringify({ event: 'command', func: isMuted ? 'mute' : 'unMute', args: '' }), '*');
+          } else {
+            iframe.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'pauseVideo', args: '' }), '*');
+          }
+        } catch (e) {
+          console.warn("Error calling YouTube iframe postMessage:", e);
         }
       }
     });
@@ -281,7 +330,7 @@ export default function Shots() {
         }
       });
     };
-  }, [currentIndex, isPlaying, shorts]);
+  }, [currentIndex, isPlaying, isMuted, shorts]);
 
   // Navigate to next short
   const handleNext = () => {
@@ -511,30 +560,51 @@ export default function Shots() {
               {shorts.map((short, idx) => {
                 const isCurrent = idx === currentIndex;
                 const likedObj = likesState[short.id] || { liked: false, count: 0 };
+                const youtubeId = getYouTubeId(short.videoUrl);
+                const transformedVideoUrl = transformGDriveUrl(short.videoUrl, 'video');
+                const transformedPosterUrl = (short.thumbnailUrl && short.thumbnailUrl.trim() !== '') 
+                  ? transformGDriveUrl(short.thumbnailUrl, 'image') 
+                  : getVideoAutoThumbnail(short.videoUrl || '', short.category);
                 
                 return (
                   <div 
                     key={short.id} 
-                    className="w-full h-full snap-start snap-always relative flex-shrink-0 flex items-center justify-center bg-black"
+                    className="w-full h-full snap-start snap-always relative flex-shrink-0 flex items-center justify-center bg-black overflow-hidden"
                   >
-                    {/* Vertical Video Element */}
-                    <video
-                      ref={(el) => { videoRefs.current[idx] = el; }}
-                      src={short.videoUrl}
-                      poster={short.thumbnailUrl}
-                      muted={isMuted}
-                      loop={false}
-                      playsInline
-                      onClick={() => setIsPlaying(prev => !prev)}
-                      onEnded={() => {
-                        if (idx === currentIndex) {
-                          handleNext();
-                        }
-                      }}
-                      className={`w-full h-full cursor-pointer bg-neutral-955 ${
-                        short.cropCenter !== false ? 'object-cover scale-100' : 'object-contain'
-                      }`}
-                    />
+                    {youtubeId ? (
+                      <div className="w-full h-full relative overflow-hidden bg-black flex items-center justify-center">
+                        <iframe
+                          ref={(el) => { iframeRefs.current[idx] = el; }}
+                          src={`https://www.youtube.com/embed/${youtubeId}?autoplay=${isCurrent && isPlaying ? 1 : 0}&mute=${isMuted ? 1 : 0}&loop=1&playlist=${youtubeId}&controls=0&modestbranding=1&playsinline=1&rel=0&enablejsapi=1&origin=${window.location.origin}`}
+                          className="w-[316.05%] h-full max-w-none border-0 absolute left-1/2 -translate-x-1/2 select-none pointer-events-none"
+                          allow="autoplay; encrypted-media; picture-in-picture"
+                        />
+                        {/* Overlay to intercept click and allow interactive play/pause */}
+                        <div 
+                          className="absolute inset-0 cursor-pointer z-10"
+                          onClick={() => setIsPlaying(prev => !prev)}
+                        />
+                      </div>
+                    ) : (
+                      /* Vertical Video Element */
+                      <video
+                        ref={(el) => { videoRefs.current[idx] = el; }}
+                        src={transformedVideoUrl}
+                        poster={transformedPosterUrl}
+                        muted={isMuted}
+                        loop={false}
+                        playsInline
+                        onClick={() => setIsPlaying(prev => !prev)}
+                        onEnded={() => {
+                          if (idx === currentIndex) {
+                            handleNext();
+                          }
+                        }}
+                        className={`w-full h-full cursor-pointer bg-neutral-955 ${
+                          short.cropCenter !== false ? 'object-cover scale-100' : 'object-contain'
+                        }`}
+                      />
+                    )}
 
                     {/* Play / Pause overlay flash indicator */}
                     <AnimatePresence>

@@ -8,6 +8,10 @@ import cors from 'cors';
 import Razorpay from 'razorpay';
 import crypto from 'crypto';
 import { GoogleGenAI, Type } from '@google/genai';
+import dotenv from 'dotenv';
+
+// Load environment variables from .env
+dotenv.config();
 
 // Lazy initialize Gemini client or check before calling to prevent crash on startup if key is missing
 function getGeminiClient() {

@@ -900,6 +900,118 @@ const TRIVIA_QUESTIONS = [
     options: ["Italy", "Egypt", "Greece", "Persia"],
     answer: "Greece",
     explanation: "The ancient Olympic Games began in Greece in 776 BC and were held in Olympia in honor of Zeus."
+  },
+  {
+    id: 5,
+    question: "Who was the first Indian woman to win an individual Olympic medal?",
+    options: ["PV Sindhu", "Karnam Malleswari", "Saina Nehwal", "Mary Kom"],
+    answer: "Karnam Malleswari",
+    explanation: "Karnam Malleswari won a historic bronze medal in weightlifting at the Sydney 2000 Olympic Games."
+  },
+  {
+    id: 6,
+    question: "Which city has hosted the Summer Olympic Games three times as of 2024?",
+    options: ["Tokyo", "Athens", "Paris", "Rome"],
+    answer: "Paris",
+    explanation: "Paris hosted the Summer Olympics in 1900, 1924, and recently in 2024, joining London as a three-time host."
+  },
+  {
+    id: 7,
+    question: "Which breaking/street discipline made its official Summer Olympic debut in Paris 2024?",
+    options: ["Skateboarding", "Parkour", "Breaking (Breakdance)", "Sport Climbing"],
+    answer: "Breaking (Breakdance)",
+    explanation: "Breaking (breakdance) made its official Olympic debut as a sport at Paris 2024 to engage younger audiences."
+  },
+  {
+    id: 8,
+    question: "Who won the first-ever individual gold medal for India at an Olympic Games?",
+    options: ["Neeraj Chopra", "Abhinav Bindra", "Rajyavardhan Rathore", "Sushil Kumar"],
+    answer: "Abhinav Bindra",
+    explanation: "Abhinav Bindra made history by winning India's first individual Olympic gold medal in the 10m Air Rifle event at Beijing 2008."
+  },
+  {
+    id: 9,
+    question: "What is the official motto of the Olympic Games (translated into English)?",
+    options: ["Friendship, Peace, Respect", "Faster, Higher, Stronger - Together", "Unity in Diversity", "Swifter, Stronger, Braver"],
+    answer: "Faster, Higher, Stronger - Together",
+    explanation: "The Olympic motto is 'Citius, Altius, Fortius - Communiter', which translates to 'Faster, Higher, Stronger - Together' in English."
+  },
+  {
+    id: 10,
+    question: "How often are the Summer Olympic Games held?",
+    options: ["Every 2 Years", "Every 3 Years", "Every 4 Years", "Every 5 Years"],
+    answer: "Every 4 Years",
+    explanation: "Both Summer and Winter Olympic Games are held every four years, staggered by two years from each other."
+  },
+  {
+    id: 11,
+    question: "Which nation holds the record for winning the most gold medals overall in Winter Olympic history?",
+    options: ["Germany", "Norway", "United States", "Canada"],
+    answer: "Norway",
+    explanation: "Norway dominates the Winter Olympic games, holding the record for the most winter gold medals and total winter medals."
+  },
+  {
+    id: 12,
+    question: "Which track and field legend won 4 gold medals at the 1936 Berlin Olympics?",
+    options: ["Jesse Owens", "Carl Lewis", "Paavo Nurmi", "Jim Thorpe"],
+    answer: "Jesse Owens",
+    explanation: "Jesse Owens secured his place in history by winning four gold medals (100m, 200m, long jump, and 4x100m relay) at Berlin 1936."
+  },
+  {
+    id: 13,
+    question: "With which sport is the legendary Indian Olympian Dhyan Chand associated?",
+    options: ["Wrestling", "Field Hockey", "Athletics", "Shooting"],
+    answer: "Field Hockey",
+    explanation: "Major Dhyan Chand is widely considered one of the greatest field hockey players ever, winning gold medals in 1928, 1932, and 1936."
+  },
+  {
+    id: 14,
+    question: "Who is the first Indian athlete to win two individual Olympic medals back-to-back?",
+    options: ["PV Sindhu", "Sushil Kumar", "Neeraj Chopra", "Manu Bhaker"],
+    answer: "Sushil Kumar",
+    explanation: "Wrestler Sushil Kumar won bronze at Beijing 2008 and silver at London 2012, becoming the first Indian in independent history with back-to-back medals. PV Sindhu later achieved this too."
+  },
+  {
+    id: 15,
+    question: "Which track icon is known as the 'Lightning Bolt' and holds the current 100m and 200m world records?",
+    options: ["Yohan Blake", "Usain Bolt", "Justin Gatlin", "Tyson Gay"],
+    answer: "Usain Bolt",
+    explanation: "Jamaica's Usain Bolt is the fastest human in history, establishing records of 9.58 seconds in the 100m and 19.19 seconds in the 200m at Berlin 2009."
+  },
+  {
+    id: 16,
+    question: "Which of the following high-adrenaline youth sports made its debut at Tokyo 2020?",
+    options: ["Skateboarding", "Beach Volleyball", "Trampoline", "Cricket"],
+    answer: "Skateboarding",
+    explanation: "Skateboarding made its highly anticipated Olympic debut at the Tokyo 2020 Games, featuring Street and Park disciplines."
+  },
+  {
+    id: 17,
+    question: "What is the length of a standard Olympic-size swimming pool?",
+    options: ["25 meters", "50 meters", "75 meters", "100 meters"],
+    answer: "50 meters",
+    explanation: "An official Olympic-size swimming pool is exactly 50 meters (164 feet) in length."
+  },
+  {
+    id: 18,
+    question: "In which athletics field event do competitors often use the 'Fosbury Flop' technique?",
+    options: ["Long Jump", "Pole Vault", "High Jump", "Triple Jump"],
+    answer: "High Jump",
+    explanation: "The 'Fosbury Flop', introduced by Dick Fosbury, is the standard technique used by high jumpers to clear the bar backwards."
+  },
+  {
+    id: 19,
+    question: "Which country's team always leads the Parade of Nations during the opening ceremony?",
+    options: ["Greece", "United States", "Host Country", "France"],
+    answer: "Greece",
+    explanation: "In honor of the origin of the ancient games, the delegation from Greece always enters first during the Parade of Nations."
+  },
+  {
+    id: 20,
+    question: "How long is an official Olympic marathon race?",
+    options: ["30.5 kilometers", "42.195 kilometers", "50.0 kilometers", "21.097 kilometers"],
+    answer: "42.195 kilometers",
+    explanation: "The official marathon distance of 42.195 km (26.2 miles) was standardized at the London 1908 Olympic Games."
   }
 ];
 
@@ -949,6 +1061,9 @@ export default function Olympics() {
   const [quizScore, setQuizScore] = useState(0);
   const [quizFinished, setQuizFinished] = useState(false);
   const [showExplanation, setShowExplanation] = useState(false);
+  const [triviaQuestions, setTriviaQuestions] = useState<any[]>([]);
+  const [quizStarted, setQuizStarted] = useState(false);
+  const [quizAttempts, setQuizAttempts] = useState<any[]>([]);
 
   // Time remaining count states for upcoming games
   const [timeRemaining, setTimeRemaining] = useState({
@@ -988,6 +1103,16 @@ export default function Olympics() {
       views: 124300,
       likes: 8520
     });
+
+    // Load quiz history attempts from localStorage
+    try {
+      const stored = localStorage.getItem('olympic_trivia_attempts');
+      if (stored) {
+        setQuizAttempts(JSON.parse(stored));
+      }
+    } catch (err) {
+      console.warn("Could not load score history:", err);
+    }
 
     return () => {
       clearInterval(interval);
@@ -1170,10 +1295,10 @@ export default function Olympics() {
 
   // Quiz interactive click
   const handleAnswerClick = (option: string) => {
-    if (selectedAnswer !== null) return;
+    if (selectedAnswer !== null || triviaQuestions.length === 0) return;
     setSelectedAnswer(option);
     setShowExplanation(true);
-    if (option === TRIVIA_QUESTIONS[triviaIdx].answer) {
+    if (option === triviaQuestions[triviaIdx].answer) {
       setQuizScore(prev => prev + 1);
       toast.success('Correct Answer! Spot on.');
     } else {
@@ -1184,11 +1309,65 @@ export default function Olympics() {
   const handleNextQuestion = () => {
     setSelectedAnswer(null);
     setShowExplanation(false);
-    if (triviaIdx + 1 < TRIVIA_QUESTIONS.length) {
+    if (triviaIdx + 1 < triviaQuestions.length) {
       setTriviaIdx(prev => prev + 1);
     } else {
+      // Quiz finished - save attempt
+      const score = quizScore;
+      let title = "Quiz Completed!";
+      let message = "";
+      let icon = "🥉";
+
+      if (score === 5) {
+        title = "Congratulations! Perfect Score!";
+        message = "🥇 Perfect Gold Champion! Absolute brilliance – you know your Olympic history like a true gold medalist!";
+        icon = "🥇";
+      } else if (score >= 3) {
+        title = "Congratulations! Great Score!";
+        message = "🥈 Silver competitor! Outstanding performance – you're a true champion. Keep it up!";
+        icon = "🥈";
+      } else if (score >= 1) {
+        title = "Congratulations on finishing!";
+        message = "🥉 Bronze Athlete! Great effort – you made it onto the podium! With a bit more practice, gold is in your future.";
+        icon = "🥉";
+      } else {
+        title = "Oops! Tough Luck!";
+        message = "😢 Every champion has off days. Don't lose heart! Review the facts and try again to secure your place on the podium.";
+        icon = "😢";
+      }
+
+      const attempt = {
+        id: Date.now().toString(),
+        date: new Date().toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
+        }),
+        score: score,
+        total: 5,
+        title: title,
+        message: message,
+        icon: icon
+      };
+
+      const updatedHistory = [attempt, ...quizAttempts].slice(0, 5); // Keep last 5
+      setQuizAttempts(updatedHistory);
+      localStorage.setItem('olympic_trivia_attempts', JSON.stringify(updatedHistory));
       setQuizFinished(true);
     }
+  };
+
+  const startNewQuiz = () => {
+    const shuffled = [...TRIVIA_QUESTIONS].sort(() => 0.5 - Math.random()).slice(0, 5);
+    setTriviaQuestions(shuffled);
+    setTriviaIdx(0);
+    setSelectedAnswer(null);
+    setShowExplanation(false);
+    setQuizScore(0);
+    setQuizFinished(false);
+    setQuizStarted(true);
   };
 
   const resetQuiz = () => {
@@ -1197,6 +1376,7 @@ export default function Olympics() {
     setShowExplanation(false);
     setQuizScore(0);
     setQuizFinished(false);
+    setQuizStarted(false);
   };
 
   const handleSaveAthlete = async () => {
@@ -2428,29 +2608,110 @@ export default function Olympics() {
                 <p className="text-text-muted text-xs uppercase tracking-widest mt-1 font-bold">Challenge your peak sports intelligence & trivia facts expertise</p>
               </div>
 
-              {!quizFinished ? (
+              {!quizStarted ? (
                 <div className="bg-surface rounded-2xl border border-border p-6 md:p-8 space-y-6 shadow-2xl">
+                  <div className="text-center space-y-2">
+                    <div className="inline-flex p-3 rounded-full bg-brand/10 border border-brand/20 text-brand">
+                      <Trophy className="w-8 h-8" />
+                    </div>
+                    <h3 className="font-sans font-bold text-xl text-white">Olympic Trivia Center</h3>
+                    <p className="text-text-muted text-xs leading-relaxed max-w-md mx-auto">
+                      Test your sports intelligence across 5 randomly selected questions. Answer correctly of 5, get unique questions and no repetition in the current round!
+                    </p>
+                  </div>
+
+                  {quizAttempts.length > 0 ? (
+                    <div className="space-y-4">
+                      {/* Best attempt / stats */}
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="bg-surface-alt border border-border rounded-xl p-4 text-center">
+                          <span className="text-[10px] font-black uppercase tracking-widest text-text-muted block">High Score</span>
+                          <span className="text-2xl font-black text-brand block mt-1">
+                            {Math.max(...quizAttempts.map(a => a.score))} / 5
+                          </span>
+                          <span className="text-[9px] font-semibold text-white/50 block mt-0.5 uppercase tracking-wide">🏆 Best Podium Run</span>
+                        </div>
+                        <div className="bg-surface-alt border border-border rounded-xl p-4 text-center">
+                          <span className="text-[10px] font-black uppercase tracking-widest text-text-muted block">Last Attempt</span>
+                          <span className="text-2xl font-black text-white block mt-1">
+                            {quizAttempts[0].score} / 5
+                          </span>
+                          <span className="text-[9px] font-semibold text-text-muted block mt-0.5 truncate uppercase tracking-widest">{quizAttempts[0].date}</span>
+                        </div>
+                      </div>
+
+                      {/* Last attempt review card */}
+                      <div className="p-4 rounded-xl border border-border bg-brand/5 space-y-1.5 text-left">
+                        <div className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wide text-white">
+                          <span>{quizAttempts[0].icon}</span>
+                          <span>{quizAttempts[0].title || "Your Last Result"}</span>
+                        </div>
+                        <p className="text-text-not-so-muted text-xs leading-relaxed">{quizAttempts[0].message}</p>
+                      </div>
+
+                      {/* Attempts History */}
+                      <div className="space-y-2 text-left">
+                        <h4 className="text-[10px] uppercase font-black tracking-widest text-text-muted flex items-center gap-1.5">
+                          <History className="w-3.5 h-3.5 text-brand" /> Recent Attempts History
+                        </h4>
+                        <div className="divide-y divide-border/50 border border-border/50 rounded-xl overflow-hidden bg-surface-alt">
+                          {quizAttempts.map((attempt, idx) => (
+                            <div key={attempt.id || idx} className="p-3 flex justify-between items-center text-xs">
+                              <div className="flex items-center gap-2.5">
+                                <span className="text-base select-none">{attempt.icon}</span>
+                                <div>
+                                  <span className="font-bold text-white block">Score: {attempt.score} / {attempt.total}</span>
+                                  <span className="text-[9px] text-text-muted">{attempt.date}</span>
+                                </div>
+                              </div>
+                              <span className="text-[9px] font-black uppercase text-brand/80 px-2.5 py-1 bg-brand/5 rounded-full border border-brand/10">
+                                {attempt.score === 5 ? 'Gold Medal' : attempt.score >= 3 ? 'Silver' : attempt.score >= 1 ? 'Bronze' : 'Oops'}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-6 text-center bg-surface-alt border border-border rounded-xl space-y-2">
+                      <p className="text-xs text-text-muted font-normal">No history found. Ready to make your first podium run?</p>
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-brand">🥇 5/5 gets Gold Medal status!</div>
+                    </div>
+                  )}
+
+                  <div className="text-center pt-2">
+                    <button
+                      onClick={startNewQuiz}
+                      className="w-full py-3.5 bg-brand hover:bg-brand/90 hover:scale-[1.01] text-white text-xs font-black uppercase tracking-widest rounded-xl transition-all shadow-lg flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      <Play className="w-3 h-3 fill-white" />
+                      {quizAttempts.length > 0 ? "Retry Olympic Challenge" : "Start Quiz Challenge"}
+                    </button>
+                  </div>
+                </div>
+              ) : !quizFinished ? (
+                <div className="bg-surface rounded-2xl border border-border p-6 md:p-8 space-y-6 shadow-2xl text-left">
                   {/* Progress tracker */}
                   <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-text-muted">
-                    <span>Question {triviaIdx + 1} of {TRIVIA_QUESTIONS.length}</span>
+                    <span>Question {triviaIdx + 1} of {triviaQuestions.length}</span>
                     <span>Score: {quizScore}</span>
                   </div>
 
                   <div className="w-full bg-border h-1.5 rounded-full overflow-hidden">
                     <div 
                       className="bg-brand h-full transition-all duration-300" 
-                      style={{ width: `${((triviaIdx) / TRIVIA_QUESTIONS.length) * 100}%` }}
+                      style={{ width: `${((triviaIdx) / (triviaQuestions.length || 5)) * 100}%` }}
                     />
                   </div>
 
                   <h3 className="font-sans text-lg md:text-xl font-bold text-white leading-snug">
-                    {TRIVIA_QUESTIONS[triviaIdx].question}
+                    {triviaQuestions[triviaIdx]?.question}
                   </h3>
 
                   <div className="grid grid-cols-1 gap-3">
-                    {TRIVIA_QUESTIONS[triviaIdx].options.map((option, idx) => {
+                    {triviaQuestions[triviaIdx]?.options.map((option, idx) => {
                       const isSelected = selectedAnswer === option;
-                      const isCorrect = option === TRIVIA_QUESTIONS[triviaIdx].answer;
+                      const isCorrect = option === triviaQuestions[triviaIdx].answer;
                       let btnStyle = 'bg-surface border-border hover:border-white/20 hover:bg-white/5';
                       
                       if (selectedAnswer !== null) {
@@ -2469,7 +2730,7 @@ export default function Olympics() {
                           id={`quiz-option-${idx}`}
                           onClick={() => handleAnswerClick(option)}
                           disabled={selectedAnswer !== null}
-                          className={`w-full p-4 rounded-xl border text-left text-xs uppercase tracking-wider font-semibold transition-all flex items-center justify-between ${btnStyle}`}
+                          className={`w-full p-4 rounded-xl border text-left text-xs uppercase tracking-wider font-semibold transition-all flex items-center justify-between cursor-pointer ${btnStyle}`}
                         >
                           <span>{option}</span>
                           {selectedAnswer !== null && isCorrect && <Check className="w-4 h-4 text-green-400 flex-shrink-0" />}
@@ -2489,39 +2750,60 @@ export default function Olympics() {
                       <h4 className="text-[10px] uppercase font-black tracking-widest text-brand flex items-center gap-1.5">
                         <Award className="w-3.5 h-3.5" /> Explanation
                       </h4>
-                      <p className="text-text-muted text-xs leading-loose">{TRIVIA_QUESTIONS[triviaIdx].explanation}</p>
+                      <p className="text-text-muted text-xs leading-loose">{triviaQuestions[triviaIdx]?.explanation}</p>
                       
                       <button
                         onClick={handleNextQuestion}
-                        className="w-full mt-2 py-3 bg-white text-bg text-xs font-black uppercase tracking-widest rounded-lg hover:bg-neutral-100 transition-colors flex items-center justify-center gap-1.5"
+                        className="w-full mt-2 py-3 bg-white text-bg text-xs font-black uppercase tracking-widest rounded-lg hover:bg-neutral-100 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
                       >
-                        {triviaIdx + 1 < TRIVIA_QUESTIONS.length ? 'Next Question' : 'Finish Quiz'}
+                        {triviaIdx + 1 < triviaQuestions.length ? 'Next Question' : 'Finish Quiz'}
                       </button>
                     </motion.div>
                   )}
                 </div>
               ) : (
                 <div className="bg-surface rounded-2xl border border-border p-8 md:p-12 text-center space-y-6 shadow-2xl">
-                  <div className="inline-flex p-4 rounded-full bg-yellow-500/10 border border-yellow-500/20 text-yellow-400 animate-bounce">
-                    <Trophy className="w-12 h-12" />
+                  <div className={`inline-flex p-4 rounded-full ${quizScore === 0 ? 'bg-red-500/10 border-red-500/20 text-red-400' : 'bg-yellow-500/10 border-yellow-500/20 text-yellow-400'} animate-bounce`}>
+                    {quizScore === 0 ? <X className="w-12 h-12" /> : <Trophy className="w-12 h-12" />}
                   </div>
 
                   <div className="space-y-2">
-                    <h3 className="font-sans font-bold text-2xl text-white">Quiz Completed Successfully!</h3>
-                    <p className="text-text-muted text-xs uppercase tracking-widest">You solved {quizScore} out of {TRIVIA_QUESTIONS.length} answers correctly</p>
+                    <h3 className="font-sans font-bold text-2xl text-white">
+                      {quizScore === 0 ? 'Oops! All Answers Wrong' : 'Quiz Completed Successfully!'}
+                    </h3>
+                    <p className="text-text-muted text-xs uppercase tracking-widest">You solved {quizScore} out of 5 answers correctly</p>
                   </div>
 
-                  {/* Rating score badge */}
-                  <div className="py-4 bg-surface-alt border border-border rounded-xl max-w-sm mx-auto font-black uppercase tracking-widest text-sm text-brand">
-                    {quizScore === TRIVIA_QUESTIONS.length ? '🥇 Perfect Gold Champion' : quizScore >= 2 ? '🥈 Silver competitor' : '🥉 Bronze Athlete'}
+                  {/* Rating score badge with custom oops message rendering */}
+                  <div className="p-4 bg-surface-alt border border-border rounded-xl max-w-sm mx-auto space-y-2">
+                    <div className="font-black uppercase tracking-widest text-sm text-brand">
+                      {quizScore === 5 ? '🥇 Perfect Gold Champion' : quizScore >= 3 ? '🥈 Silver Competitor' : quizScore >= 1 ? '🥉 Bronze Athlete' : '😢 oops'}
+                    </div>
+                    <p className="text-text-muted text-xs leading-relaxed">
+                      {quizScore === 5 
+                        ? "Perfect Gold Champion! Absolute brilliance – you know your Olympic history like a true gold medalist!" 
+                        : quizScore >= 3 
+                          ? "Silver competitor! Outstanding performance – you're a true champion. Keep it up!" 
+                          : quizScore >= 1 
+                            ? "Bronze Athlete! Great effort – you made it onto the podium! With a bit more practice, gold is in your future."
+                            : "Oops! Every champion has off days. Don't lose heart! Review the facts and try again to score your first point!"}
+                    </p>
                   </div>
 
-                  <button
-                    onClick={resetQuiz}
-                    className="px-8 py-3 bg-brand hover:bg-brand-alt text-white text-xs font-bold uppercase tracking-widest rounded-full transition-all inline-block"
-                  >
-                    Play Again
-                  </button>
+                  <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
+                    <button
+                      onClick={startNewQuiz}
+                      className="px-6 py-3 bg-brand hover:bg-brand/90 text-white text-xs font-bold uppercase tracking-widest rounded-xl transition-all cursor-pointer"
+                    >
+                      Play Again
+                    </button>
+                    <button
+                      onClick={resetQuiz}
+                      className="px-6 py-3 bg-surface border border-border hover:bg-white/5 text-white text-xs font-bold uppercase tracking-widest rounded-xl transition-all cursor-pointer"
+                    >
+                      Back to Scoreboard
+                    </button>
+                  </div>
                 </div>
               )}
             </motion.div>

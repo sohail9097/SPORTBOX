@@ -39,9 +39,10 @@ export default function Shots() {
   const [shorts, setShorts] = useState<SportsContent[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [isMuted, setIsMuted] = useState(true);
+  const [isMuted, setIsMuted] = useState(false);
   const [isPlaying, setIsPlaying] = useState(true);
   const [likesState, setLikesState] = useState<{ [id: string]: { liked: boolean, count: number } }>({});
+  const [videoErrors, setVideoErrors] = useState<{ [id: string]: boolean }>({});
   
   // Floating comment drawer & load state
   const [isCommentsOpen, setIsCommentsOpen] = useState(false);
@@ -84,6 +85,7 @@ export default function Shots() {
   const videoRefs = useRef<{ [index: number]: HTMLVideoElement | null }>({});
   const iframeRefs = useRef<{ [index: number]: HTMLIFrameElement | null }>({});
   const containerRef = useRef<HTMLDivElement>(null);
+  const cloudflarePlayers = useRef<{ [index: number]: any }>({});
 
   // Helper to extract YouTube ID
   const getYouTubeId = (url: string): string | null => {
@@ -103,6 +105,47 @@ export default function Shots() {
       }
     }
     return youtubeId || null;
+  };
+
+  // Helper to extract Google Drive ID
+  const getGoogleDriveId = (url: string): string | null => {
+    if (!url) return null;
+    const target = url.trim();
+    if (!target.includes('drive.google.com')) return null;
+    
+    // Handle /file/d/ID/view or /d/ID
+    const dMatch = target.match(/\/d\/([a-zA-Z0-9_-]+)/);
+    if (dMatch) return dMatch[1];
+    
+    // Handle uc?id=ID or open?id=ID
+    const idMatch = target.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+    if (idMatch) return idMatch[1];
+    
+    return null;
+  };
+
+  // Helper to detect/convert Cloudflare Stream video URL to an iframe embed URL
+  const getCloudflareStreamIframeUrl = (url: string): string | null => {
+    if (!url) return null;
+    const target = url.trim();
+    
+    if (target.includes('cloudflarestream.com') && target.includes('/iframe')) {
+      return target;
+    }
+    
+    if (target.includes('cloudflarestream.com') || target.includes('videodelivery.net')) {
+      const hexIdMatch = target.match(/([a-fA-F0-9]{32})/);
+      if (hexIdMatch) {
+        const videoId = hexIdMatch[1];
+        const customerMatch = target.match(/customer-([a-zA-Z0-9]+)\.cloudflarestream\.com/);
+        if (customerMatch) {
+          const customerId = customerMatch[1];
+          return `https://customer-${customerId}.cloudflarestream.com/${videoId}/iframe`;
+        }
+        return `https://iframe.videodelivery.net/${videoId}/iframe`;
+      }
+    }
+    return null;
   };
 
   // Load Shorts
@@ -171,6 +214,16 @@ export default function Shots() {
     handleResize();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Dynamically load Cloudflare Stream player SDK for completely robust player integrations
+  useEffect(() => {
+    if (!(window as any).Stream) {
+      const script = document.createElement('script');
+      script.src = "https://embed.cloudflarestream.com/embed/sdk.latest.js";
+      script.async = true;
+      document.body.appendChild(script);
+    }
   }, []);
 
   // Fetch comments persistently from Firestore for the current activeShort
@@ -275,7 +328,8 @@ export default function Shots() {
           if (isPlaying) {
             video.play().catch(e => {
               console.log("Video auto play prevented:", e);
-              // Do not toggle isPlaying to false on transient buffer errors
+              // If browser blocked autoplay, show manual play button overlay by updating state!
+              setIsPlaying(false);
             });
           } else {
             video.pause();
@@ -287,25 +341,86 @@ export default function Shots() {
       }
     });
 
-    // YouTube Iframe element playback and mute status synchronization
+    // YouTube & Cloudflare Iframe element playback and mute status synchronization
     Object.keys(iframeRefs.current).forEach((key) => {
       const idx = parseInt(key, 10);
       const iframe = iframeRefs.current[idx];
       if (iframe && iframe.contentWindow) {
         try {
+          const src = iframe.getAttribute('src') || '';
+          const isYouTube = src.includes('youtube.com');
+          const isCloudflare = src.includes('cloudflarestream.com');
+
           if (idx === currentIndex) {
-            if (isPlaying) {
-              iframe.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'playVideo', args: '' }), '*');
-            } else {
-              iframe.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'pauseVideo', args: '' }), '*');
+            if (isYouTube) {
+              if (isPlaying) {
+                iframe.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'playVideo', args: '' }), '*');
+              } else {
+                iframe.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'pauseVideo', args: '' }), '*');
+              }
+              // Control volume/mute
+              iframe.contentWindow.postMessage(JSON.stringify({ event: 'command', func: isMuted ? 'mute' : 'unMute', args: '' }), '*');
+            } else if (isCloudflare) {
+              let player = cloudflarePlayers.current[idx];
+              if (!player && (window as any).Stream) {
+                try {
+                  player = (window as any).Stream(iframe);
+                  cloudflarePlayers.current[idx] = player;
+                } catch (e) {
+                  console.warn("Failed to initialize Cloudflare Stream wrapper:", e);
+                }
+              }
+
+              // Send direct postMessages immediately for instant speed
+              try {
+                if (isPlaying) {
+                  iframe.contentWindow.postMessage(JSON.stringify({ method: 'play' }), '*');
+                } else {
+                  iframe.contentWindow.postMessage(JSON.stringify({ method: 'pause' }), '*');
+                }
+                iframe.contentWindow.postMessage(JSON.stringify({ method: 'muted', value: isMuted }), '*');
+                if (!isMuted) {
+                  iframe.contentWindow.postMessage(JSON.stringify({ method: 'volume', value: 1.0 }), '*');
+                }
+              } catch (err) {
+                console.warn("Error posting directly to Cloudflare iframe:", err);
+              }
+
+              if (player) {
+                try {
+                  if (isPlaying) {
+                    player.play();
+                  } else {
+                    player.pause();
+                  }
+                  player.muted = isMuted;
+                  if (!isMuted) {
+                    player.volume = 1.0;
+                  }
+                } catch (err) {
+                  console.warn("Error calling Cloudflare SDK play/pause:", err);
+                }
+              }
             }
-            // Control volume/mute
-            iframe.contentWindow.postMessage(JSON.stringify({ event: 'command', func: isMuted ? 'mute' : 'unMute', args: '' }), '*');
           } else {
-            iframe.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'pauseVideo', args: '' }), '*');
+            if (isYouTube) {
+              iframe.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'pauseVideo', args: '' }), '*');
+            } else if (isCloudflare) {
+              try {
+                iframe.contentWindow.postMessage(JSON.stringify({ method: 'pause' }), '*');
+              } catch (err) {}
+              const player = cloudflarePlayers.current[idx];
+              if (player) {
+                try {
+                  player.pause();
+                } catch (e) {
+                  // silent catch
+                }
+              }
+            }
           }
         } catch (e) {
-          console.warn("Error calling YouTube iframe postMessage:", e);
+          console.warn("Error calling iframe postMessage:", e);
         }
       }
     });
@@ -561,10 +676,14 @@ export default function Shots() {
                 const isCurrent = idx === currentIndex;
                 const likedObj = likesState[short.id] || { liked: false, count: 0 };
                 const youtubeId = getYouTubeId(short.videoUrl);
+                const cloudflareIframeUrl = getCloudflareStreamIframeUrl(short.videoUrl);
+                const gdriveId = getGoogleDriveId(short.videoUrl);
                 const transformedVideoUrl = transformGDriveUrl(short.videoUrl, 'video');
                 const transformedPosterUrl = (short.thumbnailUrl && short.thumbnailUrl.trim() !== '') 
                   ? transformGDriveUrl(short.thumbnailUrl, 'image') 
                   : getVideoAutoThumbnail(short.videoUrl || '', short.category);
+                
+                const hasLoadError = videoErrors[short.id];
                 
                 return (
                   <div 
@@ -577,7 +696,7 @@ export default function Shots() {
                           <iframe
                             ref={(el) => { iframeRefs.current[idx] = el; }}
                             src={`https://www.youtube.com/embed/${youtubeId}?autoplay=${isPlaying ? 1 : 0}&mute=${isMuted ? 1 : 0}&loop=1&playlist=${youtubeId}&controls=0&modestbranding=1&playsinline=1&rel=0&enablejsapi=1&origin=${window.location.origin}`}
-                            className="w-[316.05%] h-full max-w-none border-0 absolute left-1/2 -translate-x-1/2 select-none pointer-events-none"
+                            className={`${short.cropCenter !== false ? 'w-[316.05%] h-full max-w-none absolute left-1/2 -translate-x-1/2' : 'w-full h-full absolute inset-0'} border-0 select-none pointer-events-none`}
                             allow="autoplay; encrypted-media; picture-in-picture"
                           />
                           {/* Overlay to intercept click and allow interactive play/pause */}
@@ -585,6 +704,51 @@ export default function Shots() {
                             className="absolute inset-0 cursor-pointer z-10"
                             onClick={() => setIsPlaying(prev => !prev)}
                           />
+                        </div>
+                      ) : cloudflareIframeUrl ? (
+                        <div className="w-full h-full relative overflow-hidden bg-black flex items-center justify-center">
+                          <iframe
+                            ref={(el) => { iframeRefs.current[idx] = el; }}
+                            src={`${cloudflareIframeUrl}${cloudflareIframeUrl.includes('?') ? '&' : '?'}autoplay=${isPlaying ? 'true' : 'false'}&muted=${isMuted ? 'true' : 'false'}&loop=true&controls=false&api=true`}
+                            className={`${short.cropCenter !== false ? 'w-[316.05%] h-full max-w-none absolute left-1/2 -translate-x-1/2' : 'w-full h-full absolute inset-0'} border-0 select-none pointer-events-none scale-[1.01]`}
+                            allow="autoplay; encrypted-media; picture-in-picture"
+                          />
+                          {/* Overlay to intercept click and allow interactive play/pause */}
+                          <div 
+                            className="absolute inset-0 cursor-pointer z-10"
+                            onClick={() => setIsPlaying(prev => !prev)}
+                          />
+                        </div>
+                      ) : hasLoadError ? (
+                        <div className="w-full h-full p-6 flex flex-col items-center justify-center text-center bg-neutral-950 space-y-4">
+                          <div className="w-12 h-12 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-500">
+                            <X className="w-6 h-6" />
+                          </div>
+                          <div>
+                            <h4 className="font-sans font-bold text-sm text-white">Stream Loading Offline</h4>
+                            <p className="text-white/40 text-[10px] leading-relaxed max-w-[280px] mt-1.5 uppercase tracking-wide">
+                              Blocked by CORS/provider limits. Open directly to play or upload a direct stream link.
+                            </p>
+                          </div>
+                          <div className="flex flex-col gap-2 w-full max-w-[200px]">
+                            <a
+                              href={short.videoUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="px-4 py-2 bg-brand hover:bg-brand/90 text-white font-bold text-[10px] uppercase tracking-wider rounded-xl transition-colors cursor-pointer text-center"
+                            >
+                              Open Video Link
+                            </a>
+                            <button
+                              onClick={() => {
+                                setVideoErrors(prev => ({ ...prev, [short.id]: false }));
+                                setIsPlaying(true);
+                              }}
+                              className="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-bold text-[10px] uppercase tracking-wider rounded-xl transition-colors cursor-pointer"
+                            >
+                              Retry Stream
+                            </button>
+                          </div>
                         </div>
                       ) : (
                         /* Vertical Video Element - rendered only for active short to prevent parallel media request spamming */
@@ -594,7 +758,10 @@ export default function Shots() {
                             if (el) {
                               el.muted = isMuted;
                               if (isPlaying && el.paused) {
-                                el.play().catch(e => console.log("Ref active play prevented:", e));
+                                el.play().catch(e => {
+                                  console.log("Ref active play prevented:", e);
+                                  setIsPlaying(false);
+                                });
                               }
                             }
                           }}
@@ -606,10 +773,15 @@ export default function Shots() {
                           loop={true}
                           playsInline
                           onClick={() => setIsPlaying(prev => !prev)}
+                          onError={() => {
+                            console.warn("Video stream failed to load:", short.videoUrl);
+                            setVideoErrors(prev => ({ ...prev, [short.id]: true }));
+                          }}
                           onCanPlay={(e) => {
                             if (isPlaying && e.currentTarget.paused) {
                               e.currentTarget.play().catch(err => {
                                 console.log("video element onCanPlay play prevented:", err);
+                                setIsPlaying(false);
                               });
                             }
                           }}
@@ -617,6 +789,7 @@ export default function Shots() {
                             if (isPlaying && e.currentTarget.paused) {
                               e.currentTarget.play().catch(err => {
                                 console.log("video element onLoadedData play prevented:", err);
+                                setIsPlaying(false);
                               });
                             }
                           }}
@@ -750,17 +923,7 @@ export default function Shots() {
                       </div>
                     </div>
 
-                    {/* Progress Slider Bar bottom of active video */}
-                    {isCurrent && (
-                      <div className="absolute bottom-0 left-0 right-0 h-1 bg-white/10 z-20 pointer-events-none">
-                        <motion.div 
-                          className="h-full bg-brand" 
-                          initial={{ width: '0%' }}
-                          animate={{ width: isPlaying ? '100%' : '0%' }}
-                          transition={{ duration: 15, repeat: Infinity, ease: 'linear' }}
-                        />
-                      </div>
-                    )}
+
                   </div>
                 );
               })}

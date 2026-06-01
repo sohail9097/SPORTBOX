@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { db, handleFirestoreError, OperationType, auth } from '../lib/firebase';
 import { collection, addDoc, getDocs, getDoc, deleteDoc, doc, updateDoc, query, orderBy, setDoc, onSnapshot } from 'firebase/firestore';
 import { SportsContent, Category, ContentType, ContentSection, SliderElement, VideoPromoSettings, SiteConfig, PlayerSettings, SubscriptionPlan, BlogPost } from '../types';
-import { Plus, Trash2, Edit2, Play, LayoutDashboard, Film, Users, Settings, Save, X, Eye, Radio, Crown, Layers, MoveUp, MoveDown, CheckSquare, Square, Image as ImageIcon, Upload, Library, ShieldCheck, ShieldAlert, Zap, Percent, Trophy, ChevronRight, Activity, Heart, Dribbble, CircleDot, Target, Disc, Flag, Gamepad2, Folder, ChevronLeft, BookOpen, Scissors, Waves, Flame, Compass, Award, Sparkles, Wand2 } from 'lucide-react';
+import { Plus, Trash2, Edit2, Play, LayoutDashboard, Film, Users, Settings, Save, X, Eye, Radio, Crown, Layers, MoveUp, MoveDown, CheckSquare, Square, Image as ImageIcon, Upload, Library, ShieldCheck, ShieldAlert, Zap, Percent, Trophy, ChevronRight, Activity, Heart, Dribbble, CircleDot, Target, Disc, Flag, Gamepad2, Folder, ChevronLeft, BookOpen, Scissors, Waves, Flame, Compass, Award, Sparkles, Wand2, Clock } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn, formatDate, transformGDriveUrl, getVideoAutoThumbnail } from '../lib/utils';
 import { useAuth } from '../hooks/useAuth';
@@ -69,6 +69,129 @@ function ApiStatusIndicator() {
         <p className="text-[8px] font-mono text-text-muted">
           {status.details}
         </p>
+      </div>
+    </div>
+  );
+}
+
+function LiveControlCard({ 
+  item, 
+  loading, 
+  onStop, 
+  onStart, 
+  onEdit, 
+  onDelete 
+}: { 
+  item: SportsContent; 
+  loading: boolean; 
+  onStop: (item: SportsContent) => Promise<void>; 
+  onStart: (item: SportsContent) => Promise<void>; 
+  onEdit: (item: SportsContent) => void; 
+  onDelete: (id: string) => void; 
+}) {
+  const [currentActive, setCurrentActive] = useState(0);
+  const [liveItem, setLiveItem] = useState<SportsContent>(item);
+
+  // Sync specific content document in real-time to track unique views
+  useEffect(() => {
+    const unsubDoc = onSnapshot(doc(db, 'content', item.id), (snap) => {
+      if (snap.exists()) {
+        setLiveItem({ id: snap.id, ...snap.data() } as SportsContent);
+      }
+    }, err => console.error("Error syncing live doc:", err));
+
+    return () => unsubDoc();
+  }, [item.id]);
+
+  // Sync concurrent spectators in real-time if the event is currently LIVE
+  useEffect(() => {
+    if (liveItem.status !== 'live') {
+      setCurrentActive(0);
+      return;
+    }
+
+    const spectatorsCol = collection(db, 'content', item.id, 'spectators');
+    const unsubscribeSpec = onSnapshot(spectatorsCol, (snapshot) => {
+      const now = Date.now();
+      let count = 0;
+      snapshot.docs.forEach(snapDoc => {
+        const data = snapDoc.data();
+        if (data.lastActive) {
+          const lastActiveTime = new Date(data.lastActive).getTime();
+          // same 30 seconds expiration logic as Watch
+          if (now - lastActiveTime < 30000) {
+            count++;
+          }
+        }
+      });
+      setCurrentActive(count);
+    }, err => console.error("Error monitoring active viewers:", err));
+
+    return () => unsubscribeSpec();
+  }, [item.id, liveItem.status]);
+
+  return (
+    <div className="glass-card p-6 border-l-4 border-l-brand flex flex-col justify-between">
+      <div>
+        <div className="flex justify-between items-start mb-4">
+          <div className="h-10 w-16 bg-bg border border-border rounded overflow-hidden">
+            {(() => {
+              const t = liveItem.thumbnailUrl && liveItem.thumbnailUrl.trim() !== '' ? liveItem.thumbnailUrl : getVideoAutoThumbnail(liveItem.videoUrl || '', liveItem.category);
+              return t ? <img src={t} className="w-full h-full object-cover" alt="" /> : null;
+            })()}
+          </div>
+          <span className={cn(
+            "px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest border",
+            liveItem.status === 'live' ? "bg-red-500/10 text-red-500 border-red-500/20 animate-pulse" : "bg-bg text-text-muted border-border"
+          )}>
+            {liveItem.status}
+          </span>
+        </div>
+        <h3 className="font-bold text-sm mb-1 line-clamp-1">{liveItem.title}</h3>
+        <p className="text-[10px] text-text-muted uppercase tracking-widest font-black mb-4">{liveItem.category}</p>
+
+        {/* Live Metrics: Strictly visible only in Admin panel */}
+        <div className="grid grid-cols-2 gap-2 bg-white/5 p-3 rounded-lg border border-white/5 mb-4 text-xs">
+          <div>
+            <p className="text-[9px] text-text-muted uppercase tracking-wider font-extrabold leading-tight">Total Unique Views</p>
+            <p className="text-sm font-black text-white mt-1">{liveItem.uniqueViewsCount || 0}</p>
+          </div>
+          <div>
+            <p className="text-[9px] text-text-muted uppercase tracking-wider font-extrabold leading-tight">Current Viewers</p>
+            <p className="text-sm font-black text-brand tracking-tight mt-1">
+              {liveItem.status === 'live' ? (
+                <span className="flex items-center gap-1 text-red-500 font-extrabold">
+                  <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-ping inline-block" />
+                  {currentActive} Active
+                </span>
+              ) : (
+                <span className="text-text-muted font-bold uppercase text-[10px]">Off-Air</span>
+              )}
+            </p>
+          </div>
+        </div>
+      </div>
+      
+      <div className="flex gap-2 mt-2">
+        {liveItem.status === 'live' ? (
+          <button 
+            disabled={loading}
+            onClick={() => onStop(liveItem)}
+            className="flex-grow py-2 bg-red-600 hover:bg-red-500 text-white text-[10px] font-black uppercase tracking-widest rounded-lg disabled:opacity-50 transition-colors"
+          >
+            Stop Stream
+          </button>
+        ) : (
+          <button 
+            disabled={loading}
+            onClick={() => onStart(liveItem)}
+            className="flex-grow py-2 bg-green-600 hover:bg-green-500 text-white text-[10px] font-black uppercase tracking-widest rounded-lg disabled:opacity-50 transition-colors"
+          >
+            Go Live
+          </button>
+        )}
+        <button disabled={loading} onClick={() => onEdit(liveItem)} className="p-2 border border-border rounded-lg hover:bg-surface transition-colors disabled:opacity-50" title="Edit Event"><Edit2 className="w-4 h-4" /></button>
+        <button disabled={loading} onClick={() => onDelete(liveItem.id)} className="p-2 border border-border rounded-lg hover:bg-red-500/10 hover:text-red-500 transition-colors disabled:opacity-50" title="Delete Event"><Trash2 className="w-4 h-4" /></button>
       </div>
     </div>
   );
@@ -182,7 +305,8 @@ export default function Admin() {
     isPremium: false,
     status: 'scheduled',
     viewCount: 0,
-    tags: []
+    tags: [],
+    scheduledTime: ''
   });
   const [tagsInput, setTagsInput] = useState('');
   const [allLibraryVideos, setAllLibraryVideos] = useState<any[]>([]);
@@ -1177,7 +1301,8 @@ export default function Admin() {
       isPremium: false, 
       status: 'scheduled', 
       tags: [],
-      viewCount: 0
+      viewCount: 0,
+      scheduledTime: ''
     });
     setTagsInput('');
     } catch (error) {
@@ -1674,7 +1799,17 @@ export default function Admin() {
                 <button 
                   onClick={() => {
                     setEditingId(null);
-                    setForm({ title: '', description: '', category: 'football', type: 'replay', videoUrl: '', thumbnailUrl: '', isPremium: false, status: 'scheduled' });
+                    setForm({ 
+                      title: '', 
+                      description: '', 
+                      category: 'football', 
+                      type: 'replay', 
+                      videoUrl: '', 
+                      thumbnailUrl: '', 
+                      isPremium: false, 
+                      status: 'scheduled',
+                      scheduledTime: ''
+                    });
                     setIsAdding(true);
                   }}
                   className="btn-primary flex items-center gap-2"
@@ -2033,7 +2168,8 @@ export default function Admin() {
                         videoUrl: '', 
                         thumbnailUrl: '', 
                         isPremium: false, 
-                        status: 'scheduled' 
+                        status: 'scheduled',
+                        scheduledTime: ''
                       });
                       setIsAdding(true);
                     }}
@@ -2046,72 +2182,41 @@ export default function Admin() {
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   {content.filter(c => c.type === 'live' || c.status === 'live').map(item => (
-                    <div key={`live-center-${item.id}`} className="glass-card p-6 border-l-4 border-l-brand">
-                      <div className="flex justify-between items-start mb-4">
-                        <div className="h-10 w-16 bg-bg border border-border rounded overflow-hidden">
-                          {(() => {
-                            const t = item.thumbnailUrl && item.thumbnailUrl.trim() !== '' ? item.thumbnailUrl : getVideoAutoThumbnail(item.videoUrl || '', item.category);
-                            return t ? <img src={t} className="w-full h-full object-cover" alt="" /> : null;
-                          })()}
-                        </div>
-                        <span className={cn(
-                          "px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest border",
-                          item.status === 'live' ? "bg-red-500/10 text-red-500 border-red-500/20" : "bg-bg text-text-muted border-border"
-                        )}>
-                          {item.status}
-                        </span>
-                      </div>
-                      <h3 className="font-bold text-sm mb-1 line-clamp-1">{item.title}</h3>
-                      <p className="text-[10px] text-text-muted uppercase tracking-widest font-black mb-4">{item.category}</p>
-                      
-                      <div className="flex gap-2">
-                        {item.status === 'live' ? (
-                          <button 
-                            disabled={loading}
-                            onClick={async () => {
-                              setLoading(true);
-                              try {
-                                const docRef = doc(db, 'content', item.id);
-                                await updateDoc(docRef, { status: 'ended' });
-                                await fetchContent();
-                                toast.success("Stream ended successfully.");
-                              } catch (err) {
-                                console.error(err);
-                                toast.error("Failed to stop stream.");
-                              } finally {
-                                setLoading(false);
-                              }
-                            }}
-                            className="flex-grow py-2 bg-red-600 text-white text-[10px] font-black uppercase tracking-widest rounded-lg disabled:opacity-50"
-                          >
-                            Stop Stream
-                          </button>
-                        ) : (
-                          <button 
-                            disabled={loading}
-                            onClick={async () => {
-                              setLoading(true);
-                              try {
-                                const docRef = doc(db, 'content', item.id);
-                                await updateDoc(docRef, { status: 'live' });
-                                await fetchContent();
-                                toast.success("Stream is now LIVE!");
-                              } catch (err) {
-                                console.error(err);
-                                toast.error("Failed to start stream.");
-                              } finally {
-                                setLoading(false);
-                              }
-                            }}
-                            className="flex-grow py-2 bg-green-600 text-white text-[10px] font-black uppercase tracking-widest rounded-lg disabled:opacity-50"
-                          >
-                            Go Live
-                          </button>
-                        )}
-                        <button disabled={loading} onClick={() => handleEdit(item)} className="p-2 border border-border rounded-lg hover:bg-surface transition-colors disabled:opacity-50" title="Edit Event"><Edit2 className="w-4 h-4" /></button>
-                        <button disabled={loading} onClick={() => handleDelete(item.id)} className="p-2 border border-border rounded-lg hover:bg-red-500/10 hover:text-red-500 transition-colors disabled:opacity-50" title="Delete Event"><Trash2 className="w-4 h-4" /></button>
-                      </div>
-                    </div>
+                    <LiveControlCard 
+                      key={`live-center-${item.id}`}
+                      item={item}
+                      loading={loading}
+                      onStop={async (streamItem) => {
+                        setLoading(true);
+                        try {
+                          const docRef = doc(db, 'content', streamItem.id);
+                          await updateDoc(docRef, { status: 'ended' });
+                          await fetchContent();
+                          toast.success("Stream ended successfully.");
+                        } catch (err) {
+                          console.error(err);
+                          toast.error("Failed to stop stream.");
+                        } finally {
+                          setLoading(false);
+                        }
+                      }}
+                      onStart={async (streamItem) => {
+                        setLoading(true);
+                        try {
+                          const docRef = doc(db, 'content', streamItem.id);
+                          await updateDoc(docRef, { status: 'live' });
+                          await fetchContent();
+                          toast.success("Stream is now LIVE!");
+                        } catch (err) {
+                          console.error(err);
+                          toast.error("Failed to start stream.");
+                        } finally {
+                          setLoading(false);
+                        }
+                      }}
+                      onEdit={handleEdit}
+                      onDelete={handleDelete}
+                    />
                   ))}
                   {content.filter(c => c.type === 'live' || c.status === 'live').length === 0 && (
                     <div className="col-span-full py-20 text-center glass-card border-dashed border-white/10 bg-white/5 space-y-4">
@@ -4154,6 +4259,26 @@ export default function Admin() {
                     </select>
                   </div>
                 </div>
+
+                {form.type === 'live' && form.status === 'scheduled' && (
+                  <div className="bg-white/5 border border-white/10 p-5 rounded-xl space-y-4">
+                    <div className="flex items-center gap-2 text-yellow-500">
+                      <Clock className="w-4 h-4" />
+                      <h3 className="text-[10px] font-black uppercase tracking-widest text-white">Upcoming Broadcast Schedule</h3>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Scheduled Date & Time Description</label>
+                      <input 
+                        type="text" 
+                        value={form.scheduledTime || ''} 
+                        onChange={e => setForm({...form, scheduledTime: e.target.value})} 
+                        className="w-full bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none" 
+                        placeholder="e.g. June 15, 8:00 PM or Tonight, 9:30 PM"
+                      />
+                    </div>
+                  </div>
+                )}
                  <div className="space-y-2">
                   <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Video URL (m3u8/mp4/Youtube)</label>
                   <div className="flex gap-2">

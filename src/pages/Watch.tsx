@@ -23,6 +23,7 @@ export default function Watch() {
   const [isWatchLater, setIsWatchLater] = useState(false);
   const [playerConfig, setPlayerConfig] = useState<PlayerSettings | null>(null);
   const nativeVideoRef = useRef<HTMLVideoElement | null>(null);
+  const uniqueViewTrackedRef = useRef<string | null>(null);
 
   const [hasLiked, setHasLiked] = useState(false);
   const [spectatorsCount, setSpectatorsCount] = useState<number>(0);
@@ -164,6 +165,13 @@ export default function Watch() {
               grouped[tag].push(item);
             });
             setSections(grouped);
+
+            // Increment standard view count if not a live stream or actively broadcasting!
+            if (contentData.type !== 'live' && contentData.status !== 'live') {
+              updateDoc(doc(db, 'content', id), {
+                viewCount: increment(1)
+              }).catch(err => console.error('Failed to update views', err));
+            }
           }
         } catch (err) {
           console.error("Fetch error:", err);
@@ -184,17 +192,56 @@ export default function Watch() {
         if (snap.exists()) setPlayerConfig(snap.data() as PlayerSettings);
       });
 
-      // Increment view count
-      updateDoc(doc(db, 'content', id), {
-        viewCount: increment(1)
-      }).catch(err => console.error('Failed to update views', err));
-
       return () => {
         unsubContent();
         unsubPlayer();
       };
     }
   }, [id]);
+
+  // Unique Live View Count Tracker (1 unique count per user, even if they refresh / watch 10 times)
+  useEffect(() => {
+    if (!id || !content || (content.type !== 'live' && content.status !== 'live')) return;
+
+    const trackUniqueView = async () => {
+      try {
+        let viewerId = user?.uid;
+        if (!viewerId) {
+          viewerId = localStorage.getItem('sportsbox_viewer_id') || '';
+          if (!viewerId) {
+            viewerId = 'viewer_' + Math.random().toString(36).substring(2, 15) + '_' + Date.now();
+            localStorage.setItem('sportsbox_viewer_id', viewerId);
+          }
+        }
+
+        const sessionKey = `${id}_${viewerId}`;
+        if (uniqueViewTrackedRef.current === sessionKey) {
+          return;
+        }
+        uniqueViewTrackedRef.current = sessionKey;
+
+        const uniqueViewRef = doc(db, 'content', id, 'unique_views', viewerId);
+        const uniqueViewSnap = await getDoc(uniqueViewRef);
+
+        if (!uniqueViewSnap.exists()) {
+          await setDoc(uniqueViewRef, {
+            watchedAt: new Date().toISOString(),
+            uid: user?.uid || null
+          });
+          
+          await updateDoc(doc(db, 'content', id), {
+            uniqueViewsCount: increment(1)
+          });
+        }
+      } catch (err) {
+        console.error("Error writing unique live view:", err);
+        // Reset ref so it can retry on next clean trigger if it failed due to some transient issues
+        uniqueViewTrackedRef.current = null;
+      }
+    };
+
+    trackUniqueView();
+  }, [id, content?.id, user?.uid]);
 
   // Handle play/pause and cleanup of the native video element securely
   useEffect(() => {

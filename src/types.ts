@@ -17,6 +17,8 @@ export interface SportsContent {
   status: Status;
   tags?: string[];
   cropCenter?: boolean;
+  scheduledTime?: string;
+  uniqueViewsCount?: number;
 }
 
 export interface SubscriptionPlan {

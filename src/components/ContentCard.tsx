@@ -81,10 +81,17 @@ export default function ContentCard({
             )}
           </div>
 
-          {content.type === 'live' && (
+          {content.type === 'live' && content.status === 'live' && (
             <div className="absolute top-3 right-3 flex items-center gap-1.5 px-2 py-0.5 bg-red-600 rounded-sm text-[10px] font-bold uppercase tracking-widest animate-pulse">
               <div className="w-1.5 h-1.5 bg-white rounded-full" />
               Live
+            </div>
+          )}
+
+          {content.type === 'live' && content.status === 'scheduled' && (
+            <div className="absolute top-3 right-3 flex items-center gap-1.5 px-2 py-0.5 bg-yellow-500 rounded-sm text-[10px] font-black uppercase tracking-widest text-black flex items-center gap-1 shadow-lg">
+              <Clock className="w-3 h-3 shrink-0" />
+              Upcoming
             </div>
           )}
 
@@ -112,16 +119,23 @@ export default function ContentCard({
               {content.title}
             </h3>
             <div className="flex items-center gap-2 md:gap-3 mt-0.5 md:mt-1 text-[8px] md:text-[9px] text-text-muted font-medium uppercase tracking-widest">
-              {content.status !== 'live' && (
+              {content.status !== 'live' && content.status !== 'scheduled' && (
                 <span className="flex items-center gap-1">
                   <Eye className="w-2.5 h-2.5 md:w-3 md:h-3" />
                   {content.viewCount?.toLocaleString() || 0}
                 </span>
               )}
-              <span className="flex items-center gap-1">
-                <Clock className="w-2.5 h-2.5 md:w-3 md:h-3" />
-                {formatDate(content.createdAt)}
-              </span>
+              {content.status === 'scheduled' && content.scheduledTime ? (
+                <span className="text-yellow-500 font-bold flex items-center gap-1">
+                  <Clock className="w-2.5 h-2.5 md:w-3 md:h-3 text-yellow-500" />
+                  {content.scheduledTime}
+                </span>
+              ) : (
+                <span className="flex items-center gap-1">
+                  <Clock className="w-2.5 h-2.5 md:w-3 md:h-3" />
+                  {formatDate(content.createdAt)}
+                </span>
+              )}
             </div>
           </div>
         )}

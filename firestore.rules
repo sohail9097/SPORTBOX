@@ -76,9 +76,14 @@ service cloud.firestore {
       allow read: if true;
       allow create, delete: if isAdmin();
       allow update: if isAdmin() || (
-        // Allow anyone to update viewCount or likes
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['viewCount', 'likes'])
+        // Allow anyone to update viewCount, uniqueViewsCount, or likes
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['viewCount', 'likes', 'uniqueViewsCount'])
       );
+      
+      // Unique views subcollection: guest/anonymous read/write
+      match /unique_views/{viewId} {
+        allow read, write: if true;
+      }
       
       // Comments subcollection: signed-in users can read/write
       match /comments/{commentId} {

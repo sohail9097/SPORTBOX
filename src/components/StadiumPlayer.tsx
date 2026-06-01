@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import videojs from 'video.js';
 import 'video.js/dist/video-js.css';
 import { Play, Pause, RotateCcw, RotateCw, Volume2, VolumeX, Maximize, Settings, FastForward, Radio } from 'lucide-react';
-import { cn } from '../lib/utils';
+import { cn, sanitizeVideoUrlOrIframe } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { db } from '../lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
@@ -193,7 +193,7 @@ export default function StadiumPlayer({ url, poster, isLive, useIframe: initialU
   const isIframeUrl = url.includes('cloudflarestream.com') || url.endsWith('/iframe') || useIframe;
 
   if ((isGDrive && driveId) || isIframeUrl) {
-    const iframeSrc = isGDrive ? `https://drive.google.com/file/d/${driveId}/preview` : url;
+    const iframeSrc = isGDrive ? `https://drive.google.com/file/d/${driveId}/preview` : sanitizeVideoUrlOrIframe(url);
     if (!iframeSrc) return null;
     return (
       <div className="relative w-full aspect-video bg-black group rounded-xl overflow-hidden border border-white/10 shadow-2xl">

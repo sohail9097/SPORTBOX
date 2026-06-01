@@ -5,7 +5,7 @@ import { SliderElement, Category } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { Play, ChevronLeft, ChevronRight, X, Info, Calendar, Plus, Volume2, VolumeX } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
-import { cn } from '../lib/utils';
+import { cn, sanitizeVideoUrlOrIframe } from '../lib/utils';
 import ReactPlayer from 'react-player';
 
 const Player = ReactPlayer as any;
@@ -207,7 +207,7 @@ export default function HeroSlider({ page = 'home' }: HeroSliderProps) {
             <div className="absolute inset-0 w-full h-full overflow-hidden bg-black">
               {isIframeUrl(currentSlide.videoUrl) ? (
                 <iframe 
-                  src={getEmbedUrl(currentSlide.videoUrl, isMuted)}
+                  src={sanitizeVideoUrlOrIframe(getEmbedUrl(currentSlide.videoUrl, isMuted))}
                   className="absolute inset-0 w-full h-full border-0 pointer-events-none scale-105"
                   allow="autoplay; encrypted-media; picture-in-picture"
                 />

@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
-import { transformGDriveUrl, getVideoAutoThumbnail } from '../lib/utils';
+import { transformGDriveUrl, getVideoAutoThumbnail, sanitizeVideoUrlOrIframe } from '../lib/utils';
 
 // Empty array as we cleared all dummy content
 const MOCK_SHORTS: SportsContent[] = [];
@@ -709,7 +709,7 @@ export default function Shots() {
                         <div className="w-full h-full relative overflow-hidden bg-black flex items-center justify-center">
                           <iframe
                             ref={(el) => { iframeRefs.current[idx] = el; }}
-                            src={`${cloudflareIframeUrl}${cloudflareIframeUrl.includes('?') ? '&' : '?'}autoplay=${isPlaying ? 'true' : 'false'}&muted=${isMuted ? 'true' : 'false'}&loop=true&controls=false&api=true`}
+                            src={sanitizeVideoUrlOrIframe(`${cloudflareIframeUrl}${cloudflareIframeUrl.includes('?') ? '&' : '?'}autoplay=${isPlaying ? 'true' : 'false'}&muted=${isMuted ? 'true' : 'false'}&loop=true&controls=false&api=true`)}
                             className={`${short.cropCenter !== false ? 'w-[316.05%] h-full max-w-none absolute left-1/2 -translate-x-1/2' : 'w-full h-full absolute inset-0'} border-0 select-none pointer-events-none scale-[1.01]`}
                             allow="autoplay; encrypted-media; picture-in-picture"
                           />

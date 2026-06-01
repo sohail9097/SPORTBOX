@@ -6,7 +6,7 @@ import { SportsContent, PlayerSettings } from '../types';
 import { useAuth } from '../hooks/useAuth';
 import { Play, Share2, Heart, MessageSquare, Crown, Info, ChevronRight, Activity, PlusCircle, CheckCircle2, Lock } from 'lucide-react';
 import { motion } from 'motion/react';
-import { cn, formatDate, transformGDriveUrl, getVideoAutoThumbnail } from '../lib/utils';
+import { cn, formatDate, transformGDriveUrl, getVideoAutoThumbnail, sanitizeVideoUrlOrIframe } from '../lib/utils';
 import StadiumPlayer from '../components/StadiumPlayer';
 import ReactMarkdown from 'react-markdown';
 import { toast } from 'sonner';
@@ -383,10 +383,10 @@ export default function Watch() {
                   ) : content.videoUrl && content.videoUrl.trim() !== '' && (isIframeUrl(content.videoUrl) || (playerConfig && !playerConfig.useCustomPlayer)) ? (
                     // Using Native/Iframe Player (Server)
                     content.videoUrl.includes('<iframe') ? (
-                      <div className="w-full h-full flex items-center justify-center p-0" dangerouslySetInnerHTML={{ __html: content.videoUrl.replace('<iframe', '<iframe style="width:100%;height:100%;border:0;position:absolute;top:0;left:0;"') }} />
+                      <div className="w-full h-full flex items-center justify-center p-0" dangerouslySetInnerHTML={{ __html: sanitizeVideoUrlOrIframe(content.videoUrl).replace('<iframe', '<iframe style="width:100%;height:100%;border:0;position:absolute;top:0;left:0;"') }} />
                     ) : isIframeUrl(content.videoUrl) ? (
                       <iframe
-                        src={`${content.videoUrl}${content.videoUrl.includes('?') ? '&' : '?'}autoplay=1`}
+                        src={sanitizeVideoUrlOrIframe(`${content.videoUrl}${content.videoUrl.includes('?') ? '&' : '?'}autoplay=1`)}
                         className="w-full h-full border-0 absolute inset-0"
                         allowFullScreen
                         allow="autoplay; encrypted-media; picture-in-picture"

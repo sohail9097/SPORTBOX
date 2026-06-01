@@ -123,3 +123,38 @@ export function getVideoAutoThumbnail(videoUrl: string, category?: string): stri
   // Fallback to Category Images
   return getCategoryFallbackImage(category);
 }
+
+export function sanitizeVideoUrlOrIframe(input: string): string {
+  if (!input) return input;
+  
+  const isCloudflare = input.includes('cloudflarestream.com') || input.includes('videodelivery.net');
+  if (!isCloudflare) return input;
+
+  const params = 'liveViewerCount=false&showLiveViewerCount=false&viewerCount=false';
+
+  const cleanUrl = (url: string) => {
+    let u = url;
+    // Remove any existing variations to avoid conflicts
+    u = u.replace(/[?&]liveViewerCount=[^&]+/g, '');
+    u = u.replace(/[?&]showLiveViewerCount=[^&]+/g, '');
+    u = u.replace(/[?&]viewerCount=[^&]+/g, '');
+    
+    // Replace any trailing question mark or ampersand before appending
+    u = u.replace(/[&?]+$/, '');
+    
+    const connector = u.includes('?') ? '&' : '?';
+    return `${u}${connector}${params}`;
+  };
+
+  // If it's a raw iframe string
+  if (input.trim().startsWith('<iframe') || input.includes('src=')) {
+    return input.replace(/src=["']([^"']+)["']/gi, (match, src) => {
+      if (src.includes('cloudflarestream.com') || src.includes('videodelivery.net')) {
+        return `src="${cleanUrl(src)}"`;
+      }
+      return match;
+    });
+  }
+
+  return cleanUrl(input);
+}

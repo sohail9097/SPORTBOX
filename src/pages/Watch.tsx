@@ -442,12 +442,16 @@ export default function Watch() {
                         <span>•</span>
                         <span className="text-red-500 font-bold flex items-center gap-1">
                           <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse shrink-0" />
-                          {spectatorsCount} Watching Now
+                          Stadium Live
                         </span>
                       </>
                     )}
-                    <span>•</span>
-                    <span>{content.viewCount?.toLocaleString() || 0} Open Views</span>
+                    {content.status !== 'live' && (
+                      <>
+                        <span>•</span>
+                        <span>{content.viewCount?.toLocaleString() || 0} Open Views</span>
+                      </>
+                    )}
                     <span>•</span>
                     <span>{content.likes || 0} Fans Reacted</span>
                   </div>
@@ -496,12 +500,12 @@ export default function Watch() {
                       </div>
                       <div>
                         <div className="flex items-center gap-2">
-                          <span className="text-sm font-black uppercase tracking-tight text-white">{spectatorsCount} Fans Watching Live</span>
+                          <span className="text-sm font-black uppercase tracking-tight text-white">Fans Watching Live</span>
                           <span className="text-[9px] bg-red-500/10 border border-red-500/20 text-red-500 px-1.5 py-0.5 rounded font-black tracking-widest uppercase">Arena Live</span>
                         </div>
                         <p className="text-xs text-text-muted mt-0.5 font-medium leading-relaxed">
                           {spectatorsList.length > 0 
-                            ? `Currently rooted in the stadium together: ${spectatorsList.slice(0, 3).map(s => s.name).join(', ')}${spectatorsList.length > 3 ? ` and ${spectatorsList.length - 3} other fans` : ''}` 
+                            ? `Currently rooted in the stadium together: ${spectatorsList.slice(0, 3).map(s => s.name).join(', ')}${spectatorsList.length > 3 ? ` and other viewers` : ''}` 
                             : 'Joined the digital arena. Awaiting other fans to stream in.'}
                         </p>
                       </div>

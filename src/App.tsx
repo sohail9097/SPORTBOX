@@ -1,4 +1,7 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { useEffect } from 'react';
+import { db } from './lib/firebase';
+import { collection, query, where, getDocs, updateDoc, doc } from 'firebase/firestore';
 import Layout from './components/Layout';
 import ScrollToTop from './components/ScrollToTop';
 import Home from './pages/Home';
@@ -21,6 +24,34 @@ import { AuthProvider } from './hooks/useAuth';
 import { Toaster } from 'sonner';
 
 function App() {
+  useEffect(() => {
+    // One-time initialization to reset existing views of active live matches to 0
+    const resetLiveViewsToZeroOnce = async () => {
+      const key = 'has_reset_live_views_v4';
+      if (localStorage.getItem(key)) return;
+      try {
+        const q = query(collection(db, 'content'), where('status', '==', 'live'));
+        const snap = await getDocs(q);
+        const promises = snap.docs.map(docSnap => {
+          const data = docSnap.data();
+          if ((data.viewCount || 0) > 0) {
+            return updateDoc(doc(db, 'content', docSnap.id), { viewCount: 0 });
+          }
+          return null;
+        }).filter(Boolean);
+        
+        if (promises.length > 0) {
+          await Promise.all(promises);
+          console.log(`Successfully reset views for ${promises.length} active live matches to 0.`);
+        }
+        localStorage.setItem(key, 'true');
+      } catch (error) {
+        console.error('Failed to run initial live views reset script:', error);
+      }
+    };
+    resetLiveViewsToZeroOnce();
+  }, []);
+
   return (
     <AuthProvider>
       <ThemeProvider>

@@ -452,8 +452,12 @@ export default function Watch() {
                         <span>{content.viewCount?.toLocaleString() || 0} Open Views</span>
                       </>
                     )}
-                    <span>•</span>
-                    <span>{content.likes || 0} Fans Reacted</span>
+                    {content.status !== 'live' && (
+                      <>
+                        <span>•</span>
+                        <span>{content.likes || 0} Fans Reacted</span>
+                      </>
+                    )}
                   </div>
                 </div>
 

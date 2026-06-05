@@ -201,7 +201,10 @@ export default function Watch() {
 
   // Unique Live View Count Tracker (1 unique count per user, even if they refresh / watch 10 times)
   useEffect(() => {
-    if (!id || !content || (content.type !== 'live' && content.status !== 'live')) return;
+    if (!id || !content || (content.type !== 'live' && content.status !== 'live')) {
+      console.log("[UniqueView] Tracking skipped. Status:", content?.status, "Type:", content?.type);
+      return;
+    }
 
     const trackUniqueView = async () => {
       try {
@@ -216,14 +219,18 @@ export default function Watch() {
 
         const sessionKey = `${id}_${viewerId}`;
         if (uniqueViewTrackedRef.current === sessionKey) {
+          console.log("[UniqueView] Dynamic key already tracked for session:", sessionKey);
           return;
         }
         uniqueViewTrackedRef.current = sessionKey;
+
+        console.log("[UniqueView] Resolving unique live registration for viewer ID:", viewerId);
 
         const uniqueViewRef = doc(db, 'content', id, 'unique_views', viewerId);
         const uniqueViewSnap = await getDoc(uniqueViewRef);
 
         if (!uniqueViewSnap.exists()) {
+          console.log("[UniqueView] New viewer detected! Recording unique view entry in DB.");
           await setDoc(uniqueViewRef, {
             watchedAt: new Date().toISOString(),
             uid: user?.uid || null
@@ -232,16 +239,19 @@ export default function Watch() {
           await updateDoc(doc(db, 'content', id), {
             uniqueViewsCount: increment(1)
           });
+          console.log("[UniqueView] Successfully registered and incremented unique live views count!");
+        } else {
+          console.log("[UniqueView] Returning viewer. Already verified in database unique subcollection.");
         }
       } catch (err) {
-        console.error("Error writing unique live view:", err);
+        console.error("[UniqueView] Error writing unique live view:", err);
         // Reset ref so it can retry on next clean trigger if it failed due to some transient issues
         uniqueViewTrackedRef.current = null;
       }
     };
 
     trackUniqueView();
-  }, [id, content?.id, user?.uid]);
+  }, [id, content?.id, content?.status, content?.type, user?.uid]);
 
   // Handle play/pause and cleanup of the native video element securely
   useEffect(() => {

@@ -1225,9 +1225,10 @@ export default function Olympics() {
         category: 'olympics' as const,
         type: 'highlight' as const,
         status: 'ended' as const,
-        isPremium: false,
+        isPremium: true,
         viewCount: 1,
         likes: 1,
+        uniqueViewsCount: 0,
         createdAt: new Date().toISOString(),
         isCustomOlympic: true,
         duration: newDuration || '2:30'

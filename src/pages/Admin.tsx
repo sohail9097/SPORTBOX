@@ -302,7 +302,7 @@ export default function Admin() {
     type: 'replay',
     videoUrl: '',
     thumbnailUrl: '',
-    isPremium: false,
+    isPremium: true,
     status: 'scheduled',
     viewCount: 0,
     tags: [],
@@ -361,6 +361,42 @@ export default function Admin() {
   });
 
   const [isBulkLoading, setIsBulkLoading] = useState(false);
+  const [isUpdatingPremium, setIsUpdatingPremium] = useState(false);
+
+  const makeAllContentPremium = async () => {
+    if (!confirm("This will find all existing content in your database library and convert them to PREMIUM. Are you sure you want to proceed?")) return;
+    setIsUpdatingPremium(true);
+    const tId = toast.loading("Converting all library content to Premium status...");
+    try {
+      const q = query(collection(db, 'content'));
+      const querySnapshot = await getDocs(q);
+      const docs = querySnapshot.docs;
+      
+      if (docs.length === 0) {
+        toast.success("No content found in the database to convert.", { id: tId });
+        return;
+      }
+
+      let updatedCount = 0;
+      await Promise.all(docs.map(async (docSnap) => {
+        try {
+          const docRef = doc(db, 'content', docSnap.id);
+          await updateDoc(docRef, { isPremium: true });
+          updatedCount++;
+        } catch (err) {
+          console.error("Failed to update doc:", docSnap.id, err);
+        }
+      }));
+
+      toast.success(`Successfully converted ${updatedCount} content item(s) to Premium!`, { id: tId });
+      await fetchContent();
+    } catch (err: any) {
+      console.error(err);
+      toast.error("Failed to convert library to premium: " + err.message, { id: tId });
+    } finally {
+      setIsUpdatingPremium(false);
+    }
+  };
 
   const generateBulkDummyContent = async () => {
     if (!confirm("DANGER: This will add 20 dummy content items to EVERY category EXCEPT Cricket (Total 160 items). This might take a few seconds. Continue?")) return;
@@ -411,7 +447,7 @@ export default function Admin() {
           type: 'highlight',
           videoUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
           thumbnailUrl: 'https://images.unsplash.com/photo-1574629810360-7efbbe195018',
-          isPremium: false,
+          isPremium: true,
           viewCount: 1540,
           createdAt: new Date().toISOString(),
           status: 'ended',
@@ -437,7 +473,7 @@ export default function Admin() {
           type: 'highlight',
           videoUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
           thumbnailUrl: 'https://images.unsplash.com/photo-1549719386-74dfcbf7dbed',
-          isPremium: false,
+          isPremium: true,
           viewCount: 2200,
           createdAt: new Date().toISOString(),
           status: 'ended',
@@ -1282,7 +1318,8 @@ export default function Admin() {
         const payload = {
           ...finalForm,
           createdAt: new Date().toISOString(),
-          viewCount: Math.floor(Math.random() * 100)
+          viewCount: Math.floor(Math.random() * 100),
+          uniqueViewsCount: 0
         };
         await addDoc(collection(db, 'content'), payload);
     }
@@ -1298,7 +1335,7 @@ export default function Admin() {
       type: 'replay', 
       videoUrl: '', 
       thumbnailUrl: '',
-      isPremium: false, 
+      isPremium: true, 
       status: 'scheduled', 
       tags: [],
       viewCount: 0,
@@ -1699,9 +1736,10 @@ export default function Admin() {
                           status: 'ended',
                           videoUrl: transformed,
                           thumbnailUrl: 'https://images.unsplash.com/photo-1574629810360-7efbbe195018?q=80&w=600&auto=format&fit=crop',
-                          isPremium: false,
+                          isPremium: true,
                           createdAt: new Date().toISOString(),
-                          viewCount: 0
+                          viewCount: 0,
+                          uniqueViewsCount: 0
                         });
                         toast.success("Video 'test1234' added successfully to Football!");
                         fetchContent();
@@ -1731,6 +1769,20 @@ export default function Admin() {
                     <div className="text-left">
                       <p className="text-xs font-black uppercase italic tracking-widest">Seed All Categories</p>
                       <p className="text-[9px] text-text-muted">15+ Items per Category • Excludes Cricket</p>
+                    </div>
+                  </button>
+
+                  <button 
+                    onClick={makeAllContentPremium}
+                    disabled={isUpdatingPremium}
+                    className="flex items-center gap-4 p-4 bg-surface hover:bg-yellow-500/10 border border-yellow-500/20 hover:border-yellow-500/40 rounded-2xl transition-all group"
+                  >
+                    <div className="w-12 h-12 bg-yellow-500/10 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                      <Crown className="w-6 h-6 text-yellow-500" />
+                    </div>
+                    <div className="text-left">
+                      <p className="text-xs font-black uppercase italic tracking-widest text-yellow-500">Make All Premium</p>
+                      <p className="text-[9px] text-text-muted">Set all existing items in database to Premium status</p>
                     </div>
                   </button>
                 </div>
@@ -1806,7 +1858,7 @@ export default function Admin() {
                       type: 'replay', 
                       videoUrl: '', 
                       thumbnailUrl: '', 
-                      isPremium: false, 
+                      isPremium: true, 
                       status: 'scheduled',
                       scheduledTime: ''
                     });
@@ -2167,7 +2219,7 @@ export default function Admin() {
                         type: 'live', 
                         videoUrl: '', 
                         thumbnailUrl: '', 
-                        isPremium: false, 
+                        isPremium: true, 
                         status: 'scheduled',
                         scheduledTime: ''
                       });
@@ -2204,7 +2256,11 @@ export default function Admin() {
                         setLoading(true);
                         try {
                           const docRef = doc(db, 'content', streamItem.id);
-                          await updateDoc(docRef, { status: 'live' });
+                          const updates: any = { status: 'live' };
+                          if (streamItem.uniqueViewsCount === undefined) {
+                            updates.uniqueViewsCount = 0;
+                          }
+                          await updateDoc(docRef, updates);
                           await fetchContent();
                           toast.success("Stream is now LIVE!");
                         } catch (err) {
@@ -3236,7 +3292,7 @@ export default function Admin() {
                       type: 'short',
                       videoUrl: '',
                       thumbnailUrl: '',
-                      isPremium: false,
+                      isPremium: true,
                       status: 'ended',
                       viewCount: 0,
                       tags: [],

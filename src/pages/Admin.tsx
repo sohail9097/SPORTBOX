@@ -3,13 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import { db, handleFirestoreError, OperationType, auth } from '../lib/firebase';
 import { collection, addDoc, getDocs, getDoc, deleteDoc, doc, updateDoc, query, orderBy, setDoc, onSnapshot } from 'firebase/firestore';
 import { SportsContent, Category, ContentType, ContentSection, SliderElement, VideoPromoSettings, SiteConfig, PlayerSettings, SubscriptionPlan, BlogPost } from '../types';
-import { Plus, Trash2, Edit2, Play, LayoutDashboard, Film, Users, Settings, Save, X, Eye, Radio, Crown, Layers, MoveUp, MoveDown, CheckSquare, Square, Image as ImageIcon, Upload, Library, ShieldCheck, ShieldAlert, Zap, Percent, Trophy, ChevronRight, Activity, Heart, Dribbble, CircleDot, Target, Disc, Flag, Gamepad2, Folder, ChevronLeft, BookOpen, Scissors, Waves, Flame, Compass, Award, Sparkles, Wand2, Clock } from 'lucide-react';
+import { Plus, Trash2, Edit2, Play, LayoutDashboard, Film, Users, Settings, Save, X, Eye, Radio, Crown, Layers, MoveUp, MoveDown, CheckSquare, Square, Image as ImageIcon, Upload, Library, ShieldCheck, ShieldAlert, Zap, Percent, Trophy, ChevronRight, Activity, Heart, Dribbble, CircleDot, Target, Disc, Flag, Gamepad2, Folder, ChevronLeft, BookOpen, Scissors, Waves, Flame, Compass, Award, Sparkles, Wand2, Clock, BarChart2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn, formatDate, transformGDriveUrl, getVideoAutoThumbnail } from '../lib/utils';
 import { useAuth } from '../hooks/useAuth';
 import { IndianMedalist, INDIAN_MEDALISTS } from './Olympics';
 import MediaManager from '../components/MediaManager';
 import StadiumPlayer from '../components/StadiumPlayer';
+import AnalyticsDashboard from '../components/AnalyticsDashboard';
 import { toast } from 'sonner';
 
 import LoadingScreen from '../components/LoadingScreen';
@@ -200,7 +201,7 @@ function LiveControlCard({
 export default function Admin() {
   const { user, isAdmin, loading: authLoading } = useAuth();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'content' | 'live' | 'sections' | 'categories' | 'slider' | 'users' | 'settings' | 'media' | 'plans' | 'trending' | 'likes' | 'domain_setup' | 'shots' | 'blogs' | 'olympics'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'analytics' | 'dashboard' | 'content' | 'live' | 'sections' | 'categories' | 'slider' | 'users' | 'settings' | 'media' | 'plans' | 'trending' | 'likes' | 'domain_setup' | 'shots' | 'blogs' | 'olympics'>('analytics');
 
   // Olympic Medalists state for Admin
   const [adminMedalists, setAdminMedalists] = useState<IndianMedalist[]>(INDIAN_MEDALISTS);
@@ -448,7 +449,7 @@ export default function Admin() {
           videoUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
           thumbnailUrl: 'https://images.unsplash.com/photo-1574629810360-7efbbe195018',
           isPremium: true,
-          viewCount: 1540,
+          viewCount: 0,
           createdAt: new Date().toISOString(),
           status: 'ended',
           tags: ['Highlights', 'Final']
@@ -461,7 +462,7 @@ export default function Admin() {
           videoUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
           thumbnailUrl: 'https://images.unsplash.com/photo-1531415074968-036ba1b575da',
           isPremium: true,
-          viewCount: 890,
+          viewCount: 0,
           createdAt: new Date().toISOString(),
           status: 'ended',
           tags: ['Cricket', 'World Cup']
@@ -474,7 +475,7 @@ export default function Admin() {
           videoUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
           thumbnailUrl: 'https://images.unsplash.com/photo-1549719386-74dfcbf7dbed',
           isPremium: true,
-          viewCount: 2200,
+          viewCount: 0,
           createdAt: new Date().toISOString(),
           status: 'ended',
           tags: ['Boxing', 'Championship']
@@ -741,8 +742,8 @@ export default function Admin() {
           thumbnailUrl: "https://images.unsplash.com/photo-1574629810360-7efbbe195018?auto=format&fit=crop&q=80",
           videoUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
           tags: ["Highlight", "Derby"],
-          viewCount: 120502,
-          likes: 4500,
+          viewCount: 0,
+          likes: 0,
           createdAt: new Date().toISOString()
         },
         {
@@ -754,8 +755,8 @@ export default function Admin() {
           thumbnailUrl: "https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&q=80",
           videoUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
           tags: ["Climax", "Big Game"],
-          viewCount: 340200,
-          likes: 12900,
+          viewCount: 0,
+          likes: 0,
           createdAt: new Date().toISOString()
         },
         {
@@ -767,8 +768,8 @@ export default function Admin() {
           thumbnailUrl: "https://images.unsplash.com/photo-1531415074968-036ba1b575da?auto=format&fit=crop&q=80",
           videoUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
           tags: ["T20", "India"],
-          viewCount: 456700,
-          likes: 25000,
+          viewCount: 0,
+          likes: 0,
           createdAt: new Date().toISOString()
         }
       ];
@@ -1318,7 +1319,7 @@ export default function Admin() {
         const payload = {
           ...finalForm,
           createdAt: new Date().toISOString(),
-          viewCount: Math.floor(Math.random() * 100),
+          viewCount: 0,
           uniqueViewsCount: 0
         };
         await addDoc(collection(db, 'content'), payload);
@@ -1542,6 +1543,7 @@ export default function Admin() {
         </div>
         
         <div className="flex flex-col gap-2">
+          <SidebarLink icon={BarChart2} label="Analytics (Studio)" active={activeTab === 'analytics'} onClick={() => setActiveTab('analytics')} />
           <SidebarLink icon={LayoutDashboard} label="Dashboard" active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} />
           <SidebarLink icon={Film} label="Library" active={activeTab === 'content'} onClick={() => setActiveTab('content')} />
           <SidebarLink icon={Trophy} label="Categories" active={activeTab === 'categories'} onClick={() => setActiveTab('categories')} />
@@ -1562,6 +1564,11 @@ export default function Admin() {
 
       <div className="flex-grow p-8">
         <AnimatePresence mode="wait">
+          {activeTab === 'analytics' && (
+            <motion.div key="analytics" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }}>
+              <AnalyticsDashboard content={content} subscribers={subscribers} plans={subscriptionPlans} />
+            </motion.div>
+          )}
           {activeTab === 'dashboard' && (
             <motion.div key="dashboard" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} className="space-y-12">
                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">

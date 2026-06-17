@@ -25,12 +25,12 @@ import { Toaster } from 'sonner';
 
 function App() {
   useEffect(() => {
-    // One-time initialization to reset existing views of active live matches to 0
-    const resetLiveViewsToZeroOnce = async () => {
-      const key = 'has_reset_live_views_v4';
+    // One-time initialization to reset existing views of ALL media content in the database to 0
+    const resetAllViewsToZeroOnce = async () => {
+      const key = 'has_reset_all_views_to_zero_v5';
       if (localStorage.getItem(key)) return;
       try {
-        const q = query(collection(db, 'content'), where('status', '==', 'live'));
+        const q = query(collection(db, 'content'));
         const snap = await getDocs(q);
         const promises = snap.docs.map(docSnap => {
           const data = docSnap.data();
@@ -42,14 +42,14 @@ function App() {
         
         if (promises.length > 0) {
           await Promise.all(promises);
-          console.log(`Successfully reset views for ${promises.length} active live matches to 0.`);
+          console.log(`Successfully reset viewCount for ${promises.length} content items to 0.`);
         }
         localStorage.setItem(key, 'true');
       } catch (error) {
-        console.error('Failed to run initial live views reset script:', error);
+        console.error('Failed to run initial all views reset script:', error);
       }
     };
-    resetLiveViewsToZeroOnce();
+    resetAllViewsToZeroOnce();
   }, []);
 
   return (

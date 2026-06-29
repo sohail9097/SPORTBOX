@@ -3340,8 +3340,8 @@ export default function Admin() {
                           {item.category}
                         </div>
                         {item.isPremium && (
-                          <div className="absolute top-4 left-4 bg-yellow-500 text-black px-2.5 py-1 text-[10px] font-black uppercase tracking-widest rounded-md leading-none shadow-md">
-                            Premium
+                          <div className="absolute top-4 left-4 bg-yellow-500 text-black p-1.5 rounded-md leading-none shadow-md flex items-center justify-center" title="Premium Content">
+                            <Crown className="w-3.5 h-3.5" />
                           </div>
                         )}
                       </div>

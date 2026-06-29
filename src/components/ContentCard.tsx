@@ -23,6 +23,8 @@ export default function ContentCard({
     !user || 
     (content.isPremium && (!profile || profile.subscriptionTier === 'free' || profile.subscriptionStatus !== 'active'))
   );
+  
+  const isSubscribed = isAdmin || (profile && profile.subscriptionTier !== 'free' && profile.subscriptionStatus === 'active');
 
   const displayThumbnail = content.thumbnailUrl && content.thumbnailUrl.trim() !== ''
     ? content.thumbnailUrl
@@ -73,10 +75,9 @@ export default function ContentCard({
                 Locked
               </span>
             )}
-            {content.isPremium && !isLocked && (
-              <span className="premium-badge shadow-lg flex items-center gap-1">
-                <Crown className="w-2.5 h-2.5" />
-                Premium
+            {content.isPremium && !isSubscribed && (
+              <span className="bg-brand text-white p-1.5 rounded-sm shadow-lg flex items-center justify-center" title="Premium Content">
+                <Crown className="w-3.5 h-3.5" />
               </span>
             )}
           </div>

@@ -7,8 +7,12 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Radio, Play, Clock, Calendar, ChevronRight, Bell, BellOff, Volume2 } from 'lucide-react';
 import { cn, getVideoAutoThumbnail } from '../lib/utils';
 import { toast } from 'sonner';
+import { useAuth } from '../hooks/useAuth';
 
 export default function Live() {
+  const { profile, isAdmin } = useAuth();
+  const isSubscribed = isAdmin || (profile && profile.subscriptionTier !== 'free' && profile.subscriptionStatus === 'active');
+
   const [content, setContent] = useState<SportsContent[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeBannerIndex, setActiveBannerIndex] = useState(0);
@@ -162,7 +166,7 @@ export default function Live() {
                     Upcoming Live
                   </span>
                 )}
-                {currentBannerMatch.isPremium && (
+                {currentBannerMatch.isPremium && !isSubscribed && (
                   <span className="px-3 py-1 bg-amber-500 text-black font-black rounded-full text-[10px] uppercase tracking-widest">
                     Premium Pass
                   </span>

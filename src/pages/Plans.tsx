@@ -28,18 +28,32 @@ export default function Plans() {
   const [loading, setLoading] = useState(true);
 
   const handleSubscribe = async () => {
-    // Custom formatting logic for Indian numbers
-    let phone = mobileNumber.replace(/\D/g, ""); // strip non-digits
-
-    // Handle common prefixes to get to 10 digits
-    if (phone.length === 12 && phone.startsWith("91")) {
-      phone = phone.substring(2);
-    } else if (phone.length === 11 && phone.startsWith("0")) {
-      phone = phone.substring(1);
+    // Support any international phone number format
+    let cleanInput = mobileNumber.trim();
+    let normalizedPhone = "";
+    if (cleanInput.startsWith("+")) {
+      const digits = cleanInput.replace(/\D/g, "");
+      normalizedPhone = "+" + digits;
+    } else {
+      const digits = cleanInput.replace(/\D/g, "");
+      if (digits.length === 12 && digits.startsWith("91")) {
+        normalizedPhone = "+" + digits;
+      } else if (digits.length === 11 && digits.startsWith("0")) {
+        normalizedPhone = "+91" + digits.substring(1);
+      } else if (digits.length === 10) {
+        normalizedPhone = "+91" + digits;
+      } else {
+        if (digits.length >= 7) {
+          normalizedPhone = "+" + digits;
+        } else {
+          normalizedPhone = digits;
+        }
+      }
     }
 
-    if (phone.length !== 10) {
-      toast.error("Please enter a valid 10-digit mobile number.");
+    const digitsCount = normalizedPhone.replace(/\D/g, "").length;
+    if (digitsCount < 7 || digitsCount > 15) {
+      toast.error("Please enter a valid international mobile number (7 to 15 digits).");
       return;
     }
 
@@ -47,8 +61,6 @@ export default function Plans() {
       toast.error("Please enter your full name.");
       return;
     }
-
-    const normalizedPhone = "+91" + phone;
     if (!user || !selectedPlan) return;
 
     const discount = selectedPlan.offer?.isActive ? selectedPlan.offer.percentage : 0;

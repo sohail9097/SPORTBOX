@@ -109,8 +109,32 @@ export default function Login() {
         if (!fullName.trim() || !mobileNumber.trim()) {
           throw new Error("Name and Mobile Number are compulsory.");
         }
-        if (mobileNumber.length < 10) {
-          throw new Error("Please enter a valid mobile number.");
+        
+        let cleanInput = mobileNumber.trim();
+        let normalizedPhone = "";
+        if (cleanInput.startsWith("+")) {
+          const digits = cleanInput.replace(/\D/g, "");
+          normalizedPhone = "+" + digits;
+        } else {
+          const digits = cleanInput.replace(/\D/g, "");
+          if (digits.length === 12 && digits.startsWith("91")) {
+            normalizedPhone = "+" + digits;
+          } else if (digits.length === 11 && digits.startsWith("0")) {
+            normalizedPhone = "+91" + digits.substring(1);
+          } else if (digits.length === 10) {
+            normalizedPhone = "+91" + digits;
+          } else {
+            if (digits.length >= 7) {
+              normalizedPhone = "+" + digits;
+            } else {
+              normalizedPhone = digits;
+            }
+          }
+        }
+
+        const digitsCount = normalizedPhone.replace(/\D/g, "").length;
+        if (digitsCount < 7 || digitsCount > 15) {
+          throw new Error("Please enter a valid mobile number (7 to 15 digits).");
         }
 
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
@@ -122,7 +146,7 @@ export default function Login() {
           uid: user.uid,
           email: user.email,
           displayName: fullName,
-          mobileNumber: mobileNumber,
+          mobileNumber: normalizedPhone,
           subscriptionTier: 'free',
           subscriptionStatus: 'none',
           favorites: [],

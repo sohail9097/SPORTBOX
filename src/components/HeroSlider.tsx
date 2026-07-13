@@ -244,6 +244,8 @@ export default function HeroSlider({ page = 'home' }: HeroSliderProps) {
               <Play className="w-20 h-20 text-white/10" />
             </div>
           )}
+          
+          {/* Black gradient overlays */}
           <div className="absolute inset-0 bg-gradient-to-t from-bg via-black/20 to-transparent md:bg-gradient-to-r md:from-black md:via-black/60 md:to-transparent" />
           <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent hidden md:block" />
           
@@ -256,16 +258,16 @@ export default function HeroSlider({ page = 'home' }: HeroSliderProps) {
             >
               <div className="flex items-center gap-3">
                 {currentSlide.isLive && (
-                  <div className="flex items-center gap-2 px-2 md:px-3 py-1 bg-red-600 rounded-sm w-fit">
+                  <div className="flex items-center gap-2 px-2 md:px-3 py-1 bg-red-600 rounded-sm w-fit shadow-md">
                     <div className="w-1.5 h-1.5 md:w-2 md:h-2 bg-white rounded-full animate-pulse" />
                     <span className="text-[8px] md:text-[10px] font-black uppercase tracking-[0.2em] text-white">Live</span>
                   </div>
                 )}
               </div>
-              <h1 className="text-4xl md:text-7xl font-black uppercase italic tracking-tighter leading-none decoration-brand drop-shadow-2xl">
+              <h1 className="text-4xl md:text-7xl font-black uppercase italic tracking-tighter leading-none decoration-brand text-white [text-shadow:_0_4px_24px_rgba(0,0,0,0.95),_0_2px_8px_rgba(0,0,0,0.95)]">
                 {currentSlide.title}
               </h1>
-              <p className="hidden md:block text-xs md:text-lg text-white/70 font-medium line-clamp-2 md:line-clamp-3 leading-relaxed">
+              <p className="hidden md:block text-xs md:text-lg text-white font-medium line-clamp-2 md:line-clamp-3 leading-relaxed [text-shadow:_0_2px_10px_rgba(0,0,0,0.95)]">
                 {currentSlide.description}
               </p>
             </motion.div>

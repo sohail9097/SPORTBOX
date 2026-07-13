@@ -207,46 +207,63 @@ export default function Watch() {
     }
 
     const trackUniqueView = async () => {
-      try {
-        let viewerId = user?.uid;
+      let viewerId = user?.uid;
+      if (!viewerId) {
+        viewerId = localStorage.getItem('sportsbox_viewer_id') || '';
         if (!viewerId) {
-          viewerId = localStorage.getItem('sportsbox_viewer_id') || '';
-          if (!viewerId) {
-            viewerId = 'viewer_' + Math.random().toString(36).substring(2, 15) + '_' + Date.now();
-            localStorage.setItem('sportsbox_viewer_id', viewerId);
-          }
+          viewerId = 'viewer_' + Math.random().toString(36).substring(2, 15) + '_' + Date.now();
+          localStorage.setItem('sportsbox_viewer_id', viewerId);
         }
+      }
 
-        const sessionKey = `${id}_${viewerId}`;
-        if (uniqueViewTrackedRef.current === sessionKey) {
-          console.log("[UniqueView] Dynamic key already tracked for session:", sessionKey);
-          return;
-        }
-        uniqueViewTrackedRef.current = sessionKey;
+      const sessionKey = `${id}_${viewerId}`;
+      if (uniqueViewTrackedRef.current === sessionKey) {
+        console.log("[UniqueView] Dynamic key already tracked for session:", sessionKey);
+        return;
+      }
+      uniqueViewTrackedRef.current = sessionKey;
 
-        console.log("[UniqueView] Resolving unique live registration for viewer ID:", viewerId);
+      console.log("[UniqueView] Resolving unique live registration for viewer ID:", viewerId);
 
-        const uniqueViewRef = doc(db, 'content', id, 'unique_views', viewerId);
-        const uniqueViewSnap = await getDoc(uniqueViewRef);
+      const uniqueViewRef = doc(db, 'content', id, 'unique_views', viewerId);
+      
+      let uniqueViewSnap;
+      try {
+        uniqueViewSnap = await getDoc(uniqueViewRef);
+      } catch (err) {
+        console.error("[UniqueView] Error getting unique view:", err);
+        uniqueViewTrackedRef.current = null;
+        handleFirestoreError(err, OperationType.GET, `content/${id}/unique_views/${viewerId}`);
+        return;
+      }
 
-        if (!uniqueViewSnap.exists()) {
-          console.log("[UniqueView] New viewer detected! Recording unique view entry in DB.");
+      if (!uniqueViewSnap.exists()) {
+        console.log("[UniqueView] New viewer detected! Recording unique view entry in DB.");
+        try {
           await setDoc(uniqueViewRef, {
             watchedAt: new Date().toISOString(),
             uid: user?.uid || null
           });
-          
+        } catch (err) {
+          console.error("[UniqueView] Error setting unique view doc:", err);
+          uniqueViewTrackedRef.current = null;
+          handleFirestoreError(err, OperationType.WRITE, `content/${id}/unique_views/${viewerId}`);
+          return;
+        }
+        
+        try {
           await updateDoc(doc(db, 'content', id), {
             uniqueViewsCount: increment(1)
           });
-          console.log("[UniqueView] Successfully registered and incremented unique live views count!");
-        } else {
-          console.log("[UniqueView] Returning viewer. Already verified in database unique subcollection.");
+        } catch (err) {
+          console.error("[UniqueView] Error incrementing unique views count:", err);
+          uniqueViewTrackedRef.current = null;
+          handleFirestoreError(err, OperationType.UPDATE, `content/${id}`);
+          return;
         }
-      } catch (err) {
-        console.error("[UniqueView] Error writing unique live view:", err);
-        // Reset ref so it can retry on next clean trigger if it failed due to some transient issues
-        uniqueViewTrackedRef.current = null;
+        console.log("[UniqueView] Successfully registered and incremented unique live views count!");
+      } else {
+        console.log("[UniqueView] Returning viewer. Already verified in database unique subcollection.");
       }
     };
 

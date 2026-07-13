@@ -248,6 +248,8 @@ export default function Watch() {
           }
         } catch (err) {
           console.error("Fetch error:", err);
+          handleFirestoreError(err, OperationType.GET, 'content/' + id);
+          
           // Try fallback
           const fallbackItem = FALLBACK_SPORTS_CONTENT.find(item => item.id === id);
           if (fallbackItem) {

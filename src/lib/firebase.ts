@@ -6,11 +6,15 @@ import {
   doc, 
   initializeFirestore, 
   persistentLocalCache,
-  disableNetwork
+  disableNetwork,
+  setLogLevel
 } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import firebaseConfig from '../../firebase-applet-config.json';
 import { toast } from 'sonner';
+
+// Disable internal Firebase/Firestore logging to suppress quota errors completely
+setLogLevel('silent');
 
 const app = initializeApp(firebaseConfig);
 

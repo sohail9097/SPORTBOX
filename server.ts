@@ -316,7 +316,12 @@ async function startServer() {
         const snapshot = await db.collection('users').get();
         snapshot.forEach(doc => { firestoreData[doc.id] = doc.data(); });
       } catch (fsError: any) {
-        console.warn("Firestore fetch failed:", fsError.message);
+        const errMsg = fsError?.message || '';
+        if (errMsg.toLowerCase().includes('quota') || errMsg.toLowerCase().includes('exhausted')) {
+          console.log("[API] Firestore quota exceeded during user list. Using fallback local cache / empty record.");
+        } else {
+          console.warn("Firestore fetch failed:", errMsg);
+        }
       }
 
       const allUids = new Set([...authUsers.map(u => u.uid), ...Object.keys(firestoreData)]);

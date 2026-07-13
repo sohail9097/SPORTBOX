@@ -130,32 +130,13 @@ export interface FirestoreErrorInfo {
 export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
   const errMessage = error instanceof Error ? error.message : String(error);
   
-  const errInfo: FirestoreErrorInfo = {
-    error: errMessage,
-    authInfo: {
-      userId: auth.currentUser?.uid,
-      email: auth.currentUser?.email,
-      emailVerified: auth.currentUser?.emailVerified,
-      isAnonymous: auth.currentUser?.isAnonymous,
-      tenantId: auth.currentUser?.tenantId,
-      providerInfo: auth.currentUser?.providerData?.map(provider => ({
-        providerId: provider.providerId,
-        email: provider.email,
-      })) || []
-    },
-    operationType,
-    path
-  }
-
-  console.error('Firestore Error: ', errInfo);
-
-  // If it's an offline error, don't throw an alert-triggering error
+  // 1. If it's an offline error, don't throw or log an error
   if (errMessage.includes('offline') || errMessage.includes('connection')) {
     console.warn(`[Firebase] Sync warning (${operationType}): ${errMessage}`);
     return;
   }
 
-  // Gracefully handle resource exhaustion / quota limits to prevent application crashes
+  // 2. Gracefully handle resource exhaustion / quota limits to prevent application crashes and logs
   if (
     errMessage.toLowerCase().includes('quota') || 
     errMessage.toLowerCase().includes('exhausted') ||
@@ -193,5 +174,23 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
     return;
   }
 
+  const errInfo: FirestoreErrorInfo = {
+    error: errMessage,
+    authInfo: {
+      userId: auth.currentUser?.uid,
+      email: auth.currentUser?.email,
+      emailVerified: auth.currentUser?.emailVerified,
+      isAnonymous: auth.currentUser?.isAnonymous,
+      tenantId: auth.currentUser?.tenantId,
+      providerInfo: auth.currentUser?.providerData?.map(provider => ({
+        providerId: provider.providerId,
+        email: provider.email,
+      })) || []
+    },
+    operationType,
+    path
+  }
+
+  console.error('Firestore Error: ', errInfo);
   throw new Error(JSON.stringify(errInfo));
 }

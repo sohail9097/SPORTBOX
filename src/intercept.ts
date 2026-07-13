@@ -47,3 +47,35 @@ console.log = function (...args) {
   }
   originalConsoleLog.apply(console, args);
 };
+
+// Register window error and unhandled rejection interceptors
+if (typeof window !== 'undefined') {
+  const isQuotaError = (msg: string) => {
+    return (
+      msg.includes('Quota exceeded') ||
+      msg.includes('quota-exhausted') ||
+      msg.includes('resource-exhausted') ||
+      msg.includes('RESOURCE_EXHAUSTED') ||
+      msg.includes('Firestore fetch failed') ||
+      msg.includes('Using maximum backoff delay')
+    );
+  };
+
+  window.addEventListener('error', (event) => {
+    const msg = event.message || '';
+    const errorMsg = event.error ? (event.error.message || String(event.error)) : '';
+    if (isQuotaError(msg) || isQuotaError(errorMsg)) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  }, true);
+
+  window.addEventListener('unhandledrejection', (event) => {
+    const reason = event.reason;
+    const msg = typeof reason === 'object' ? (reason?.message || JSON.stringify(reason)) : String(reason);
+    if (isQuotaError(msg)) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  }, true);
+}

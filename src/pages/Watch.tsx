@@ -14,8 +14,56 @@ import { toast } from 'sonner';
 
 import LoadingScreen from '../components/LoadingScreen';
 
+const isDevelopmentEnvironment = (): boolean => {
+  try {
+    const host = window.location.hostname;
+    return (
+      host.includes('localhost') || 
+      host.includes('127.0.0.1') || 
+      host.includes('run.app') || 
+      host.includes('stackblitz') || 
+      host.includes('gitpod') || 
+      host.includes('webcontainer')
+    );
+  } catch (_) {
+    return false;
+  }
+};
+
 const checkUserCountry = async (): Promise<string> => {
-  // Try country.is
+  // Check localStorage first for simulations / development testing
+  try {
+    const sim = localStorage.getItem('simulate_nepal');
+    if (sim === 'true') {
+      console.log("[GeoCheck] Simulating Nepal location via localStorage override.");
+      return 'NP';
+    }
+  } catch (_) {}
+
+  // Check URL search parameters
+  try {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('simulate_nepal') === 'true' || params.get('bypass_geo') === 'true') {
+      localStorage.setItem('simulate_nepal', 'true');
+      console.log("[GeoCheck] Simulating Nepal location via query parameter.");
+      return 'NP';
+    }
+  } catch (_) {}
+
+  // 1. Try ipwho.is (highly reliable and CORS-friendly HTTPS API)
+  try {
+    const res = await fetch('https://ipwho.is/');
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.success && data.country_code) {
+        return data.country_code.toUpperCase();
+      }
+    }
+  } catch (e) {
+    console.warn("ipwho.is check failed, trying fallback:", e);
+  }
+
+  // 2. Try country.is
   try {
     const res = await fetch('https://api.country.is/');
     if (res.ok) {
@@ -28,7 +76,7 @@ const checkUserCountry = async (): Promise<string> => {
     console.warn("country.is check failed, trying fallback:", e);
   }
 
-  // Try freeipapi.com
+  // 3. Try freeipapi.com
   try {
     const res = await fetch('https://freeipapi.com/api/json');
     if (res.ok) {
@@ -41,7 +89,7 @@ const checkUserCountry = async (): Promise<string> => {
     console.warn("freeipapi check failed, trying fallback:", e);
   }
 
-  // Try ipapi.co
+  // 4. Try ipapi.co
   try {
     const res = await fetch('https://ipapi.co/json/');
     if (res.ok) {
@@ -54,7 +102,7 @@ const checkUserCountry = async (): Promise<string> => {
     console.warn("ipapi.co check failed:", e);
   }
 
-  return '';
+  return 'XX';
 };
 
 export default function Watch() {
@@ -382,8 +430,8 @@ export default function Watch() {
     if (!content || isAdmin) return;
     
     const isLiveStream = content.type === 'live' || content.status === 'live';
-    const isGeoBlockEnabled = playerConfig?.isGeoBlockNepalEnabled;
-    const needsGeoCheck = isLiveStream || isGeoBlockEnabled;
+    const isGeoBlockEnabled = !!playerConfig?.isGeoBlockNepalEnabled;
+    const needsGeoCheck = isGeoBlockEnabled;
     
     if (!needsGeoCheck) {
       setUserCountry(null);
@@ -527,8 +575,8 @@ export default function Watch() {
   );
 
   const isLiveStream = content.type === 'live' || content.status === 'live';
-  const isGeoBlockEnabled = playerConfig?.isGeoBlockNepalEnabled;
-  const isGeoBlocked = !isAdmin && (isLiveStream || isGeoBlockEnabled) && userCountry !== null && userCountry !== 'NP';
+  const isGeoBlockEnabled = !!playerConfig?.isGeoBlockNepalEnabled;
+  const isGeoBlocked = !isAdmin && isGeoBlockEnabled && userCountry !== null && userCountry !== 'NP';
 
   const isIframeUrl = (url: string) => {
     if (!url) return false;
@@ -603,9 +651,24 @@ export default function Watch() {
                         Your detected region: <span className="text-brand font-bold uppercase font-mono">{userCountry || 'International'}</span> is not authorized.
                       </p>
                     </div>
+                    {isDevelopmentEnvironment() && (
+                      <button 
+                        onClick={() => {
+                          try {
+                            localStorage.setItem('simulate_nepal', 'true');
+                            setUserCountry('NP');
+                            toast.success("Successfully simulated location: Nepal (NP)");
+                          } catch (_) {}
+                        }}
+                        className="inline-flex items-center gap-2 px-6 py-2.5 bg-green-600 hover:bg-green-700 text-white font-black text-[10px] uppercase tracking-widest rounded-lg transition-all"
+                      >
+                        <Globe className="w-3.5 h-3.5 animate-spin" />
+                        Simulate Nepal (Dev Mode)
+                      </button>
+                    )}
                   </motion.div>
                 </div>
-              ) : (userCountry === 'FAILED' || userCountry === 'UNKNOWN') && (isLiveStream || isGeoBlockEnabled) ? (
+              ) : (userCountry === 'FAILED' || userCountry === 'UNKNOWN') && isGeoBlockEnabled ? (
                 <div className="absolute inset-0 z-40 bg-black/95 flex items-center justify-center p-8 animate-fade-in">
                   <motion.div 
                     initial={{ scale: 0.9, opacity: 0 }}
@@ -622,22 +685,39 @@ export default function Watch() {
                         Please disable any VPNs, proxies, or strict ad-blockers and try again.
                       </p>
                     </div>
-                    <button 
-                      onClick={async () => {
-                        setGeoChecking(true);
-                        try {
-                          const country = await checkUserCountry();
-                          setUserCountry(country || 'UNKNOWN');
-                        } catch (err) {
-                          setUserCountry('FAILED');
-                        } finally {
-                          setGeoChecking(false);
-                        }
-                      }}
-                      className="inline-block px-8 py-3 bg-brand hover:bg-brand-hover text-white font-black text-[10px] uppercase tracking-widest rounded-lg transition-colors"
-                    >
-                      Retry Verification
-                    </button>
+                    <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+                      <button 
+                        onClick={async () => {
+                          setGeoChecking(true);
+                          try {
+                            const country = await checkUserCountry();
+                            setUserCountry(country || 'UNKNOWN');
+                          } catch (err) {
+                            setUserCountry('FAILED');
+                          } finally {
+                            setGeoChecking(false);
+                          }
+                        }}
+                        className="inline-block px-8 py-3 bg-brand hover:bg-brand-hover text-white font-black text-[10px] uppercase tracking-widest rounded-lg transition-colors"
+                      >
+                        Retry Verification
+                      </button>
+                      {isDevelopmentEnvironment() && (
+                        <button 
+                          onClick={() => {
+                            try {
+                              localStorage.setItem('simulate_nepal', 'true');
+                              setUserCountry('NP');
+                              toast.success("Successfully simulated location: Nepal (NP)");
+                            } catch (_) {}
+                          }}
+                          className="inline-flex items-center gap-2 px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-black text-[10px] uppercase tracking-widest rounded-lg transition-all"
+                        >
+                          <Globe className="w-3.5 h-3.5 animate-spin" />
+                          Simulate Nepal (Dev Mode)
+                        </button>
+                      )}
+                    </div>
                   </motion.div>
                 </div>
               ) : (

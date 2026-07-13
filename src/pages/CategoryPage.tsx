@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { db } from '../lib/firebase';
+import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { collection, query, where, getDocs, orderBy, limit, onSnapshot } from 'firebase/firestore';
 import { SportsContent, Category } from '../types';
+import { FALLBACK_SPORTS_CONTENT } from '../lib/fallbackData';
 import ContentCard from '../components/ContentCard';
 import DynamicSections from '../components/DynamicSections';
 import HeroSlider from '../components/HeroSlider';
@@ -43,11 +44,17 @@ export default function CategoryPage() {
         .map(d => ({ id: d.id, ...d.data() } as SportsContent))
         .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
       
-      setContent(items);
+      if (items.length === 0) {
+        setContent(FALLBACK_SPORTS_CONTENT.filter(item => item.category === category));
+      } else {
+        setContent(items);
+      }
       setLoading(false);
     }, (err) => {
       console.error("All category sync error:", err);
+      setContent(FALLBACK_SPORTS_CONTENT.filter(item => item.category === category));
       setLoading(false);
+      handleFirestoreError(err, OperationType.GET, 'content');
     });
 
     // 2. Sync Live Category Content
@@ -62,9 +69,15 @@ export default function CategoryPage() {
         .filter(item => item.status === 'live')
         .slice(0, 4);
       
-      setLiveNow(items);
+      if (items.length === 0) {
+        setLiveNow(FALLBACK_SPORTS_CONTENT.filter(item => item.category === category && item.status === 'live').slice(0, 4));
+      } else {
+        setLiveNow(items);
+      }
     }, (err) => {
       console.warn("Live category sync offline:", err.message);
+      setLiveNow(FALLBACK_SPORTS_CONTENT.filter(item => item.category === category && item.status === 'live').slice(0, 4));
+      handleFirestoreError(err, OperationType.GET, 'content');
     });
 
     return () => {

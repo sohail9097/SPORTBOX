@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { Play, Activity, Trophy, Bell, ShieldCheck, Mail, Lock, User as UserIcon, Phone, ArrowLeft, Loader2 } from 'lucide-react';
-import { auth, db } from '../lib/firebase';
+import { auth, db, handleFirestoreError, OperationType } from '../lib/firebase';
 import ReCAPTCHA from 'react-google-recaptcha';
 import { 
   GoogleAuthProvider,
@@ -48,6 +48,7 @@ export default function Login() {
       }
     }, (err) => {
       console.warn("[Login] Config fetch offline:", err.message);
+      handleFirestoreError(err, OperationType.GET, 'settings/siteConfig');
     });
     return () => unsub();
   }, [navigate]);

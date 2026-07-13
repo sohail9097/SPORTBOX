@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { collection, query, where, onSnapshot, addDoc, deleteDoc, doc, updateDoc, setDoc } from 'firebase/firestore';
 import { SportsContent } from '../types';
+import { FALLBACK_SPORTS_CONTENT } from '../lib/fallbackData';
 import { 
   Trophy, Play, Plus, Trash2, Flame, Award, Calendar, Timer, 
   Check, X, Compass, Share2, ExternalLink, Heart, Tv, Video, History, Sparkles, BookOpen,
@@ -1128,47 +1129,28 @@ export default function Olympics() {
         id: doc.id,
         ...doc.data()
       } as SportsContent));
-      setFirestoreVideos(list);
+      
+      if (list.length === 0) {
+        setFirestoreVideos(FALLBACK_SPORTS_CONTENT.filter(item => item.category === 'olympics'));
+      } else {
+        setFirestoreVideos(list);
+      }
     }, (err) => {
       console.warn("Firestore Olympic category query disabled or offline:", err);
+      setFirestoreVideos(FALLBACK_SPORTS_CONTENT.filter(item => item.category === 'olympics'));
+      handleFirestoreError(err, OperationType.GET, 'content');
     });
 
     // 2. Subscribe to olympic_medalists collection
     const qMedalists = query(collection(db, 'olympic_medalists'));
     const unsubscribeMedalists = onSnapshot(qMedalists, (snapshot) => {
       if (snapshot.empty) {
-        if (isAdmin) {
-          console.log("Seeding olympic_medalists to Firestore...");
-          INDIAN_MEDALISTS.forEach(async (m) => {
-            try {
-              await setDoc(doc(db, 'olympic_medalists', m.id), m);
-            } catch (err) {
-              console.error("Error seeding medalist:", err);
-            }
-          });
-        } else {
-          setMedalists(INDIAN_MEDALISTS);
-        }
+        setMedalists(INDIAN_MEDALISTS);
       } else {
         const list = snapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data()
         } as IndianMedalist));
-
-        // Auto-migration for Admins to always keep default database synchronized with any updates
-        if (isAdmin) {
-          INDIAN_MEDALISTS.forEach(async (defaultM) => {
-            const existing = list.find(m => m.id === defaultM.id);
-            if (!existing || !existing.medals || existing.medals.length < defaultM.medals.length) {
-              console.log(`Auto-updating/migrating ${defaultM.id} on Firestore...`);
-              try {
-                await setDoc(doc(db, 'olympic_medalists', defaultM.id), defaultM);
-              } catch (err) {
-                console.error("Error updating medalist:", err);
-              }
-            }
-          });
-        }
 
         // Merge any statically defined medalists that are not yet in Firestore (ensures instant availability)
         const existingIds = new Set(list.map(m => m.id));
@@ -1188,13 +1170,14 @@ export default function Olympics() {
     }, (err) => {
       console.warn("Firestore medalists query disabled or offline:", err);
       setMedalists(INDIAN_MEDALISTS);
+      handleFirestoreError(err, OperationType.GET, 'olympic_medalists');
     });
 
     return () => {
       unsubscribeContent();
       unsubscribeMedalists();
     };
-  }, [isAdmin]);
+  }, []);
 
   // Sync to local storage
   const saveCustomVideos = (updatedList: CustomOlympicVideo[]) => {

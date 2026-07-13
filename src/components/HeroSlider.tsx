@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
-import { db } from '../lib/firebase';
+import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { collection, query, where, orderBy, getDocs, onSnapshot, limit } from 'firebase/firestore';
 import { SliderElement, Category } from '../types';
+import { FALLBACK_SLIDER_ITEMS } from '../lib/fallbackData';
 import { motion, AnimatePresence } from 'motion/react';
 import { Play, ChevronLeft, ChevronRight, X, Info, Calendar, Plus, Volume2, VolumeX } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
@@ -38,11 +39,17 @@ export default function HeroSlider({ page = 'home' }: HeroSliderProps) {
         .filter(slide => (slide.page || 'home') === page)
         .sort((a, b) => (a.order || 0) - (b.order || 0));
       
-      setSlides(items);
+      if (items.length === 0) {
+        setSlides(FALLBACK_SLIDER_ITEMS.filter(slide => (slide.page || 'home') === page));
+      } else {
+        setSlides(items);
+      }
       setLoading(false);
     }, (error) => {
       console.error('Slider sync error:', error);
+      setSlides(FALLBACK_SLIDER_ITEMS.filter(slide => (slide.page || 'home') === page));
       setLoading(false);
+      handleFirestoreError(error, OperationType.GET, 'slider');
     });
 
     return () => unsubscribe();

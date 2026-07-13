@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { db } from '../lib/firebase';
+import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { collection, query, orderBy, limit, getDocs, where, doc, onSnapshot, getDoc } from 'firebase/firestore';
 import { SportsContent, VideoPromoSettings, ContentSection } from '../types';
+import { FALLBACK_SPORTS_CONTENT, FALLBACK_PROMO } from '../lib/fallbackData';
 import ContentCard from '../components/ContentCard';
 import DynamicSections from '../components/DynamicSections';
 import HeroSlider from '../components/HeroSlider';
@@ -27,9 +28,13 @@ export default function Home() {
     const unsubPromo = onSnapshot(doc(db, 'settings', 'videoPromo'), (snap) => {
       if (snap.exists()) {
         setVideoPromo(snap.data() as VideoPromoSettings);
+      } else {
+        setVideoPromo(FALLBACK_PROMO);
       }
     }, (err) => {
       console.warn("[Home] Promo sync offline:", err.message);
+      setVideoPromo(FALLBACK_PROMO);
+      handleFirestoreError(err, OperationType.GET, 'settings/videoPromo');
     });
 
     // 2. Live Content sync
@@ -41,11 +46,17 @@ export default function Home() {
         .filter(item => item.status === 'live')
         .slice(0, 6);
       
-      setLiveNow(liveItems);
+      if (liveItems.length === 0) {
+        setLiveNow(FALLBACK_SPORTS_CONTENT.filter(item => item.status === 'live').slice(0, 6));
+      } else {
+        setLiveNow(liveItems);
+      }
       setLoading(false);
     }, (err) => {
       console.error("[Home] Live sync error:", err);
+      setLiveNow(FALLBACK_SPORTS_CONTENT.filter(item => item.status === 'live').slice(0, 6));
       setLoading(false);
+      handleFirestoreError(err, OperationType.GET, 'content');
     });
 
     // 3. Dynamic Sections sync (including the one intended for Trending)
@@ -68,9 +79,15 @@ export default function Home() {
               s.exists() ? ({ ...s.data(), id: s.id } as SportsContent) : null
             ))
           );
-          setTrending(results.filter((i): i is SportsContent => i !== null));
+          const filteredResults = results.filter((i): i is SportsContent => i !== null);
+          if (filteredResults.length === 0) {
+            setTrending(FALLBACK_SPORTS_CONTENT.slice(0, 6));
+          } else {
+            setTrending(filteredResults);
+          }
         } catch (e) {
           console.error("[Home] Error fetching manual trending:", e);
+          setTrending(FALLBACK_SPORTS_CONTENT.slice(0, 6));
         }
       } else {
         // Fallback: Just fetch recent content if no trending section identified
@@ -79,14 +96,24 @@ export default function Home() {
           const items = s.docs
             .map(d => ({ id: d.id, ...d.data() } as SportsContent))
             .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-          setTrending(items.slice(0, 6));
+          
+          if (items.length === 0) {
+            setTrending(FALLBACK_SPORTS_CONTENT.slice(0, 6));
+          } else {
+            setTrending(items.slice(0, 6));
+          }
+        }).catch(err => {
+          setTrending(FALLBACK_SPORTS_CONTENT.slice(0, 6));
+          handleFirestoreError(err, OperationType.GET, 'content');
         });
       }
       
       setLoading(false);
     }, (err) => {
        console.error("[Home] Sections sync error:", err);
+       setTrending(FALLBACK_SPORTS_CONTENT.slice(0, 6));
        setLoading(false);
+       handleFirestoreError(err, OperationType.GET, 'sections');
     });
 
     return () => {

@@ -10,9 +10,10 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
 import { transformGDriveUrl, getVideoAutoThumbnail, sanitizeVideoUrlOrIframe } from '../lib/utils';
+import { FALLBACK_SHORTS } from '../lib/fallbackData';
 
-// Empty array as we cleared all dummy content
-const MOCK_SHORTS: SportsContent[] = [];
+// Fallback list of high-fidelity shorts when Firestore is empty/exhausted
+const MOCK_SHORTS: SportsContent[] = FALLBACK_SHORTS;
 
 // Helper to return a premium, deterministic profile picture based on username
 const getCommentAvatar = (username: string) => {
@@ -156,12 +157,16 @@ export default function Shots() {
       const snap = await getDocs(q);
       let items = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as SportsContent));
       
-      // Sort items by createdAt if present
-      items.sort((a, b) => {
-        const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-        const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-        return dateB - dateA;
-      });
+      if (items.length === 0) {
+        items = MOCK_SHORTS;
+      } else {
+        // Sort items by createdAt if present
+        items.sort((a, b) => {
+          const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return dateB - dateA;
+        });
+      }
 
       setShorts(items);
       
@@ -176,7 +181,7 @@ export default function Shots() {
       setLikesState(initialLikes);
 
       // Fetch user's individual likes
-      if (user) {
+      if (user && items !== MOCK_SHORTS) {
         items.forEach(async (item) => {
           try {
             const likeSnap = await getDoc(doc(db, 'content', item.id, 'likes', user.uid));
@@ -199,6 +204,15 @@ export default function Shots() {
       console.error("Error loading sport shorts:", err);
       // Fallback
       setShorts(MOCK_SHORTS as unknown as SportsContent[]);
+      
+      const initialLikes: typeof likesState = {};
+      MOCK_SHORTS.forEach(item => {
+        initialLikes[item.id] = {
+          liked: false,
+          count: item.likes || 0
+        };
+      });
+      setLikesState(initialLikes);
     } finally {
       setLoading(false);
     }

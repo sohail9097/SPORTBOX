@@ -5,7 +5,8 @@ import {
   getFirestore, 
   doc, 
   initializeFirestore, 
-  persistentLocalCache 
+  persistentLocalCache,
+  disableNetwork
 } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import firebaseConfig from '../../firebase-applet-config.json';
@@ -25,6 +26,16 @@ try {
   dbInstance = initializeFirestore(app, {
     localCache: persistentLocalCache({})
   }, dbId);
+
+  // If we previously detected quota exhaustion, boot immediately in offline mode to avoid console errors and blockages
+  try {
+    if (localStorage.getItem('firestore_quota_exhausted') === 'true') {
+      console.warn("[Firebase] Booting Firestore in offline cache mode due to previously detected quota exhaustion.");
+      disableNetwork(dbInstance).catch(err => {
+        console.warn("[Firebase] Failed to disable network on boot:", err);
+      });
+    }
+  } catch (_) {}
 } catch (e) {
   console.error("[Firebase] Failed to initialize Firestore with persistent cache:", e);
   dbInstance = getFirestore(app);
@@ -137,6 +148,44 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
   // If it's an offline error, don't throw an alert-triggering error
   if (errMessage.includes('offline') || errMessage.includes('connection')) {
     console.warn(`[Firebase] Sync warning (${operationType}): ${errMessage}`);
+    return;
+  }
+
+  // Gracefully handle resource exhaustion / quota limits to prevent application crashes
+  if (
+    errMessage.toLowerCase().includes('quota') || 
+    errMessage.toLowerCase().includes('exhausted') ||
+    errMessage.toLowerCase().includes('resource-exhausted') ||
+    errMessage.toLowerCase().includes('resource_exhausted') ||
+    (error && typeof error === 'object' && 'code' in (error as any) && (error as any).code === 'resource-exhausted')
+  ) {
+    console.warn(`[Firebase] Quota limit reached or Resource Exhausted (${operationType}) at ${path}. App is running securely in offline cached mode.`);
+    
+    // Automatically switch the Firebase SDK to offline mode by disabling the network connection
+    if (dbInstance) {
+      try {
+        disableNetwork(dbInstance).then(() => {
+          console.log("[Firebase] Firestore network connection disabled successfully. SDK is now running in local cached mode.");
+          try {
+            localStorage.setItem('firestore_quota_exhausted', 'true');
+          } catch (_) {}
+        }).catch(err => {
+          console.warn("[Firebase] Failed to disable network connection:", err);
+        });
+      } catch (e) {
+        console.warn("[Firebase] Error calling disableNetwork:", e);
+      }
+    }
+
+    // Throttled toast to avoid spamming the user
+    const now = Date.now();
+    const lastToast = (window as any).__lastQuotaToast || 0;
+    if (now - lastToast > 30000) {
+      (window as any).__lastQuotaToast = now;
+      toast.error("Database limit reached. Viewing in offline cached mode.", {
+        description: "The app remains fully responsive using locally cached data."
+      });
+    }
     return;
   }
 

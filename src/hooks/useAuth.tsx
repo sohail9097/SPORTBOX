@@ -72,6 +72,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           clearTimeout(authTimeout);
           console.error("[AuthSync] Firestore profile snapshot error:", error);
           setLoading(false);
+          handleFirestoreError(error, OperationType.GET, `users/${currentUser.uid}`);
         });
 
         // Broadcast to other tabs that login was successful
@@ -141,8 +142,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const currentUser = auth.currentUser;
       if (currentUser) {
         try {
-          // Verify token actively to update context
-          await currentUser.getIdToken(true);
+          // Verify cached token to keep context active, avoid forcing network refresh (true)
+          await currentUser.getIdToken(false);
           handleUserTransition(auth.currentUser);
         } catch (e) {
           console.warn("[AuthSync] Quiet validation failed on window focus:", e);

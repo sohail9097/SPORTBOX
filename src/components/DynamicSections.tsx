@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { db } from '../lib/firebase';
+import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { collection, query, where, orderBy, getDocs, doc, getDoc, onSnapshot } from 'firebase/firestore';
 import { ContentSection, SportsContent, Category } from '../types';
+import { FALLBACK_SECTIONS, FALLBACK_SPORTS_CONTENT } from '../lib/fallbackData';
 import ContentCard from './ContentCard';
 import { ChevronRight, Layers, Trophy } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -28,20 +29,76 @@ export default function DynamicSections({ page }: DynamicSectionsProps) {
         .filter(s => s.isActive)
         .sort((a, b) => (a.order || 0) - (b.order || 0));
       
-      setSections(sectionsList);
-      setLoading(false);
-
-      // 2. Fetch content for each section
-      fetchContentForSections(sectionsList);
+      if (sectionsList.length === 0) {
+        // Find default sections for this page or default to home fallbacks
+        const fallbacks = FALLBACK_SECTIONS.filter(s => s.page === page || (page !== 'home' && s.page === 'home'));
+        // Remap page field to match the current page
+        const remappedFallbacks = fallbacks.map(f => ({ ...f, page }));
+        setSections(remappedFallbacks);
+        
+        const data: Record<string, SportsContent[]> = {};
+        remappedFallbacks.forEach(section => {
+          // Filter content to match category or type
+          let items = FALLBACK_SPORTS_CONTENT;
+          if (page !== 'home') {
+            items = FALLBACK_SPORTS_CONTENT.filter(item => item.category === page);
+          }
+          
+          if (section.id === 'sec_live') {
+            data[section.id] = items.filter(item => item.status === 'live');
+          } else if (section.id === 'sec_trending') {
+            data[section.id] = items.filter(item => item.type !== 'live');
+          } else {
+            data[section.id] = items.filter(item => section.contentIds.includes(item.id));
+          }
+          
+          // If empty, just give some items
+          if (data[section.id].length === 0) {
+            data[section.id] = items.slice(0, 4);
+          }
+        });
+        setSectionData(data);
+        setLoading(false);
+      } else {
+        setSections(sectionsList);
+        setLoading(false);
+        // 2. Fetch content for each section
+        fetchContentForSections(sectionsList);
+      }
     }, (err) => {
       console.error("[Dynamic] Sections sync error:", err);
+      
+      const fallbacks = FALLBACK_SECTIONS.filter(s => s.page === page || (page !== 'home' && s.page === 'home'));
+      const remappedFallbacks = fallbacks.map(f => ({ ...f, page }));
+      setSections(remappedFallbacks);
+      
+      const data: Record<string, SportsContent[]> = {};
+      remappedFallbacks.forEach(section => {
+        let items = FALLBACK_SPORTS_CONTENT;
+        if (page !== 'home') {
+          items = FALLBACK_SPORTS_CONTENT.filter(item => item.category === page);
+        }
+        
+        if (section.id === 'sec_live') {
+          data[section.id] = items.filter(item => item.status === 'live');
+        } else if (section.id === 'sec_trending') {
+          data[section.id] = items.filter(item => item.type !== 'live');
+        } else {
+          data[section.id] = items.filter(item => section.contentIds.includes(item.id));
+        }
+        
+        if (data[section.id].length === 0) {
+          data[section.id] = items.slice(0, 4);
+        }
+      });
+      setSectionData(data);
       setLoading(false);
+      handleFirestoreError(err, OperationType.GET, 'sections');
     });
 
     const fetchContentForSections = async (list: ContentSection[]) => {
       const data: Record<string, SportsContent[]> = {};
       
-      // Filter out sections that are already loaded if needed, but for real-time we want to ensure freshness
       for (const section of list) {
         if (!section.contentIds || section.contentIds.length === 0) {
           data[section.id] = [];
@@ -61,7 +118,7 @@ export default function DynamicSections({ page }: DynamicSectionsProps) {
           console.warn(`[Dynamic] Error fetching content for section ${section.id}:`, e);
         }
       }
-      setSectionData(data); // Replace entirely to avoid stale leftovers from deleted sections
+      setSectionData(data);
     };
 
     return () => unsubscribeSections();

@@ -99,7 +99,10 @@ function LiveControlCard({
       if (snap.exists()) {
         setLiveItem({ id: snap.id, ...snap.data() } as SportsContent);
       }
-    }, err => console.error("Error syncing live doc:", err));
+    }, err => {
+      console.error("Error syncing live doc:", err);
+      handleFirestoreError(err, OperationType.GET, `content/${item.id}`);
+    });
 
     return () => unsubDoc();
   }, [item.id]);
@@ -126,7 +129,10 @@ function LiveControlCard({
         }
       });
       setCurrentActive(count);
-    }, err => console.error("Error monitoring active viewers:", err));
+    }, err => {
+      console.error("Error monitoring active viewers:", err);
+      handleFirestoreError(err, OperationType.GET, `content/${item.id}/spectators`);
+    });
 
     return () => unsubscribeSpec();
   }, [item.id, liveItem.status]);
@@ -286,7 +292,8 @@ export default function Admin() {
     loop: false,
     showControls: true,
     primaryColor: '#ff0000',
-    playbackRates: [0.5, 1, 1.5, 2]
+    playbackRates: [0.5, 1, 1.5, 2],
+    isGeoBlockNepalEnabled: false
   });
   const [isAdding, setIsAdding] = useState(false);
   const [isAddingSection, setIsAddingSection] = useState(false);
@@ -597,15 +604,24 @@ export default function Admin() {
       // Use onSnapshot for live settings updates
       const unsubConfig = onSnapshot(doc(db, 'settings', 'siteConfig'), (snap) => {
         if (snap.exists()) setSiteConfig(snap.data() as SiteConfig);
-      }, (err) => console.warn("[Admin] Config sync offline:", err.message));
+      }, (err) => {
+        console.warn("[Admin] Config sync offline:", err.message);
+        handleFirestoreError(err, OperationType.GET, 'settings/siteConfig');
+      });
 
       const unsubPromo = onSnapshot(doc(db, 'settings', 'videoPromo'), (snap) => {
         if (snap.exists()) setVideoPromo(prev => ({ ...prev, ...snap.data() }));
-      }, (err) => console.warn("[Admin] Promo sync offline:", err.message));
+      }, (err) => {
+        console.warn("[Admin] Promo sync offline:", err.message);
+        handleFirestoreError(err, OperationType.GET, 'settings/videoPromo');
+      });
 
       const unsubPlayer = onSnapshot(doc(db, 'settings', 'playerConfig'), (snap) => {
         if (snap.exists()) setPlayerConfig(prev => ({ ...prev, ...snap.data() }));
-      }, (err) => console.warn("[Admin] Player sync offline:", err.message));
+      }, (err) => {
+        console.warn("[Admin] Player sync offline:", err.message);
+        handleFirestoreError(err, OperationType.GET, 'settings/playerConfig');
+      });
 
       const unsubPlans = onSnapshot(query(collection(db, 'subscription_plans'), orderBy('order', 'asc')), (snap) => {
         if (!snap.empty) {
@@ -614,7 +630,10 @@ export default function Admin() {
           // If empty, suggest initializing
           console.warn("[Admin] No subscription plans found. Use 'Initialize' if this is a new setup.");
         }
-      }, (err) => console.warn("[Admin] Plans sync offline:", err.message));
+      }, (err) => {
+        console.warn("[Admin] Plans sync offline:", err.message);
+        handleFirestoreError(err, OperationType.GET, 'subscription_plans');
+      });
 
       const unsubMedalists = onSnapshot(collection(db, 'olympic_medalists'), (snap) => {
         if (!snap.empty) {
@@ -635,7 +654,10 @@ export default function Admin() {
         } else {
           setAdminMedalists(INDIAN_MEDALISTS);
         }
-      }, (err) => console.warn("[Admin] Medalists sync offline:", err.message));
+      }, (err) => {
+        console.warn("[Admin] Medalists sync offline:", err.message);
+        handleFirestoreError(err, OperationType.GET, 'olympic_medalists');
+      });
 
       return () => {
         unsubConfig();
@@ -2673,6 +2695,27 @@ export default function Admin() {
                           <div className={cn("absolute top-1 w-3 h-3 rounded-full bg-white transition-all", playerConfig.showControls ? "right-1" : "left-1")} />
                         </button>
                       </div>
+                    </div>
+
+                    <div className="p-4 bg-red-500/5 border border-red-500/20 rounded-xl space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-xs font-black uppercase italic text-red-500">Nepal Geo-Blocking Lock</p>
+                          <p className="text-[10px] text-text-muted font-bold uppercase tracking-widest mt-1">
+                            {playerConfig.isGeoBlockNepalEnabled ? "Locked to Nepal Only" : "Global Access Allowed"}
+                          </p>
+                        </div>
+                        <button 
+                          type="button"
+                          onClick={() => setPlayerConfig({...playerConfig, isGeoBlockNepalEnabled: !playerConfig.isGeoBlockNepalEnabled})}
+                          className={cn("w-14 h-7 rounded-full transition-all relative border border-white/10", playerConfig.isGeoBlockNepalEnabled ? "bg-red-500" : "bg-surface")}
+                        >
+                          <div className={cn("absolute top-1 w-5 h-5 rounded-full bg-white shadow-xl transition-all", playerConfig.isGeoBlockNepalEnabled ? "right-1" : "left-1")} />
+                        </button>
+                      </div>
+                      <p className="text-[9px] text-text-muted italic uppercase leading-tight text-white/55">
+                        When enabled, live streams and normal videos can only be played by users located in Nepal. Users outside of Nepal will see a restriction message.
+                      </p>
                     </div>
 
                     <div className="space-y-2">

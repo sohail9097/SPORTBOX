@@ -99,6 +99,7 @@ export interface PlayerSettings {
   showControls: boolean;
   primaryColor: string;
   playbackRates: number[];
+  isGeoBlockNepalEnabled?: boolean;
 }
 
 export interface SiteConfig {

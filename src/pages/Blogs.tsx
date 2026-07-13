@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { db } from '../lib/firebase';
+import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { collection, query, orderBy, onSnapshot, doc, setDoc, updateDoc, increment } from 'firebase/firestore';
 import { useAuth } from '../hooks/useAuth';
 import { BlogPost } from '../types';
@@ -11,8 +11,10 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
 
-// Curry empty array as we cleared all dummy content
-const MOCK_BLOGS: BlogPost[] = [];
+import { FALLBACK_BLOGS } from '../lib/fallbackData';
+
+// Curry fallback array for high-fidelity content when database is empty/offline
+const MOCK_BLOGS: BlogPost[] = FALLBACK_BLOGS;
 
 // Suggested presets for adding new cover photos in drafting mode
 const SUGGESTED_IMAGES = [
@@ -51,14 +53,17 @@ export default function Blogs() {
     const unsubscribe = onSnapshot(q, async (snapshot) => {
       let items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as BlogPost));
       
-      // No auto seed logic anymore since we cleared all dummy content
-
-      setBlogs(items);
+      if (items.length === 0) {
+        setBlogs(MOCK_BLOGS);
+      } else {
+        setBlogs(items);
+      }
       setLoading(false);
     }, (error) => {
       console.warn("[Blogs] Firestore connection issues. Falling back to memory states:", error);
       setBlogs(MOCK_BLOGS);
       setLoading(false);
+      handleFirestoreError(error, OperationType.GET, 'blogs');
     });
 
     return () => unsubscribe();

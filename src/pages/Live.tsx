@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { db } from '../lib/firebase';
+import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { collection, query, where, onSnapshot, limit } from 'firebase/firestore';
 import { SportsContent } from '../types';
+import { FALLBACK_SPORTS_CONTENT } from '../lib/fallbackData';
 import ContentCard from '../components/ContentCard';
 import { motion, AnimatePresence } from 'motion/react';
 import { Radio, Play, Clock, Calendar, ChevronRight, Bell, BellOff, Volume2 } from 'lucide-react';
@@ -40,11 +41,17 @@ export default function Live() {
         .map(d => ({ id: d.id, ...d.data() } as SportsContent))
         .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
       
-      setContent(items);
+      if (items.length === 0) {
+        setContent(FALLBACK_SPORTS_CONTENT.filter(c => c.type === 'live'));
+      } else {
+        setContent(items);
+      }
       setLoading(false);
     }, (error) => {
       console.error('Error fetching live content:', error);
+      setContent(FALLBACK_SPORTS_CONTENT.filter(c => c.type === 'live'));
       setLoading(false);
+      handleFirestoreError(error, OperationType.GET, 'content');
     });
 
     return () => unsubscribe();

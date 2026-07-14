@@ -1214,12 +1214,18 @@ export default function Admin() {
   const fetchContent = async () => {
     setLoading(true);
     try {
-      const q = query(collection(db, 'content'), orderBy('createdAt', 'desc'));
+      const q = query(collection(db, 'content'));
       const querySnapshot = await getDocs(q);
       const items = querySnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as SportsContent));
+      // Sort in-memory to prevent missing index errors and missing field exclusions
+      items.sort((a, b) => {
+        const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return dateB - dateA;
+      });
       setContent(items);
     } catch (error) {
-      console.error(error);
+      console.error("fetchContent error:", error);
     } finally {
       setLoading(false);
     }
@@ -1228,9 +1234,15 @@ export default function Admin() {
   const fetchBlogs = async () => {
     setBlogsLoading(true);
     try {
-      const q = query(collection(db, 'blogs'), orderBy('createdAt', 'desc'));
+      const q = query(collection(db, 'blogs'));
       const snap = await getDocs(q);
       const items = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as BlogPost));
+      // Sort in-memory to prevent missing index errors and missing field exclusions
+      items.sort((a, b) => {
+        const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return dateB - dateA;
+      });
       setBlogs(items);
     } catch (err) {
       console.error("Error fetching blogs in Admin:", err);

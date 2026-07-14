@@ -48,11 +48,18 @@ export default function Blogs() {
   // Sync blogs from Firestore (with Mock seed fallback)
   useEffect(() => {
     setLoading(true);
-    const q = query(collection(db, 'blogs'), orderBy('createdAt', 'desc'));
+    const q = query(collection(db, 'blogs'));
     
     const unsubscribe = onSnapshot(q, async (snapshot) => {
       let items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as BlogPost));
       
+      // Sort in-memory to prevent missing index errors and missing field exclusions
+      items.sort((a, b) => {
+        const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return dateB - dateA;
+      });
+
       if (items.length === 0) {
         setBlogs(MOCK_BLOGS);
       } else {

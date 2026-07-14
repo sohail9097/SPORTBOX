@@ -145,45 +145,51 @@ export default function Watch() {
       }
     };
 
+    const fetchSpectators = async () => {
+      try {
+        const spectatorsCol = collection(db, 'content', id, 'spectators');
+        const snapshot = await getDocs(spectatorsCol);
+        const now = Date.now();
+        const activeList: { id: string; uid: string | null; name: string }[] = [];
+
+        snapshot.docs.forEach(snapDoc => {
+          const data = snapDoc.data();
+          if (data.lastActive) {
+            const lastActiveTime = new Date(data.lastActive).getTime();
+            // Filter out stale spectators who haven't updated in the last 180 seconds (3 minutes)
+            if (now - lastActiveTime < 180000) {
+              activeList.push({
+                id: snapDoc.id,
+                uid: data.uid || null,
+                name: data.name || 'Anonymous Guest'
+              });
+            }
+          }
+        });
+
+        setSpectatorsList(activeList);
+        setSpectatorsCount(activeList.length);
+      } catch (err) {
+        console.error("[Presence] Error loading spectators:", err);
+        // Fallback: set a professional randomized spectator count if database is exhausted or offline
+        setSpectatorsCount(Math.floor(Math.random() * 80) + 120);
+      }
+    };
+
     // Register active viewer presence immediately
     updatePresence();
+    fetchSpectators();
 
-    // Heartbeat interval to refresh presence document every 12 seconds
-    const intervalId = setInterval(updatePresence, 12000);
+    // Heartbeat interval to refresh presence document every 90 seconds (extremely light-weight)
+    const heartbeatInterval = setInterval(updatePresence, 90000);
 
-    // Live Snapshot Listener to sync active spectators in immediate real-time
-    const spectatorsCol = collection(db, 'content', id, 'spectators');
-    const unsubscribeSpectators = onSnapshot(spectatorsCol, (snapshot) => {
-      const now = Date.now();
-      const activeList: { id: string; uid: string | null; name: string }[] = [];
-
-      snapshot.docs.forEach(snapDoc => {
-        const data = snapDoc.data();
-        if (data.lastActive) {
-          const lastActiveTime = new Date(data.lastActive).getTime();
-          // Filter out stale spectators who haven't updated in the last 30 seconds
-          if (now - lastActiveTime < 30000) {
-            activeList.push({
-              id: snapDoc.id,
-              uid: data.uid || null,
-              name: data.name || 'Anonymous Guest'
-            });
-          }
-        }
-      });
-
-      setSpectatorsList(activeList);
-      setSpectatorsCount(activeList.length);
-    }, (error) => {
-      console.error("[Presence] Error watching spectators:", error);
-      // Fallback: set a professional randomized spectator count if database is exhausted or offline
-      setSpectatorsCount(Math.floor(Math.random() * 80) + 120);
-    });
+    // Fetch spectators on a relaxed 60-second interval (linear reads instead of quadratic onSnapshot)
+    const fetchInterval = setInterval(fetchSpectators, 60000);
 
     // Clean up presence on unmount, tab close or channel change
     const cleanupPresence = () => {
-      clearInterval(intervalId);
-      unsubscribeSpectators();
+      clearInterval(heartbeatInterval);
+      clearInterval(fetchInterval);
       deleteDoc(spectatorRef).catch(() => {});
     };
 

@@ -176,13 +176,16 @@ export default function Plans() {
 
   useEffect(() => {
     fetchPlans();
+  }, []);
+
+  useEffect(() => {
     if (profile?.mobileNumber) {
       setMobileNumber(profile.mobileNumber);
     }
     if (profile?.displayName) {
       setDisplayName(profile.displayName);
     }
-  }, [profile]);
+  }, [profile?.mobileNumber, profile?.displayName]);
 
   const fetchPlans = async () => {
     try {

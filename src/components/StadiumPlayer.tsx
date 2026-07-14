@@ -204,6 +204,31 @@ export default function StadiumPlayer({ url, poster, isLive, useIframe: initialU
     url.trim().startsWith('<iframe') ||
     url.trim().startsWith('<');
 
+  if (hasError && !useIframe) {
+    return (
+      <div className="relative w-full aspect-video bg-[#0c0d12] border border-white/5 rounded-xl flex flex-col items-center justify-center p-8 text-center space-y-4 shadow-2xl">
+        <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center border border-red-500/10">
+          <Radio className="w-8 h-8 text-red-500 animate-pulse" />
+        </div>
+        <div className="space-y-1">
+          <h4 className="text-white font-extrabold text-sm uppercase tracking-wider">Stream Broadcast Format Alert</h4>
+          <p className="text-text-muted text-[11px] max-w-sm leading-relaxed uppercase tracking-wider">
+            This stream is currently using an external format or the server has gone off-air.
+          </p>
+        </div>
+        <button 
+          onClick={() => {
+            setUseIframe(true);
+            setHasError(false);
+          }}
+          className="px-6 py-2.5 bg-brand hover:bg-brand/90 text-white text-[10px] font-black uppercase tracking-widest rounded-lg transition-all transform active:scale-95 shadow-lg shadow-brand/20"
+        >
+          Activate Alternative Web Player
+        </button>
+      </div>
+    );
+  }
+
   if ((isGDrive && driveId) || isIframeUrl) {
     const iframeSrc = isGDrive ? `https://drive.google.com/file/d/${driveId}/preview` : sanitizeVideoUrlOrIframe(getEmbedUrl(url));
     if (!iframeSrc) return null;

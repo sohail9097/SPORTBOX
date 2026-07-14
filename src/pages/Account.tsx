@@ -54,7 +54,7 @@ export default function Account() {
     };
 
     fetchWatchLater();
-  }, [profile?.watchLater]);
+  }, [profile?.watchLater?.join(',')]);
 
   useEffect(() => {
     const fetchRecent = async () => {
@@ -83,7 +83,7 @@ export default function Account() {
     };
 
     fetchRecent();
-  }, [profile?.recentlyWatched]);
+  }, [profile?.recentlyWatched?.join(',')]);
 
   const handleUpdateProfile = async () => {
     // Basic validation

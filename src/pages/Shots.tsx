@@ -220,7 +220,7 @@ export default function Shots() {
 
   useEffect(() => {
     fetchShorts();
-  }, [user]);
+  }, [user?.uid]);
 
   // Detect mobile viewports
   useEffect(() => {

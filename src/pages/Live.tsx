@@ -41,15 +41,11 @@ export default function Live() {
         .map(d => ({ id: d.id, ...d.data() } as SportsContent))
         .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
       
-      if (items.length === 0) {
-        setContent(FALLBACK_SPORTS_CONTENT.filter(c => c.type === 'live'));
-      } else {
-        setContent(items);
-      }
+      setContent(items);
       setLoading(false);
     }, (error) => {
       console.error('Error fetching live content:', error);
-      setContent(FALLBACK_SPORTS_CONTENT.filter(c => c.type === 'live'));
+      setContent([]);
       setLoading(false);
       handleFirestoreError(error, OperationType.GET, 'content');
     });

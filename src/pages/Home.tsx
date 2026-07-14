@@ -46,15 +46,11 @@ export default function Home() {
         .filter(item => item.status === 'live')
         .slice(0, 6);
       
-      if (liveItems.length === 0) {
-        setLiveNow(FALLBACK_SPORTS_CONTENT.filter(item => item.status === 'live').slice(0, 6));
-      } else {
-        setLiveNow(liveItems);
-      }
+      setLiveNow(liveItems);
       setLoading(false);
     }, (err) => {
       console.error("[Home] Live sync error:", err);
-      setLiveNow(FALLBACK_SPORTS_CONTENT.filter(item => item.status === 'live').slice(0, 6));
+      setLiveNow([]);
       setLoading(false);
       handleFirestoreError(err, OperationType.GET, 'content');
     });

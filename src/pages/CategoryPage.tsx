@@ -69,14 +69,10 @@ export default function CategoryPage() {
         .filter(item => item.status === 'live')
         .slice(0, 4);
       
-      if (items.length === 0) {
-        setLiveNow(FALLBACK_SPORTS_CONTENT.filter(item => item.category === category && item.status === 'live').slice(0, 4));
-      } else {
-        setLiveNow(items);
-      }
+      setLiveNow(items);
     }, (err) => {
       console.warn("Live category sync offline:", err.message);
-      setLiveNow(FALLBACK_SPORTS_CONTENT.filter(item => item.category === category && item.status === 'live').slice(0, 4));
+      setLiveNow([]);
       handleFirestoreError(err, OperationType.GET, 'content');
     });
 

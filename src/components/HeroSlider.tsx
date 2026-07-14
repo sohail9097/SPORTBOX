@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { collection, query, where, orderBy, getDocs, onSnapshot, limit } from 'firebase/firestore';
+import { collection, query, where, getDocs, limit } from 'firebase/firestore';
 import { SliderElement, Category } from '../types';
 import { FALLBACK_SLIDER_ITEMS } from '../lib/fallbackData';
 import { motion, AnimatePresence } from 'motion/react';
@@ -17,7 +17,7 @@ interface HeroSliderProps {
 
 export default function HeroSlider({ page = 'home' }: HeroSliderProps) {
   const navigate = useNavigate();
-  const [slides, setSlides] = useState<SliderElement[]>([]);
+  const [allActiveSlides, setAllActiveSlides] = useState<SliderElement[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [videoModal, setVideoModal] = useState<string | null>(null);
@@ -25,35 +25,45 @@ export default function HeroSlider({ page = 'home' }: HeroSliderProps) {
   const autoPlayRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    // Faster fetching with onSnapshot
-    setLoading(true);
-    const q = query(
-      collection(db, 'slider'),
-      where('isActive', '==', true),
-      limit(20)
-    );
-
-    const unsubscribe = onSnapshot(q, (snap) => {
-      const items = snap.docs
-        .map(doc => ({ ...doc.data(), id: doc.id } as SliderElement))
-        .filter(slide => (slide.page || 'home') === page)
-        .sort((a, b) => (a.order || 0) - (b.order || 0));
-      
-      if (items.length === 0) {
-        setSlides(FALLBACK_SLIDER_ITEMS.filter(slide => (slide.page || 'home') === page));
-      } else {
-        setSlides(items);
+    let isMounted = true;
+    const fetchAllSlidesOnce = async () => {
+      setLoading(true);
+      try {
+        const q = query(
+          collection(db, 'slider'),
+          where('isActive', '==', true),
+          limit(20)
+        );
+        const snap = await getDocs(q);
+        if (!isMounted) return;
+        const items = snap.docs.map(doc => ({ ...doc.data(), id: doc.id } as SliderElement));
+        setAllActiveSlides(items);
+      } catch (error) {
+        console.error('Slider fetch error:', error);
+        handleFirestoreError(error, OperationType.GET, 'slider');
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
       }
-      setLoading(false);
-    }, (error) => {
-      console.error('Slider sync error:', error);
-      setSlides(FALLBACK_SLIDER_ITEMS.filter(slide => (slide.page || 'home') === page));
-      setLoading(false);
-      handleFirestoreError(error, OperationType.GET, 'slider');
-    });
+    };
 
-    return () => unsubscribe();
-  }, [page]);
+    fetchAllSlidesOnce();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const slides = useMemo(() => {
+    const filtered = allActiveSlides
+      .filter(slide => (slide.page || 'home') === page)
+      .sort((a, b) => (a.order || 0) - (b.order || 0));
+    
+    if (!loading && filtered.length === 0) {
+      return FALLBACK_SLIDER_ITEMS.filter(slide => (slide.page || 'home') === page);
+    }
+    return filtered;
+  }, [allActiveSlides, page, loading]);
 
   const nextSlide = () => {
     setCurrentIndex((prev) => (prev + 1) % slides.length);

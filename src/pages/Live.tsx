@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { collection, query, where, onSnapshot, limit } from 'firebase/firestore';
+import { collection, query, where, getDocs, limit } from 'firebase/firestore';
 import { SportsContent } from '../types';
 import { FALLBACK_SPORTS_CONTENT } from '../lib/fallbackData';
 import ContentCard from '../components/ContentCard';
@@ -19,6 +19,9 @@ export default function Live() {
   const [activeBannerIndex, setActiveBannerIndex] = useState(0);
   const [reminders, setReminders] = useState<{ [id: string]: boolean }>({});
 
+  const [bannerMatchData, setBannerMatchData] = useState<SportsContent | null>(null);
+  const [bannerImageSrc, setBannerImageSrc] = useState<string>('');
+
   useEffect(() => {
     // Sync reminders from localStorage
     const saved = localStorage.getItem('sportsbox_match_reminders');
@@ -30,27 +33,30 @@ export default function Live() {
       }
     }
 
-    const q = query(
-      collection(db, 'content'),
-      where('type', '==', 'live'),
-      limit(100)
-    );
-    
-    const unsubscribe = onSnapshot(q, (snap) => {
-      const items = snap.docs
-        .map(d => ({ id: d.id, ...d.data() } as SportsContent))
-        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-      
-      setContent(items);
-      setLoading(false);
-    }, (error) => {
-      console.error('Error fetching live content:', error);
-      setContent([]);
-      setLoading(false);
-      handleFirestoreError(error, OperationType.GET, 'content');
-    });
+    const fetchLiveContentOnce = async () => {
+      setLoading(true);
+      try {
+        const q = query(
+          collection(db, 'content'),
+          where('type', '==', 'live'),
+          limit(100)
+        );
+        const snap = await getDocs(q);
+        const items = snap.docs
+          .map(d => ({ id: d.id, ...d.data() } as SportsContent))
+          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        
+        setContent(items);
+      } catch (error) {
+        console.error('Error fetching live content:', error);
+        setContent([]);
+        handleFirestoreError(error, OperationType.GET, 'content');
+      } finally {
+        setLoading(false);
+      }
+    };
 
-    return () => unsubscribe();
+    fetchLiveContentOnce();
   }, []);
 
   const toggleReminder = (matchId: string, eventTitle: string) => {
@@ -79,7 +85,21 @@ export default function Live() {
   // Fallback to currently live matches if there are no upcoming ones.
   const bannerItems = upcomingMatches.length > 0 ? upcomingMatches : liveMatches;
 
-  const currentBannerMatch = bannerItems[activeBannerIndex];
+  useEffect(() => {
+    if (bannerItems.length > 0) {
+      const match = bannerItems[activeBannerIndex];
+      setBannerMatchData(match);
+      if (match) {
+        const src = match.thumbnailUrl && match.thumbnailUrl.trim() !== ''
+          ? match.thumbnailUrl
+          : getVideoAutoThumbnail(match.videoUrl || '', match.category);
+        setBannerImageSrc(src || '');
+      }
+    } else {
+      setBannerMatchData(null);
+      setBannerImageSrc('');
+    }
+  }, [content, activeBannerIndex]);
 
   // Auto cycle banner items if there are multiple
   useEffect(() => {
@@ -128,7 +148,7 @@ export default function Live() {
         </header>
 
         {/* Dynamic Premium Upcoming / Featured Live Banner */}
-        {bannerItems.length > 0 && currentBannerMatch && (
+        {bannerItems.length > 0 && bannerMatchData && (
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
@@ -137,16 +157,11 @@ export default function Live() {
           >
             {/* Visual Background Poster / Video Thumbnail with high-contrast darkening */}
             <div className="absolute inset-0 z-0">
-              {(() => {
-                const thumb = currentBannerMatch.thumbnailUrl && currentBannerMatch.thumbnailUrl.trim() !== ''
-                  ? currentBannerMatch.thumbnailUrl
-                  : getVideoAutoThumbnail(currentBannerMatch.videoUrl || '', currentBannerMatch.category);
-                return thumb ? (
-                  <img src={thumb} className="w-full h-full object-cover filter brightness-40 contrast-125 object-center animate-fade-in" alt="" />
-                ) : (
-                  <div className="w-full h-full bg-gradient-to-br from-surface to-bg" />
-                );
-              })()}
+              {bannerImageSrc ? (
+                <img src={bannerImageSrc} className="w-full h-full object-cover filter brightness-40 contrast-125 object-center animate-fade-in" alt="" />
+              ) : (
+                <div className="w-full h-full bg-gradient-to-br from-surface to-bg" />
+              )}
               {/* Radial gradient to focus center */}
               <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(0,0,0,0.1)_0%,rgba(0,0,0,0.8)_80%)]" />
               <div className="absolute inset-0 bg-gradient-to-t from-bg via-bg/20 to-transparent" />
@@ -156,9 +171,9 @@ export default function Live() {
             <div className="relative z-10 max-w-3xl space-y-4 text-left w-full">
               <div className="flex flex-wrap items-center gap-3">
                 <span className="px-3 py-1 bg-white/10 backdrop-blur-md rounded-full text-[10px] font-black uppercase tracking-widest border border-white/10 flex items-center gap-1.5 text-white">
-                  {currentBannerMatch.category}
+                  {bannerMatchData.category}
                 </span>
-                {currentBannerMatch.status === 'live' ? (
+                {bannerMatchData.status === 'live' ? (
                   <span className="px-3 py-1 bg-red-600 text-white font-bold rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 animate-pulse shadow-md">
                     <Radio className="w-3 h-3" />
                     Live Now
@@ -169,7 +184,7 @@ export default function Live() {
                     Upcoming Live
                   </span>
                 )}
-                {currentBannerMatch.isPremium && !isSubscribed && (
+                {bannerMatchData.isPremium && !isSubscribed && (
                   <span className="px-3 py-1 bg-amber-500 text-black font-black rounded-full text-[10px] uppercase tracking-widest">
                     Premium Pass
                   </span>
@@ -177,21 +192,21 @@ export default function Live() {
               </div>
 
               <h2 className="text-3xl md:text-6xl font-black uppercase italic tracking-tighter leading-none text-white drop-shadow-md">
-                {currentBannerMatch.title}
+                {bannerMatchData.title}
               </h2>
 
               <p className="text-text-muted text-xs md:text-base font-medium max-w-xl line-clamp-2 uppercase tracking-wide drop-shadow-sm leading-relaxed">
-                {currentBannerMatch.description || "The ultimate test of precision and endurance live from the arena limits."}
+                {bannerMatchData.description || "The ultimate test of precision and endurance live from the arena limits."}
               </p>
 
               {/* Banner Event Timing / Status Details */}
               <div className="flex flex-wrap items-center gap-4 py-2">
-                {currentBannerMatch.scheduledTime ? (
+                {bannerMatchData.scheduledTime ? (
                   <div className="flex items-center gap-2 bg-white/5 backdrop-blur-md px-4 py-2.5 rounded-xl border border-white/5">
                     <Calendar className="w-4 h-4 text-yellow-500" />
                     <div>
                       <p className="text-[8px] font-black uppercase tracking-[0.2em] text-text-muted">Broadcast Date</p>
-                      <p className="text-xs font-black uppercase text-yellow-500">{currentBannerMatch.scheduledTime}</p>
+                      <p className="text-xs font-black uppercase text-yellow-500">{bannerMatchData.scheduledTime}</p>
                     </div>
                   </div>
                 ) : (
@@ -205,7 +220,7 @@ export default function Live() {
                 )}
 
                 {/* Active/Scheduled Indicators */}
-                {currentBannerMatch.status !== 'live' && (
+                {bannerMatchData.status !== 'live' && (
                   <div className="flex items-center gap-2 bg-white/5 backdrop-blur-md px-4 py-2.5 rounded-xl border border-white/5">
                     <Bell className="w-4 h-4 text-brand" />
                     <div>
@@ -218,9 +233,9 @@ export default function Live() {
 
               {/* Banner Interactions */}
               <div className="flex flex-wrap gap-3 pt-2">
-                {currentBannerMatch.status === 'live' ? (
+                {bannerMatchData.status === 'live' ? (
                   <a 
-                    href={`/watch/${currentBannerMatch.id}`} 
+                    href={`/watch/${bannerMatchData.id}`} 
                     className="px-8 py-4 bg-red-600 hover:bg-red-500 text-white rounded-lg font-black uppercase tracking-widest text-xs flex items-center gap-2 shrink-0 transition-all shadow-lg hover:shadow-red-600/20 active:scale-95"
                   >
                     <Play className="w-4 h-4 text-white fill-white" />
@@ -228,15 +243,15 @@ export default function Live() {
                   </a>
                 ) : (
                   <button 
-                    onClick={() => toggleReminder(currentBannerMatch.id, currentBannerMatch.title)}
+                    onClick={() => toggleReminder(bannerMatchData.id, bannerMatchData.title)}
                     className={cn(
                       "px-8 py-4 rounded-lg font-black uppercase tracking-widest text-xs flex items-center gap-2 shrink-0 transition-all shadow-lg active:scale-95",
-                      reminders[currentBannerMatch.id] 
+                      reminders[bannerMatchData.id] 
                         ? "bg-slate-800 text-green-400 hover:bg-slate-700 hover:text-green-300 border border-green-500/20" 
                         : "bg-yellow-500 hover:bg-yellow-400 text-black shadow-yellow-500/10"
                     )}
                   >
-                    {reminders[currentBannerMatch.id] ? (
+                    {reminders[bannerMatchData.id] ? (
                       <>
                         <BellOff className="w-4 h-4" />
                         Reminder Saved
@@ -250,7 +265,7 @@ export default function Live() {
                   </button>
                 )}
                 <a 
-                  href={`/watch/${currentBannerMatch.id}`}
+                  href={`/watch/${bannerMatchData.id}`}
                   className="px-6 py-4 bg-white/5 hover:bg-white/10 text-white border border-white/10 hover:border-white/20 rounded-lg font-black uppercase tracking-widest text-xs flex items-center justify-center transition-all active:scale-95"
                 >
                   Event Details

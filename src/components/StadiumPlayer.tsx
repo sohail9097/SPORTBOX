@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import videojs from 'video.js';
 import 'video.js/dist/video-js.css';
 import { Play, Pause, RotateCcw, RotateCw, Volume2, VolumeX, Maximize, Settings, FastForward, Radio } from 'lucide-react';
-import { cn, sanitizeVideoUrlOrIframe } from '../lib/utils';
+import { cn, sanitizeVideoUrlOrIframe, getEmbedUrl } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { db } from '../lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
@@ -190,10 +190,22 @@ export default function StadiumPlayer({ url, poster, isLive, useIframe: initialU
 
   const isGDrive = url.includes('drive.google.com') || url.includes('id=');
   const driveId = url.match(/[?&]id=([a-zA-Z0-9_-]+)/)?.[1] || url.match(/\/d\/([a-zA-Z0-9_-]+)/)?.[1];
-  const isIframeUrl = url.includes('cloudflarestream.com') || url.endsWith('/iframe') || useIframe;
+  const isIframeUrl = 
+    url.includes('cloudflarestream.com') || 
+    url.endsWith('/iframe') || 
+    useIframe ||
+    url.includes('youtube.com') ||
+    url.includes('youtu.be') ||
+    url.includes('youtube-nocookie.com') ||
+    url.includes('vimeo.com') ||
+    url.includes('twitch.tv') ||
+    url.includes('facebook.com/plugins/video.php') ||
+    url.includes('iframe.dacast.com') ||
+    url.trim().startsWith('<iframe') ||
+    url.trim().startsWith('<');
 
   if ((isGDrive && driveId) || isIframeUrl) {
-    const iframeSrc = isGDrive ? `https://drive.google.com/file/d/${driveId}/preview` : sanitizeVideoUrlOrIframe(url);
+    const iframeSrc = isGDrive ? `https://drive.google.com/file/d/${driveId}/preview` : sanitizeVideoUrlOrIframe(getEmbedUrl(url));
     if (!iframeSrc) return null;
     return (
       <div className="relative w-full aspect-video bg-black group rounded-xl overflow-hidden border border-white/10 shadow-2xl">

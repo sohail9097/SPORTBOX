@@ -158,3 +158,60 @@ export function sanitizeVideoUrlOrIframe(input: string): string {
 
   return cleanUrl(input);
 }
+
+export function getEmbedUrl(url: string): string {
+  if (!url) return '';
+  const target = url.trim();
+
+  // If it's already an iframe string
+  if (target.startsWith('<iframe') || target.startsWith('<')) {
+    const match = target.match(/src=["']([^"']+)["']/i);
+    if (match) return match[1];
+    return url;
+  }
+
+  // 1. YouTube
+  if (target.includes('youtube.com') || target.includes('youtu.be') || target.includes('youtube-nocookie.com')) {
+    let youtubeId = '';
+    if (target.includes('youtube.com/embed/')) {
+      const parts = target.split('/embed/');
+      if (parts[1]) youtubeId = parts[1].split(/[?#&]/)[0];
+    } else if (target.includes('youtube-nocookie.com/embed/')) {
+      const parts = target.split('/embed/');
+      if (parts[1]) youtubeId = parts[1].split(/[?#&]/)[0];
+    } else if (target.includes('youtube.com/watch')) {
+      const match = target.match(/[?&]v=([^&#]+)/);
+      if (match) youtubeId = match[1];
+    } else if (target.includes('youtu.be/')) {
+      const parts = target.split('youtu.be/');
+      if (parts[1]) youtubeId = parts[1].split(/[?#&]/)[0];
+    }
+    if (youtubeId) {
+      return `https://www.youtube.com/embed/${youtubeId}?autoplay=1&rel=0&mute=1`;
+    }
+  }
+
+  // 2. Vimeo
+  if (target.includes('vimeo.com')) {
+    if (target.includes('player.vimeo.com/video/')) {
+      return target;
+    }
+    const match = target.match(/vimeo\.com\/([0-9]+)/);
+    if (match) {
+      return `https://player.vimeo.com/video/${match[1]}?autoplay=1&muted=1`;
+    }
+  }
+
+  // 3. Twitch
+  if (target.includes('twitch.tv')) {
+    if (!target.includes('player.twitch.tv')) {
+      const match = target.match(/twitch\.fr\/([^/]+)/) || target.match(/twitch\.tv\/([^/]+)/);
+      if (match && match[1] && !match[1].startsWith('directory') && !match[1].startsWith('videos')) {
+        const parent = window.location.hostname || 'localhost';
+        return `https://player.twitch.tv/?channel=${match[1]}&parent=${parent}&autoplay=true&muted=true`;
+      }
+    }
+  }
+
+  return url;
+}

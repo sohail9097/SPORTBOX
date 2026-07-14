@@ -7,7 +7,7 @@ import { FALLBACK_SPORTS_CONTENT, FALLBACK_PLAYER_CONFIG } from '../lib/fallback
 import { useAuth } from '../hooks/useAuth';
 import { Play, Share2, Heart, MessageSquare, Crown, Info, ChevronRight, Activity, PlusCircle, CheckCircle2, Lock, Globe } from 'lucide-react';
 import { motion } from 'motion/react';
-import { cn, formatDate, transformGDriveUrl, getVideoAutoThumbnail, sanitizeVideoUrlOrIframe } from '../lib/utils';
+import { cn, formatDate, transformGDriveUrl, getVideoAutoThumbnail, sanitizeVideoUrlOrIframe, getEmbedUrl } from '../lib/utils';
 import StadiumPlayer from '../components/StadiumPlayer';
 import ReactMarkdown from 'react-markdown';
 import { toast } from 'sonner';
@@ -583,12 +583,17 @@ export default function Watch() {
     const iframeProviders = [
       'iframe.dacast.com', 
       'player.vimeo.com', 
+      'vimeo.com',
       'facebook.com/plugins/video.php', 
       'twitch.tv/embed',
+      'twitch.tv',
       'cloudflarestream.com',
+      'youtube.com',
+      'youtu.be',
+      'youtube-nocookie.com',
       '/iframe'
     ];
-    return iframeProviders.some(p => url.includes(p));
+    return iframeProviders.some(p => url.includes(p)) || url.trim().startsWith('<iframe') || url.trim().startsWith('<');
   };
 
   return (
@@ -755,7 +760,7 @@ export default function Watch() {
                       <div className="w-full h-full flex items-center justify-center p-0" dangerouslySetInnerHTML={{ __html: sanitizeVideoUrlOrIframe(content.videoUrl).replace('<iframe', '<iframe style="width:100%;height:100%;border:0;position:absolute;top:0;left:0;"') }} />
                     ) : isIframeUrl(content.videoUrl) ? (
                       <iframe
-                        src={sanitizeVideoUrlOrIframe(`${content.videoUrl}${content.videoUrl.includes('?') ? '&' : '?'}autoplay=1`)}
+                        src={sanitizeVideoUrlOrIframe(getEmbedUrl(content.videoUrl))}
                         className="w-full h-full border-0 absolute inset-0"
                         allowFullScreen
                         allow="autoplay; encrypted-media; picture-in-picture"

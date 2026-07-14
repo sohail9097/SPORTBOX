@@ -8,7 +8,9 @@ import {
   persistentLocalCache,
   disableNetwork,
   enableNetwork,
-  setLogLevel
+  setLogLevel,
+  terminate,
+  clearIndexedDbPersistence
 } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import firebaseConfig from '../../firebase-applet-config.json';
@@ -221,5 +223,45 @@ export function isDbOffline() {
     return sessionStorage.getItem('firestore_quota_exhausted') === 'true';
   } catch (_) {
     return false;
+  }
+}
+
+export async function clearOfflineCache() {
+  try {
+    sessionStorage.removeItem('firestore_quota_exhausted');
+    localStorage.removeItem('firestore_quota_exhausted');
+    if (db) {
+      await terminate(db);
+      await clearIndexedDbPersistence(db);
+    }
+    toast.success("Local offline cache cleared successfully! Reloading page...");
+    setTimeout(() => {
+      window.location.reload();
+    }, 1500);
+    return true;
+  } catch (e: any) {
+    console.error("[Firebase] Failed to clear offline cache:", e);
+    toast.error(`Failed to clear cache: ${e.message}`);
+    return false;
+  }
+}
+
+export async function withTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number = 7000,
+  errorMsg: string = "Operation timed out. The database is currently unresponsive (this usually happens if the daily free-tier quota has been reached)."
+): Promise<T> {
+  let timeoutId: any;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => {
+      reject(new Error(errorMsg));
+    }, timeoutMs);
+  });
+
+  try {
+    const result = await Promise.race([promise, timeoutPromise]);
+    return result;
+  } finally {
+    clearTimeout(timeoutId);
   }
 }

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { db, handleFirestoreError, OperationType, auth, isDbOffline, forceGoOnline } from '../lib/firebase';
+import { db, handleFirestoreError, OperationType, auth, isDbOffline, forceGoOnline, clearOfflineCache, withTimeout } from '../lib/firebase';
 import { collection, addDoc, getDocs, getDoc, deleteDoc, doc, updateDoc, query, orderBy, setDoc, onSnapshot } from 'firebase/firestore';
 import { SportsContent, Category, ContentType, ContentSection, SliderElement, VideoPromoSettings, SiteConfig, PlayerSettings, SubscriptionPlan, BlogPost } from '../types';
 import { Plus, Trash2, Edit2, Play, LayoutDashboard, Film, Users, Settings, Save, X, Eye, Radio, Crown, Layers, MoveUp, MoveDown, CheckSquare, Square, Image as ImageIcon, Upload, Library, ShieldCheck, ShieldAlert, Zap, Percent, Trophy, ChevronRight, Activity, Heart, Dribbble, CircleDot, Target, Disc, Flag, Gamepad2, Folder, ChevronLeft, BookOpen, Scissors, Waves, Flame, Compass, Award, Sparkles, Wand2, Clock, BarChart2 } from 'lucide-react';
@@ -1542,17 +1542,32 @@ export default function Admin() {
     
     const toastId = toast.loading("Deleting content...");
     setLoading(true);
+    
+    // Save current content for a potential rollback
+    const previousContent = [...content];
+    // Optimistically filter the item out of the list so it disappears instantly
+    setContent(prev => prev.filter(item => item.id !== id));
+    
     try {
-      await deleteDoc(doc(db, 'content', id));
-      await fetchContent();
+      await withTimeout(deleteDoc(doc(db, 'content', id)));
       toast.success("Content removed successfully from library.", { id: toastId });
     } catch (error) {
       console.error("Delete error:", error);
-      toast.error("Failed to delete content. Check your permissions.", { id: toastId });
+      const errMessage = error instanceof Error ? error.message : String(error);
+      const isQuota = errMessage.toLowerCase().includes('quota') || 
+                      errMessage.toLowerCase().includes('exhausted') || 
+                      errMessage.toLowerCase().includes('timeout') ||
+                      errMessage.toLowerCase().includes('unresponsive');
+      
+      if (isQuota) {
+        toast.info("Database offline. Deletion saved locally in browser cache and will sync once online.", { id: toastId });
+      } else {
+        toast.error("Failed to delete content. Reverting view...", { id: toastId });
+        setContent(previousContent);
+      }
       handleFirestoreError(error, OperationType.DELETE, `content/${id}`);
+      setDbIsOffline(isDbOffline());
     } finally {
-      setLoading(true); // Keep loading state until fetch finishes
-      await fetchContent();
       setLoading(false);
     }
   };
@@ -1787,21 +1802,33 @@ export default function Admin() {
                       <span className="text-[9px] text-amber-500 font-bold max-w-[240px] leading-tight">
                         Database write/read quota reached. Deletions are saved locally in browser cache and won't sync to Google AI Studio until you reconnect.
                       </span>
-                      <button
-                        onClick={async () => {
-                          setIsSyncing(true);
-                          const success = await forceGoOnline();
-                          if (success) {
-                            setDbIsOffline(false);
-                            await fetchContent();
-                          }
-                          setIsSyncing(false);
-                        }}
-                        disabled={isSyncing}
-                        className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-black text-[9px] font-black uppercase tracking-wider rounded-xl transition-all active:scale-95 disabled:opacity-50"
-                      >
-                        {isSyncing ? "Syncing..." : "Sync & Go Online"}
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={async () => {
+                            setIsSyncing(true);
+                            const success = await forceGoOnline();
+                            if (success) {
+                              setDbIsOffline(false);
+                              await fetchContent();
+                            }
+                            setIsSyncing(false);
+                          }}
+                          disabled={isSyncing}
+                          className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-black text-[9px] font-black uppercase tracking-wider rounded-xl transition-all active:scale-95 disabled:opacity-50"
+                        >
+                          {isSyncing ? "Syncing..." : "Sync & Go Online"}
+                        </button>
+                        <button
+                          onClick={async () => {
+                            if (window.confirm("Are you sure you want to clear your browser's offline database cache? This will reset your local view and re-pull from the cloud server.")) {
+                              await clearOfflineCache();
+                            }
+                          }}
+                          className="px-4 py-2 bg-red-600/20 hover:bg-red-600 text-red-500 hover:text-white text-[9px] font-black uppercase tracking-wider rounded-xl transition-all active:scale-95 border border-red-500/20"
+                        >
+                          Clear Offline Cache
+                        </button>
+                      </div>
                     </div>
                   )}
 

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { db, handleFirestoreError, OperationType, auth } from '../lib/firebase';
+import { db, handleFirestoreError, OperationType, auth, isDbOffline, forceGoOnline } from '../lib/firebase';
 import { collection, addDoc, getDocs, getDoc, deleteDoc, doc, updateDoc, query, orderBy, setDoc, onSnapshot } from 'firebase/firestore';
 import { SportsContent, Category, ContentType, ContentSection, SliderElement, VideoPromoSettings, SiteConfig, PlayerSettings, SubscriptionPlan, BlogPost } from '../types';
 import { Plus, Trash2, Edit2, Play, LayoutDashboard, Film, Users, Settings, Save, X, Eye, Radio, Crown, Layers, MoveUp, MoveDown, CheckSquare, Square, Image as ImageIcon, Upload, Library, ShieldCheck, ShieldAlert, Zap, Percent, Trophy, ChevronRight, Activity, Heart, Dribbble, CircleDot, Target, Disc, Flag, Gamepad2, Folder, ChevronLeft, BookOpen, Scissors, Waves, Flame, Compass, Award, Sparkles, Wand2, Clock, BarChart2 } from 'lucide-react';
@@ -207,6 +207,8 @@ function LiveControlCard({
 export default function Admin() {
   const { user, isAdmin, loading: authLoading } = useAuth();
   const navigate = useNavigate();
+  const [dbIsOffline, setDbIsOffline] = useState(isDbOffline());
+  const [isSyncing, setIsSyncing] = useState(false);
   const [activeTab, setActiveTab] = useState<'analytics' | 'dashboard' | 'content' | 'live' | 'sections' | 'categories' | 'slider' | 'users' | 'settings' | 'media' | 'plans' | 'trending' | 'likes' | 'domain_setup' | 'shots' | 'blogs' | 'olympics'>('analytics');
 
   // Olympic Medalists state for Admin
@@ -1764,16 +1766,45 @@ export default function Admin() {
                   {isResetting ? "Wiping..." : "Full System Reset (Clear All Data)"}
                 </button>
 
-                <div className="flex-grow glass-card px-6 py-3 border border-white/5 bg-white/5 rounded-2xl flex items-center justify-between">
+                <div className="flex-grow glass-card px-6 py-4 border border-white/5 bg-white/5 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4">
                   <div className="flex items-center gap-4">
-                    <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                    <div className={cn(
+                      "w-2.5 h-2.5 rounded-full animate-pulse",
+                      dbIsOffline ? "bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.5)]" : "bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]"
+                    )} />
                     <div>
-                      <p className="text-[8px] font-black uppercase text-text-muted">Connected Project / DB</p>
-                      <p className="text-[10px] font-mono text-white/60 truncate max-w-[200px]">
+                      <p className="text-[8px] font-black uppercase text-text-muted">
+                        Database Connection: {dbIsOffline ? "Offline Cache Mode" : "Online & Synced"}
+                      </p>
+                      <p className="text-[10px] font-mono text-white/60 truncate max-w-[240px]">
                         {(db as any)._databaseId?.projectId || 'SportsBox-1'} | {(db as any)._databaseId?.databaseId || '(default)'}
                       </p>
                     </div>
                   </div>
+
+                  {dbIsOffline && (
+                    <div className="flex items-center gap-3">
+                      <span className="text-[9px] text-amber-500 font-bold max-w-[240px] leading-tight">
+                        Database write/read quota reached. Deletions are saved locally in browser cache and won't sync to Google AI Studio until you reconnect.
+                      </span>
+                      <button
+                        onClick={async () => {
+                          setIsSyncing(true);
+                          const success = await forceGoOnline();
+                          if (success) {
+                            setDbIsOffline(false);
+                            await fetchContent();
+                          }
+                          setIsSyncing(false);
+                        }}
+                        disabled={isSyncing}
+                        className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-black text-[9px] font-black uppercase tracking-wider rounded-xl transition-all active:scale-95 disabled:opacity-50"
+                      >
+                        {isSyncing ? "Syncing..." : "Sync & Go Online"}
+                      </button>
+                    </div>
+                  )}
+
                   <div className="text-right">
                     <p className="text-[8px] font-black uppercase text-text-muted">Environment</p>
                     <p className="text-[10px] font-bold text-brand uppercase">{window.location.hostname.includes('ais-') ? 'Development (AI Studio)' : 'Published (Production)'}</p>

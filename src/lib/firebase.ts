@@ -7,6 +7,7 @@ import {
   initializeFirestore, 
   persistentLocalCache,
   disableNetwork,
+  enableNetwork,
   setLogLevel
 } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
@@ -196,4 +197,29 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
 
   console.error('Firestore Error: ', errInfo);
   throw new Error(JSON.stringify(errInfo));
+}
+
+export async function forceGoOnline() {
+  try {
+    sessionStorage.removeItem('firestore_quota_exhausted');
+    localStorage.removeItem('firestore_quota_exhausted');
+    if (db) {
+      await enableNetwork(db);
+    }
+    console.log("[Firebase] Reconnected to Firestore successfully.");
+    toast.success("Successfully reconnected to database! Syncing pending operations...");
+    return true;
+  } catch (e: any) {
+    console.error("[Firebase] Reconnection failed:", e);
+    toast.error(`Reconnection failed: ${e.message}`);
+    return false;
+  }
+}
+
+export function isDbOffline() {
+  try {
+    return sessionStorage.getItem('firestore_quota_exhausted') === 'true';
+  } catch (_) {
+    return false;
+  }
 }

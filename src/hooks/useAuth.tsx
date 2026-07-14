@@ -190,7 +190,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         displayName: authenticatedUser.displayName,
         subscriptionTier: 'free',
         subscriptionStatus: 'none',
-        role: ADMIN_EMAILS.includes(authenticatedUser.email || '') ? 'admin' : 'user',
+        role: ADMIN_EMAILS.includes((authenticatedUser.email || '').toLowerCase()) ? 'admin' : 'user',
         favorites: [],
         watchLater: [],
         recentlyWatched: [],
@@ -209,7 +209,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const isAdmin = user?.email ? ADMIN_EMAILS.includes(user.email) : false;
+  const isAdmin = user?.email ? ADMIN_EMAILS.includes(user.email.toLowerCase()) : false;
 
   return (
     <AuthContext.Provider value={{ user, loading, isAdmin, profile }}>

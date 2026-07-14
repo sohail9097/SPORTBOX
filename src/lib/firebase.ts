@@ -33,8 +33,11 @@ try {
 
   // If we previously detected quota exhaustion, boot immediately in offline mode to avoid console errors and blockages
   try {
-    if (localStorage.getItem('firestore_quota_exhausted') === 'true') {
-      console.warn("[Firebase] Booting Firestore in offline cache mode due to previously detected quota exhaustion.");
+    // Clear legacy localStorage lock to repair any blocked clients
+    localStorage.removeItem('firestore_quota_exhausted');
+
+    if (sessionStorage.getItem('firestore_quota_exhausted') === 'true') {
+      console.warn("[Firebase] Booting Firestore in offline cache mode due to previously detected quota exhaustion in this session.");
       disableNetwork(dbInstance).catch(err => {
         console.warn("[Firebase] Failed to disable network on boot:", err);
       });
@@ -152,7 +155,7 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
         disableNetwork(dbInstance).then(() => {
           console.log("[Firebase] Firestore network connection disabled successfully. SDK is now running in local cached mode.");
           try {
-            localStorage.setItem('firestore_quota_exhausted', 'true');
+            sessionStorage.setItem('firestore_quota_exhausted', 'true');
           } catch (_) {}
         }).catch(err => {
           console.warn("[Firebase] Failed to disable network connection:", err);

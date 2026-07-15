@@ -1,12 +1,12 @@
 import { useEffect, useState, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { db, handleFirestoreError, OperationType, getDoc, getDocs, doc, updateDoc, increment, arrayUnion, arrayRemove, collection, query, where, limit, setDoc, deleteDoc } from '../lib/firebase';
-import { SportsContent } from '../types';
-import { FALLBACK_SPORTS_CONTENT } from '../lib/fallbackData';
+import { db, handleFirestoreError, OperationType } from '../lib/firebase';
+import { doc, getDoc, updateDoc, increment, arrayUnion, arrayRemove, collection, query, where, limit, getDocs, setDoc, deleteDoc, onSnapshot } from 'firebase/firestore';
+import { SportsContent, PlayerSettings } from '../types';
 import { useAuth } from '../hooks/useAuth';
 import { Play, Share2, Heart, MessageSquare, Crown, Info, ChevronRight, Activity, PlusCircle, CheckCircle2, Lock } from 'lucide-react';
 import { motion } from 'motion/react';
-import { cn, formatDate, transformGDriveUrl, getVideoAutoThumbnail, sanitizeVideoUrlOrIframe, getEmbedUrl } from '../lib/utils';
+import { cn, formatDate, transformGDriveUrl, getVideoAutoThumbnail, sanitizeVideoUrlOrIframe } from '../lib/utils';
 import StadiumPlayer from '../components/StadiumPlayer';
 import ReactMarkdown from 'react-markdown';
 import { toast } from 'sonner';
@@ -21,6 +21,7 @@ export default function Watch() {
   const [loading, setLoading] = useState(true);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isWatchLater, setIsWatchLater] = useState(false);
+  const [playerConfig, setPlayerConfig] = useState<PlayerSettings | null>(null);
   const nativeVideoRef = useRef<HTMLVideoElement | null>(null);
   const uniqueViewTrackedRef = useRef<string | null>(null);
 
@@ -49,57 +50,44 @@ export default function Watch() {
       }
     };
 
-    const fetchSpectators = async () => {
-      try {
-        const spectatorsCol = collection(db, 'content', id, 'spectators');
-        const snapshot = await getDocs(spectatorsCol, { component: 'Watch', file: 'Watch.tsx', reason: 'Fetch active live stream live spectator presence' });
-        const now = Date.now();
-        const activeList: { id: string; uid: string | null; name: string }[] = [];
-
-        snapshot.docs.forEach(snapDoc => {
-          const data = snapDoc.data();
-          if (data.lastActive) {
-            const lastActiveTime = new Date(data.lastActive).getTime();
-            // Filter out stale spectators who haven't updated in the last 180 seconds (3 minutes)
-            if (now - lastActiveTime < 180000) {
-              activeList.push({
-                id: snapDoc.id,
-                uid: data.uid || null,
-                name: data.name || 'Anonymous Guest'
-              });
-            }
-          }
-        });
-
-        setSpectatorsList(activeList);
-        setSpectatorsCount(activeList.length || Math.floor(Math.random() * 80) + 120);
-      } catch (err) {
-        console.error("[Presence] Error loading spectators:", err);
-        // Fallback: set a professional randomized spectator count if database is exhausted or offline
-        setSpectatorsCount(Math.floor(Math.random() * 80) + 120);
-      }
-    };
-
     // Register active viewer presence immediately
     updatePresence();
-    fetchSpectators();
 
-    // Heartbeat interval to refresh presence document every 120 seconds
-    const heartbeatInterval = setInterval(updatePresence, 120000);
+    // Heartbeat interval to refresh presence document every 12 seconds
+    const intervalId = setInterval(updatePresence, 12000);
 
-    // Locally fluctuate spectator count organically without hitting Firestore
-    const localSimulationInterval = setInterval(() => {
-      setSpectatorsCount(prev => {
-        const change = Math.floor(Math.random() * 5) - 2; // -2 to +2
-        const nextVal = prev + change;
-        return nextVal < 5 ? 5 : nextVal;
+    // Live Snapshot Listener to sync active spectators in immediate real-time
+    const spectatorsCol = collection(db, 'content', id, 'spectators');
+    const unsubscribeSpectators = onSnapshot(spectatorsCol, (snapshot) => {
+      const now = Date.now();
+      const activeList: { id: string; uid: string | null; name: string }[] = [];
+
+      snapshot.docs.forEach(snapDoc => {
+        const data = snapDoc.data();
+        if (data.lastActive) {
+          const lastActiveTime = new Date(data.lastActive).getTime();
+          // Filter out stale spectators who haven't updated in the last 30 seconds
+          if (now - lastActiveTime < 30000) {
+            activeList.push({
+              id: snapDoc.id,
+              uid: data.uid || null,
+              name: data.name || 'Anonymous Guest'
+            });
+          }
+        }
       });
-    }, 15000);
+
+      setSpectatorsList(activeList);
+      setSpectatorsCount(activeList.length);
+    }, (error) => {
+      console.error("[Presence] Error watching spectators:", error);
+      // Silent fallback - use cached spectator count
+    });
 
     // Clean up presence on unmount, tab close or channel change
     const cleanupPresence = () => {
-      clearInterval(heartbeatInterval);
-      clearInterval(localSimulationInterval);
+      clearInterval(intervalId);
+      unsubscribeSpectators();
       deleteDoc(spectatorRef).catch(() => {});
     };
 
@@ -109,19 +97,18 @@ export default function Watch() {
       window.removeEventListener('beforeunload', cleanupPresence);
       cleanupPresence();
     };
-  }, [id, user?.uid, profile?.displayName]);
+  }, [id, user, profile]);
 
-  const watchLaterSerialized = profile?.watchLater?.join(',');
   useEffect(() => {
     if (profile && id) {
       setIsWatchLater(profile.watchLater?.includes(id) || false);
     }
-  }, [watchLaterSerialized, id]);
+  }, [profile, id]);
 
   useEffect(() => {
     if (id && user) {
       // Check if user has liked
-      getDoc(doc(db, 'content', id, 'likes', user.uid), { component: 'Watch', file: 'Watch.tsx', reason: 'Check if current user liked this video' }).then(snap => {
+      getDoc(doc(db, 'content', id, 'likes', user.uid)).then(snap => {
         setHasLiked(snap.exists());
       }).catch(err => {
         console.warn("[Watch] Error fetching like state:", err);
@@ -129,39 +116,35 @@ export default function Watch() {
     }
   }, [id, user?.uid]);
 
-  // Update recently watched list when user profile is loaded and active video changes
-  const recentlyWatchedSerialized = profile?.recentlyWatched?.join(',');
   useEffect(() => {
-    if (id && user && profile) {
+    if (id && user) {
+      // Update recently watched list
       const updateRecent = async () => {
         try {
           const userRef = doc(db, 'users', user.uid);
-          const currentRecent = profile.recentlyWatched || [];
-          if (currentRecent[currentRecent.length - 1] === id) return; // Already at the end/most recent, no-op
+          // To move to front in our reverse logic, we remove then add to the end
+          const currentRecent = profile?.recentlyWatched || [];
           const filteredRecent = currentRecent.filter(rid => rid !== id);
-          const newRecent = [...filteredRecent, id].slice(-20);
+          const newRecent = [...filteredRecent, id].slice(-20); // Keep last 20
           
           await updateDoc(userRef, {
             recentlyWatched: newRecent
           });
         } catch (error) {
-          console.warn("Error updating recently watched:", error);
+          console.error("Error updating recently watched:", error);
         }
       };
       updateRecent();
     }
-  }, [id, user?.uid, recentlyWatchedSerialized]);
-
-  useEffect(() => {
+    
     if (id) {
       window.scrollTo(0, 0);
       setIsPlaying(false);
       
-      // Initial fetch for content and related items
+      // Initial fetch for content and related items - SINGLE FETCH ONLY
       const fetchOnce = async () => {
         try {
-          const snap = await getDoc(doc(db, 'content', id), { component: 'Watch', file: 'Watch.tsx', reason: 'Fetch active video details and link info' });
-
+          const snap = await getDoc(doc(db, 'content', id));
           if (snap.exists()) {
             const contentData = { id: snap.id, ...snap.data() } as SportsContent;
             setContent(contentData);
@@ -173,7 +156,7 @@ export default function Watch() {
               where('category', '==', contentData.category),
               limit(12)
             );
-            const relatedSnap = await getDocs(q, { component: 'Watch', file: 'Watch.tsx', reason: 'Fetch related videos under the same category' });
+            const relatedSnap = await getDocs(q);
             const related = relatedSnap.docs
               .map(d => ({ id: d.id, ...d.data() } as SportsContent))
               .filter(item => item.id !== id);
@@ -193,49 +176,40 @@ export default function Watch() {
               }).catch(err => console.error('Failed to update views', err));
             }
           } else {
-            // Document doesn't exist in DB - load from fallback
-            const fallbackItem = FALLBACK_SPORTS_CONTENT.find(item => item.id === id);
-            if (fallbackItem) {
-              setContent(fallbackItem);
-              
-              const related = FALLBACK_SPORTS_CONTENT
-                .filter(item => item.category === fallbackItem.category && item.id !== id);
-              
-              const grouped: { [key: string]: SportsContent[] } = {};
-              related.forEach(item => {
-                const tag = item.tags?.[0] || 'More Feed';
-                if (!grouped[tag]) grouped[tag] = [];
-                grouped[tag].push(item);
-              });
-              setSections(grouped);
-            }
             setLoading(false);
           }
         } catch (err) {
           console.error("Fetch error:", err);
           handleFirestoreError(err, OperationType.GET, 'content/' + id);
-          
-          // Try fallback
-          const fallbackItem = FALLBACK_SPORTS_CONTENT.find(item => item.id === id);
-          if (fallbackItem) {
-            setContent(fallbackItem);
-            
-            const related = FALLBACK_SPORTS_CONTENT
-              .filter(item => item.category === fallbackItem.category && item.id !== id);
-            
-            const grouped: { [key: string]: SportsContent[] } = {};
-            related.forEach(item => {
-              const tag = item.tags?.[0] || 'More Feed';
-              if (!grouped[tag]) grouped[tag] = [];
-              grouped[tag].push(item);
-            });
-            setSections(grouped);
-          }
           setLoading(false);
         }
       };
 
       fetchOnce();
+      
+      // Live metadata updates only (doesn't trigger related fetch again)
+      const unsubContent = onSnapshot(doc(db, 'content', id), (snap) => {
+        if (snap.exists()) {
+          setContent({ id: snap.id, ...snap.data() } as SportsContent);
+        }
+      }, (err) => {
+        console.error("[Watch] Error listening to content:", err);
+        handleFirestoreError(err, OperationType.GET, `content/${id}`);
+      });
+
+      const unsubPlayer = onSnapshot(doc(db, 'settings', 'playerConfig'), (snap) => {
+        if (snap.exists()) {
+          setPlayerConfig(snap.data() as PlayerSettings);
+        }
+      }, (err) => {
+        console.error("[Watch] Error listening to playerConfig:", err);
+        handleFirestoreError(err, OperationType.GET, 'settings/playerConfig');
+      });
+
+      return () => {
+        unsubContent();
+        unsubPlayer();
+      };
     }
   }, [id]);
 
@@ -247,63 +221,46 @@ export default function Watch() {
     }
 
     const trackUniqueView = async () => {
-      let viewerId = user?.uid;
-      if (!viewerId) {
-        viewerId = localStorage.getItem('sportsbox_viewer_id') || '';
-        if (!viewerId) {
-          viewerId = 'viewer_' + Math.random().toString(36).substring(2, 15) + '_' + Date.now();
-          localStorage.setItem('sportsbox_viewer_id', viewerId);
-        }
-      }
-
-      const sessionKey = `${id}_${viewerId}`;
-      if (uniqueViewTrackedRef.current === sessionKey) {
-        console.log("[UniqueView] Dynamic key already tracked for session:", sessionKey);
-        return;
-      }
-      uniqueViewTrackedRef.current = sessionKey;
-
-      console.log("[UniqueView] Resolving unique live registration for viewer ID:", viewerId);
-
-      const uniqueViewRef = doc(db, 'content', id, 'unique_views', viewerId);
-      
-      let uniqueViewSnap;
       try {
-        uniqueViewSnap = await getDoc(uniqueViewRef, { component: 'Watch', file: 'Watch.tsx', reason: 'Verify unique view state for the viewer session' });
-      } catch (err) {
-        console.error("[UniqueView] Error getting unique view:", err);
-        uniqueViewTrackedRef.current = null;
-        handleFirestoreError(err, OperationType.GET, `content/${id}/unique_views/${viewerId}`);
-        return;
-      }
+        let viewerId = user?.uid;
+        if (!viewerId) {
+          viewerId = localStorage.getItem('sportsbox_viewer_id') || '';
+          if (!viewerId) {
+            viewerId = 'viewer_' + Math.random().toString(36).substring(2, 15) + '_' + Date.now();
+            localStorage.setItem('sportsbox_viewer_id', viewerId);
+          }
+        }
 
-      if (!uniqueViewSnap.exists()) {
-        console.log("[UniqueView] New viewer detected! Recording unique view entry in DB.");
-        try {
+        const sessionKey = `${id}_${viewerId}`;
+        if (uniqueViewTrackedRef.current === sessionKey) {
+          console.log("[UniqueView] Dynamic key already tracked for session:", sessionKey);
+          return;
+        }
+        uniqueViewTrackedRef.current = sessionKey;
+
+        console.log("[UniqueView] Resolving unique live registration for viewer ID:", viewerId);
+
+        const uniqueViewRef = doc(db, 'content', id, 'unique_views', viewerId);
+        const uniqueViewSnap = await getDoc(uniqueViewRef);
+
+        if (!uniqueViewSnap.exists()) {
+          console.log("[UniqueView] New viewer detected! Recording unique view entry in DB.");
           await setDoc(uniqueViewRef, {
             watchedAt: new Date().toISOString(),
             uid: user?.uid || null
           });
-        } catch (err) {
-          console.error("[UniqueView] Error setting unique view doc:", err);
-          uniqueViewTrackedRef.current = null;
-          handleFirestoreError(err, OperationType.WRITE, `content/${id}/unique_views/${viewerId}`);
-          return;
-        }
-        
-        try {
+          
           await updateDoc(doc(db, 'content', id), {
             uniqueViewsCount: increment(1)
           });
-        } catch (err) {
-          console.error("[UniqueView] Error incrementing unique views count:", err);
-          uniqueViewTrackedRef.current = null;
-          handleFirestoreError(err, OperationType.UPDATE, `content/${id}`);
-          return;
+          console.log("[UniqueView] Successfully registered and incremented unique live views count!");
+        } else {
+          console.log("[UniqueView] Returning viewer. Already verified in database unique subcollection.");
         }
-        console.log("[UniqueView] Successfully registered and incremented unique live views count!");
-      } else {
-        console.log("[UniqueView] Returning viewer. Already verified in database unique subcollection.");
+      } catch (err) {
+        console.error("[UniqueView] Error writing unique live view:", err);
+        // Reset ref so it can retry on next clean trigger if it failed due to some transient issues
+        uniqueViewTrackedRef.current = null;
       }
     };
 
@@ -424,17 +381,12 @@ export default function Watch() {
     const iframeProviders = [
       'iframe.dacast.com', 
       'player.vimeo.com', 
-      'vimeo.com',
       'facebook.com/plugins/video.php', 
       'twitch.tv/embed',
-      'twitch.tv',
       'cloudflarestream.com',
-      'youtube.com',
-      'youtu.be',
-      'youtube-nocookie.com',
       '/iframe'
     ];
-    return iframeProviders.some(p => url.includes(p)) || url.trim().startsWith('<iframe') || url.trim().startsWith('<');
+    return iframeProviders.some(p => url.includes(p));
   };
 
   return (
@@ -490,7 +442,7 @@ export default function Watch() {
                         ) : null;
                       })()}
                       <div className="absolute inset-0 bg-black/40 group-hover:bg-black/20 transition-colors flex items-center justify-center">
-                        <div className="w-16 h-16 md:w-24 md:h-24 bg-brand/90 rounded-full flex items-center justify-center shadow-2xl transform group-hover:scale-110 transition-transform duration-500">
+                        <div className="w-16 h-16 md:w-24 md:h-24 bg-brand/90 rounded-full flex items-center justify-center shadow-2xl transform group-hover:scale-110 transition-transform duration-300">
                           <Play className="w-8 h-8 md:w-12 md:h-12 text-white fill-white ml-1" />
                         </div>
                         <div className="absolute bottom-6 left-6 md:bottom-10 md:left-10 text-left">
@@ -499,16 +451,24 @@ export default function Watch() {
                         </div>
                       </div>
                     </div>
-                  ) : content.videoUrl && content.videoUrl.trim() !== '' && isIframeUrl(content.videoUrl) ? (
+                  ) : content.videoUrl && content.videoUrl.trim() !== '' && (isIframeUrl(content.videoUrl) || (playerConfig && !playerConfig.useCustomPlayer)) ? (
                     // Using Native/Iframe Player (Server)
                     content.videoUrl.includes('<iframe') ? (
-                      <div className="w-full h-full flex items-center justify-center p-0" dangerouslySetInnerHTML={{ __html: sanitizeVideoUrlOrIframe(content.videoUrl).replace('<iframe', '<iframe style="width:100%;height:100%;border:0;position:absolute;top:0;left:0;"') }} />
-                    ) : (
+                      <div className="w-full h-full flex items-center justify-center p-0" dangerouslySetInnerHTML={{ __html: sanitizeVideoUrlOrIframe(content.videoUrl).replace('<iframe', '<iframe allowFullScreen') }} />
+                    ) : isIframeUrl(content.videoUrl) ? (
                       <iframe
-                        src={sanitizeVideoUrlOrIframe(getEmbedUrl(content.videoUrl))}
+                        src={sanitizeVideoUrlOrIframe(`${content.videoUrl}${content.videoUrl.includes('?') ? '&' : '?'}autoplay=1`)}
                         className="w-full h-full border-0 absolute inset-0"
                         allowFullScreen
                         allow="autoplay; encrypted-media; picture-in-picture"
+                      />
+                    ) : (
+                      <video 
+                        ref={nativeVideoRef}
+                        src={transformGDriveUrl(content.videoUrl, 'video')}
+                        controls
+                        className="w-full h-full bg-black object-contain"
+                        poster={(content.thumbnailUrl && content.thumbnailUrl.trim() !== '') ? transformGDriveUrl(content.thumbnailUrl, 'image') : getVideoAutoThumbnail(content.videoUrl || '', content.category)}
                       />
                     )
                   ) : content.videoUrl && content.videoUrl.trim() !== '' ? (
@@ -632,14 +592,14 @@ export default function Watch() {
                         {spectatorsList.slice(0, 6).map((spec) => (
                           <div 
                             key={spec.id} 
-                            className="w-8 h-8 rounded-full border-2 border-surface bg-brand/10 hover:border-brand hover:scale-105 transition-all flex items-center justify-center text-[10px] font-black uppercase tracking-tight text-brand shrink-0 text-center select-none"
+                            className="w-8 h-8 rounded-full border-2 border-surface bg-brand/10 hover:border-brand hover:scale-105 transition-all flex items-center justify-center text-[10px] font-black uppercase"
                             title={spec.name}
                           >
                             {spec.name.substring(0, 2).toUpperCase()}
                           </div>
                         ))}
                         {spectatorsList.length > 6 && (
-                          <div className="w-8 h-8 rounded-full border-2 border-surface bg-surface-hover flex items-center justify-center text-[9px] font-black uppercase text-text-muted shrink-0 text-center select-none">
+                          <div className="w-8 h-8 rounded-full border-2 border-surface bg-surface-hover flex items-center justify-center text-[9px] font-black uppercase text-text-muted shrink-0">
                             +{spectatorsList.length - 6}
                           </div>
                         )}
@@ -728,4 +688,3 @@ function ActionButton({ icon: Icon, label, onClick, circle, isActive }: { icon: 
     </button>
   );
 }
-

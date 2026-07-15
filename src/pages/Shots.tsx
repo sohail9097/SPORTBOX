@@ -1,6 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { db, handleFirestoreError, OperationType, getDoc, getDocs } from '../lib/firebase';
-import { collection, query, where, updateDoc, doc, increment, addDoc, setDoc, deleteDoc } from 'firebase/firestore';
+import { db, handleFirestoreError, OperationType, getDoc, getDocs, collection, query, where, updateDoc, doc, increment, addDoc, setDoc, deleteDoc } from '../lib/firebase';
 import { SportsContent } from '../types';
 import { useAuth } from '../hooks/useAuth';
 import { 

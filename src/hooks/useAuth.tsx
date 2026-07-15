@@ -1,7 +1,6 @@
 import { createContext, useContext, useEffect, useState, ReactNode, useRef } from 'react';
 import { User, onAuthStateChanged, onIdTokenChanged, getRedirectResult } from 'firebase/auth';
-import { auth, db, handleFirestoreError, OperationType, getDoc } from '../lib/firebase';
-import { doc, setDoc } from 'firebase/firestore';
+import { auth, db, handleFirestoreError, OperationType, getDoc, doc, setDoc } from '../lib/firebase';
 import { toast } from 'sonner';
 
 interface AuthContextType {

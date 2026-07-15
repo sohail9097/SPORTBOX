@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import { storage, db } from '../lib/firebase';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp } from '../lib/firebase';
 import { Upload, X, CheckCircle2, Film, Loader2 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { cn } from '../lib/utils';

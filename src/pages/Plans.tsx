@@ -3,8 +3,7 @@ import { Check, Crown, Zap, ShieldCheck, X, Loader2, CreditCard, Phone, Mail, St
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
 import { useAuth } from '../hooks/useAuth';
-import { db, handleFirestoreError, OperationType, signInWithGoogle, auth, getDocs } from '../lib/firebase';
-import { doc, updateDoc, setDoc, collection, query, orderBy } from 'firebase/firestore';
+import { db, handleFirestoreError, OperationType, signInWithGoogle, auth, getDocs, doc, updateDoc, setDoc, collection, query, orderBy } from '../lib/firebase';
 import { SubscriptionPlan } from '../types';
 import LoadingScreen from '../components/LoadingScreen';
 import { toast } from 'sonner';

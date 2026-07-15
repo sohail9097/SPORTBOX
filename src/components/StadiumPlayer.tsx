@@ -4,8 +4,7 @@ import 'video.js/dist/video-js.css';
 import { Play, Pause, RotateCcw, RotateCw, Volume2, VolumeX, Maximize, Settings, FastForward, Radio } from 'lucide-react';
 import { cn, sanitizeVideoUrlOrIframe, getEmbedUrl } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
-import { db, getDoc } from '../lib/firebase';
-import { doc } from 'firebase/firestore';
+import { db, getDoc, doc } from '../lib/firebase';
 import { PlayerSettings } from '../types';
 
 import { toast } from 'sonner';

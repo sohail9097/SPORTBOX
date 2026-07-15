@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
-import { db, handleFirestoreError, OperationType, getDocs } from '../lib/firebase';
-import { collection, query, orderBy, doc, setDoc, updateDoc, increment } from 'firebase/firestore';
+import { db, handleFirestoreError, OperationType, getDocs, collection, query, orderBy, doc, setDoc, updateDoc, increment } from '../lib/firebase';
 import { useAuth } from '../hooks/useAuth';
 import { BlogPost } from '../types';
 import { 

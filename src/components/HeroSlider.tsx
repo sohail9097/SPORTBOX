@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { db, handleFirestoreError, OperationType, getDocs } from '../lib/firebase';
-import { collection, query, where, limit } from 'firebase/firestore';
+import { db, handleFirestoreError, OperationType, getDocs, collection, query, where, limit } from '../lib/firebase';
 import { SliderElement, Category } from '../types';
 import { FALLBACK_SLIDER_ITEMS } from '../lib/fallbackData';
 import { motion, AnimatePresence } from 'motion/react';

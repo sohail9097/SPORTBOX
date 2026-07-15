@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { Play, Activity, Trophy, Bell, ShieldCheck, Mail, Lock, User as UserIcon, Phone, ArrowLeft, Loader2 } from 'lucide-react';
-import { auth, db, handleFirestoreError, OperationType, getDoc } from '../lib/firebase';
+import { auth, db, handleFirestoreError, OperationType, getDoc, doc, setDoc } from '../lib/firebase';
 import ReCAPTCHA from 'react-google-recaptcha';
 import { 
   GoogleAuthProvider,
@@ -13,7 +13,6 @@ import {
   signInWithEmailAndPassword,
   updateProfile,
 } from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore';
 import { cn } from '../lib/utils';
 import BrandLogo from '../components/BrandLogo';
 import { SiteConfig } from '../types';

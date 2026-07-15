@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { db, handleFirestoreError, OperationType, auth, isDbOffline, forceGoOnline, clearOfflineCache, withTimeout, getDoc, getDocs } from '../lib/firebase';
-import { collection, addDoc, deleteDoc, doc, updateDoc, query, orderBy, setDoc, onSnapshot } from 'firebase/firestore';
+import { db, handleFirestoreError, OperationType, auth, isDbOffline, forceGoOnline, clearOfflineCache, withTimeout, getDoc, getDocs, collection, addDoc, deleteDoc, doc, updateDoc, query, orderBy, setDoc, onSnapshot } from '../lib/firebase';
 import { SportsContent, Category, ContentType, ContentSection, SliderElement, VideoPromoSettings, SiteConfig, PlayerSettings, SubscriptionPlan, BlogPost } from '../types';
 import { Plus, Trash2, Edit2, Play, LayoutDashboard, Film, Users, Settings, Save, X, Eye, Radio, Crown, Layers, MoveUp, MoveDown, CheckSquare, Square, Image as ImageIcon, Upload, Library, ShieldCheck, ShieldAlert, Zap, Percent, Trophy, ChevronRight, Activity, Heart, Dribbble, CircleDot, Target, Disc, Flag, Gamepad2, Folder, ChevronLeft, BookOpen, Scissors, Waves, Flame, Compass, Award, Sparkles, Wand2, Clock, BarChart2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -627,7 +626,7 @@ export default function Admin() {
 
       const unsubPlans = onSnapshot(query(collection(db, 'subscription_plans'), orderBy('order', 'asc')), (snap) => {
         if (!snap.empty) {
-          setSubscriptionPlans(snap.docs.map(d => ({ id: d.id, ...d.data() } as SubscriptionPlan)));
+          setSubscriptionPlans(snap.docs.map(d => ({ id: d.id, ...(d.data() as any) } as SubscriptionPlan)));
         } else if (isAdmin) {
           // If empty, suggest initializing
           console.warn("[Admin] No subscription plans found. Use 'Initialize' if this is a new setup.");

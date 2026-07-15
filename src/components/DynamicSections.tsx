@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
-import { db, handleFirestoreError, OperationType, getDoc, getDocs } from '../lib/firebase';
-import { collection, query, where, orderBy, doc, documentId } from 'firebase/firestore';
+import { db, handleFirestoreError, OperationType, getDoc, getDocs, collection, query, where, orderBy, doc, documentId } from '../lib/firebase';
 import { ContentSection, SportsContent, Category } from '../types';
 import { FALLBACK_SECTIONS, FALLBACK_SPORTS_CONTENT } from '../lib/fallbackData';
 import ContentCard from './ContentCard';

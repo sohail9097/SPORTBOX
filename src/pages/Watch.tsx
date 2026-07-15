@@ -1,7 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { db, handleFirestoreError, OperationType, getDoc, getDocs } from '../lib/firebase';
-import { doc, updateDoc, increment, arrayUnion, arrayRemove, collection, query, where, limit, setDoc, deleteDoc } from 'firebase/firestore';
+import { db, handleFirestoreError, OperationType, getDoc, getDocs, doc, updateDoc, increment, arrayUnion, arrayRemove, collection, query, where, limit, setDoc, deleteDoc } from '../lib/firebase';
 import { SportsContent, PlayerSettings } from '../types';
 import { FALLBACK_SPORTS_CONTENT, FALLBACK_PLAYER_CONFIG } from '../lib/fallbackData';
 import { useAuth } from '../hooks/useAuth';

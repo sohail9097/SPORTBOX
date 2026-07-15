@@ -1,11 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../hooks/useAuth';
-import { db, handleFirestoreError, OperationType, getDocs } from '../lib/firebase';
-import { doc, updateDoc, collection, query, where, documentId } from 'firebase/firestore';
+import { db, handleFirestoreError, OperationType, getDocs, doc, updateDoc, collection, query, where, documentId, auth } from '../lib/firebase';
 import { motion, AnimatePresence } from 'motion/react';
 import { User, Phone, CheckCircle2, ShieldCheck, Mail, LogOut, ChevronRight, Loader2, Key, Settings, Clock, Crown, Play } from 'lucide-react';
 import { cn } from '../lib/utils';
-import { auth } from '../lib/firebase';
 import { Link, useNavigate } from 'react-router-dom';
 import { SportsContent } from '../types';
 import ContentCard from '../components/ContentCard';

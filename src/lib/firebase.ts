@@ -3,7 +3,12 @@ import { getAnalytics, isSupported } from 'firebase/analytics';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult } from 'firebase/auth';
 import { 
   getFirestore, 
-  doc, 
+  doc as firestoreDoc, 
+  collection as firestoreCollection,
+  query as firestoreQuery,
+  where as firestoreWhere,
+  orderBy as firestoreOrderBy,
+  limit as firestoreLimit,
   initializeFirestore, 
   persistentLocalCache,
   persistentMultipleTabManager,
@@ -18,6 +23,18 @@ import {
   Query,
   DocumentSnapshot,
   QuerySnapshot
+} from 'firebase/firestore';
+export { 
+  updateDoc, 
+  increment, 
+  arrayUnion, 
+  arrayRemove, 
+  addDoc, 
+  setDoc, 
+  deleteDoc,
+  documentId,
+  serverTimestamp,
+  onSnapshot
 } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import firebaseConfig from '../../firebase-applet-config.json';
@@ -178,9 +195,64 @@ function setSessionCache(key: string, type: 'doc' | 'query', snap: any) {
   }
 }
 
+// --- Wrapped Firestore query and reference builders for reliable cache key generation ---
+export function collection(db: any, path: string, ...pathSegments: string[]) {
+  const colRef = firestoreCollection(db, path, ...pathSegments);
+  const fullPath = [path, ...pathSegments].join('/');
+  (colRef as any)._customCacheKey = `collection:${fullPath}`;
+  (colRef as any)._collectionPath = fullPath;
+  return colRef;
+}
+
+export function doc(db: any, path: string, ...pathSegments: string[]) {
+  const docRef = firestoreDoc(db, path, ...pathSegments);
+  const fullPath = [path, ...pathSegments].join('/');
+  (docRef as any)._customCacheKey = `doc:${fullPath}`;
+  return docRef;
+}
+
+export function where(fieldPath: any, opStr: any, value: any) {
+  const constraint = firestoreWhere(fieldPath, opStr, value);
+  (constraint as any)._customCacheType = 'where';
+  // Stringify value safely for cache key
+  const valStr = typeof value === 'object' && value !== null ? JSON.stringify(value) : String(value);
+  const pathStr = typeof fieldPath === 'string' ? fieldPath : (fieldPath?.toString ? fieldPath.toString() : 'fieldPath');
+  (constraint as any)._customCacheKey = `where:${pathStr}:${opStr}:${valStr}`;
+  return constraint;
+}
+
+export function orderBy(fieldPath: any, directionStr?: any) {
+  const constraint = firestoreOrderBy(fieldPath, directionStr || 'asc');
+  (constraint as any)._customCacheType = 'orderBy';
+  const pathStr = typeof fieldPath === 'string' ? fieldPath : (fieldPath?.toString ? fieldPath.toString() : 'fieldPath');
+  (constraint as any)._customCacheKey = `orderBy:${pathStr}:${directionStr || 'asc'}`;
+  return constraint;
+}
+
+export function limit(limitNum: number) {
+  const constraint = firestoreLimit(limitNum);
+  (constraint as any)._customCacheType = 'limit';
+  (constraint as any)._customCacheKey = `limit:${limitNum}`;
+  return constraint;
+}
+
+export function query(baseQuery: any, ...queryConstraints: any[]) {
+  const q = firestoreQuery(baseQuery, ...queryConstraints);
+  const baseKey = baseQuery._customCacheKey || 'unknown';
+  const constraintsKeys = queryConstraints
+    .map(c => c._customCacheKey || 'unknown-constraint')
+    .join('|');
+  (q as any)._customCacheKey = `${baseKey}|${constraintsKeys}`;
+  (q as any)._collectionPath = baseQuery._collectionPath || 'unknown';
+  return q;
+}
+
 // Helper to get precise serialization of query filters & orders
 function getQueryCacheKey(q: any): string {
   if (!q) return '';
+  if (q._customCacheKey) {
+    return q._customCacheKey;
+  }
   if (typeof q.path === 'string') {
     return `doc:${q.path}`;
   }
@@ -218,10 +290,10 @@ interface CacheOptions {
 }
 
 // Custom wrapper for getDoc with global caching, deduplication, and developer logging
-export async function getDoc<T = any>(
-  docRef: DocumentReference<T>,
+export async function getDoc(
+  docRef: DocumentReference<any>,
   options: CacheOptions = {}
-): Promise<DocumentSnapshot<T>> {
+): Promise<DocumentSnapshot<any>> {
   const path = docRef.path;
   const collectionName = docRef.parent.path;
   const cacheKey = `doc:${path}`;
@@ -318,18 +390,22 @@ export async function getDoc<T = any>(
 }
 
 // Custom wrapper for getDocs with global caching, deduplication, and developer logging
-export async function getDocs<T = any>(
-  q: Query<T>,
+export async function getDocs(
+  q: Query<any>,
   options: CacheOptions = {}
-): Promise<QuerySnapshot<T>> {
+): Promise<QuerySnapshot<any>> {
   const cacheKey = getQueryCacheKey(q);
   const timestamp = new Date().toISOString();
   
   // Extract collection name safely
   let collectionName = 'unknown';
-  try {
-    collectionName = (q as any)._query?.path?.segments?.join('/') || 'unknown';
-  } catch (_) {}
+  if ((q as any)._collectionPath) {
+    collectionName = (q as any)._collectionPath;
+  } else {
+    try {
+      collectionName = (q as any)._query?.path?.segments?.join('/') || 'unknown';
+    } catch (_) {}
+  }
   
   const component = options.component || 'unknown';
   const file = options.file || 'unknown';

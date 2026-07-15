@@ -2,13 +2,12 @@ import { ReactNode, useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../lib/ThemeContext';
-import { auth, db, handleFirestoreError, OperationType, getDoc, getDocs } from '../lib/firebase';
+import { auth, db, handleFirestoreError, OperationType, getDoc, getDocs, doc, query, collection, where } from '../lib/firebase';
 import { 
   LayoutDashboard, Play, LogOut, User, Crown, 
   Search, Menu, X, Sun, Moon, Home, Tv, 
   Calendar, UserCircle, Bell, Clock, Flame, BookOpen, Trophy
 } from 'lucide-react';
-import { doc, query, collection, where } from 'firebase/firestore';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
 import { SiteConfig } from '../types';
@@ -59,7 +58,7 @@ export default function Layout({ children }: { children: ReactNode }) {
       .then((snapshot) => {
         if (!isMounted) return;
         // Sum views of all active live streams
-        const totalViews = snapshot.empty ? 52160 : snapshot.docs.reduce((acc, doc) => acc + (doc.data().viewCount || 0), 0);
+        const totalViews = snapshot.empty ? 52160 : snapshot.docs.reduce((acc, doc) => acc + ((doc.data() as any).viewCount || 0), 0);
         setLiveCount(totalViews);
       })
       .catch((error) => {

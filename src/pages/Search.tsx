@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
-import { db, handleFirestoreError, OperationType, getDocs } from '../lib/firebase';
-import { collection, query, where, limit } from 'firebase/firestore';
+import { db, handleFirestoreError, OperationType, getDocs, collection, query, where, limit } from '../lib/firebase';
 import { SportsContent } from '../types';
 import { Search as SearchIcon, Play, Filter, X, Loader2 } from 'lucide-react';
 import { Link } from 'react-router-dom';

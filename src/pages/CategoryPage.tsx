@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { db, handleFirestoreError, OperationType, getDocs } from '../lib/firebase';
-import { collection, query, where, orderBy, limit } from 'firebase/firestore';
+import { db, handleFirestoreError, OperationType, getDocs, collection, query, where, orderBy, limit } from '../lib/firebase';
 import { SportsContent, Category } from '../types';
 import { FALLBACK_SPORTS_CONTENT } from '../lib/fallbackData';
 import ContentCard from '../components/ContentCard';

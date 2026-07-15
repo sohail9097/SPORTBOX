@@ -28,34 +28,13 @@ export default function Plans() {
   const [step, setStep] = useState<'details' | 'payment' | 'success'>('details');
 
   const handleSubscribe = async () => {
-    // Support any international phone number format
-    let cleanInput = mobileNumber.trim();
-    let normalizedPhone = "";
-    if (cleanInput.startsWith("+")) {
-      const digits = cleanInput.replace(/\D/g, "");
-      normalizedPhone = "+" + digits;
-    } else {
-      const digits = cleanInput.replace(/\D/g, "");
-      if (digits.length === 12 && digits.startsWith("91")) {
-        normalizedPhone = "+" + digits;
-      } else if (digits.length === 11 && digits.startsWith("0")) {
-        normalizedPhone = "+91" + digits.substring(1);
-      } else if (digits.length === 10) {
-        normalizedPhone = "+91" + digits;
-      } else {
-        if (digits.length >= 7) {
-          normalizedPhone = "+" + digits;
-        } else {
-          normalizedPhone = digits;
-        }
-      }
-    }
-
-    const digitsCount = normalizedPhone.replace(/\D/g, "").length;
-    if (digitsCount < 7 || digitsCount > 15) {
-      toast.error("Please enter a valid international mobile number (7 to 15 digits).");
+    const digits = mobileNumber.trim().replace(/\D/g, "");
+    if (digits.length !== 10) {
+      toast.error("Please enter a valid 10-digit mobile number.");
       return;
     }
+
+    const normalizedPhone = "+91" + digits;
 
     if (!displayName || displayName.trim().length < 3) {
       toast.error("Please enter your full name.");

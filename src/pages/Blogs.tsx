@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { collection, query, orderBy, getDocs, doc, setDoc, updateDoc, increment } from 'firebase/firestore';
+import { db, handleFirestoreError, OperationType, getDocs } from '../lib/firebase';
+import { collection, query, orderBy, doc, setDoc, updateDoc, increment } from 'firebase/firestore';
 import { useAuth } from '../hooks/useAuth';
 import { BlogPost } from '../types';
 import { 
@@ -51,7 +51,7 @@ export default function Blogs() {
     setLoading(true);
     const q = query(collection(db, 'blogs'));
     
-    getDocs(q)
+    getDocs(q, { component: 'Blogs', file: 'Blogs.tsx', reason: 'Fetch articles and blogs for reading dashboard' })
       .then((snapshot) => {
         if (!isMounted) return;
         let items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as BlogPost));

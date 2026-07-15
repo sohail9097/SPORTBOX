@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { collection, query, orderBy, limit, getDocs, where, doc, getDoc, documentId } from 'firebase/firestore';
+import { db, handleFirestoreError, OperationType, getDoc, getDocs } from '../lib/firebase';
+import { collection, query, orderBy, limit, where, doc, documentId } from 'firebase/firestore';
 import { SportsContent, VideoPromoSettings, ContentSection } from '../types';
 import { FALLBACK_SPORTS_CONTENT, FALLBACK_PROMO } from '../lib/fallbackData';
 import ContentCard from '../components/ContentCard';
@@ -32,7 +32,7 @@ export default function Home() {
     // Helper to load promo
     const fetchPromo = async () => {
       try {
-        const snap = await getDoc(doc(db, 'settings', 'videoPromo'));
+        const snap = await getDoc(doc(db, 'settings', 'videoPromo'), { component: 'Home', file: 'Home.tsx', reason: 'Fetch homepage video promo configurations' });
         if (!isMounted) return;
         if (snap.exists()) {
           setVideoPromo(snap.data() as VideoPromoSettings);
@@ -51,7 +51,7 @@ export default function Home() {
     const fetchLiveContent = async () => {
       try {
         const liveQuery = query(collection(db, 'content'), where('type', '==', 'live'), limit(20));
-        const snap = await getDocs(liveQuery);
+        const snap = await getDocs(liveQuery, { component: 'Home', file: 'Home.tsx', reason: 'Fetch active live content cards' });
         if (!isMounted) return;
         // Filter status in-memory to avoid complex index requirements
         const liveItems = snap.docs
@@ -72,7 +72,7 @@ export default function Home() {
     const fetchSectionsAndTrending = async () => {
       try {
         const sectionsQuery = query(collection(db, 'sections'), where('page', '==', 'home'));
-        const snap = await getDocs(sectionsQuery);
+        const snap = await getDocs(sectionsQuery, { component: 'Home', file: 'Home.tsx', reason: 'Fetch structural landing content sections' });
         if (!isMounted) return;
 
         const sectionsList = snap.docs

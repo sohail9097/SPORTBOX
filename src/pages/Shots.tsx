@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
-import { db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { collection, query, where, getDocs, updateDoc, doc, increment, addDoc, getDoc, setDoc, deleteDoc } from 'firebase/firestore';
+import { db, handleFirestoreError, OperationType, getDoc, getDocs } from '../lib/firebase';
+import { collection, query, where, updateDoc, doc, increment, addDoc, setDoc, deleteDoc } from 'firebase/firestore';
 import { SportsContent } from '../types';
 import { useAuth } from '../hooks/useAuth';
 import { 
@@ -154,7 +154,7 @@ export default function Shots() {
     setLoading(true);
     try {
       const q = query(collection(db, 'content'), where('type', '==', 'short'));
-      const snap = await getDocs(q);
+      const snap = await getDocs(q, { component: 'Shots', file: 'Shots.tsx', reason: 'Fetch short-form video feed cards' });
       let items = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as SportsContent));
       
       if (items.length === 0) {
@@ -226,7 +226,7 @@ export default function Shots() {
       
       fetchedLikesRef.current.add(item.id);
       try {
-        const likeSnap = await getDoc(doc(db, 'content', item.id, 'likes', user.uid));
+        const likeSnap = await getDoc(doc(db, 'content', item.id, 'likes', user.uid), { component: 'Shots', file: 'Shots.tsx', reason: `Lazy check if current user liked short video ${item.id}` });
         if (likeSnap.exists()) {
           setLikesState(prev => ({
             ...prev,
@@ -269,7 +269,7 @@ export default function Shots() {
       setCommentsLoading(true);
       try {
         const commentsRef = collection(db, 'content', activeShort.id, 'comments');
-        const snap = await getDocs(commentsRef);
+        const snap = await getDocs(commentsRef, { component: 'Shots', file: 'Shots.tsx', reason: `Fetch comments on video short ${activeShort.id}` });
         if (!isMounted) return;
 
         let items = snap.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as any));

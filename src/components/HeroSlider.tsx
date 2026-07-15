@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { collection, query, where, getDocs, limit } from 'firebase/firestore';
+import { db, handleFirestoreError, OperationType, getDocs } from '../lib/firebase';
+import { collection, query, where, limit } from 'firebase/firestore';
 import { SliderElement, Category } from '../types';
 import { FALLBACK_SLIDER_ITEMS } from '../lib/fallbackData';
 import { motion, AnimatePresence } from 'motion/react';
@@ -34,7 +34,7 @@ export default function HeroSlider({ page = 'home' }: HeroSliderProps) {
           where('isActive', '==', true),
           limit(20)
         );
-        const snap = await getDocs(q);
+        const snap = await getDocs(q, { component: 'HeroSlider', file: 'HeroSlider.tsx', reason: 'Fetch active hero promo slides' });
         if (!isMounted) return;
         const items = snap.docs.map(doc => ({ ...doc.data(), id: doc.id } as SliderElement));
         setAllActiveSlides(items);

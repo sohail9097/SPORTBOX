@@ -4,8 +4,8 @@ import 'video.js/dist/video-js.css';
 import { Play, Pause, RotateCcw, RotateCw, Volume2, VolumeX, Maximize, Settings, FastForward, Radio } from 'lucide-react';
 import { cn, sanitizeVideoUrlOrIframe, getEmbedUrl } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
-import { db } from '../lib/firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { db, getDoc } from '../lib/firebase';
+import { doc } from 'firebase/firestore';
 import { PlayerSettings } from '../types';
 
 import { toast } from 'sonner';
@@ -46,7 +46,7 @@ export default function StadiumPlayer({ url, poster, isLive, useIframe: initialU
   useEffect(() => {
     const fetchConfig = async () => {
       try {
-        const snap = await getDoc(doc(db, 'settings', 'playerConfig'));
+        const snap = await getDoc(doc(db, 'settings', 'playerConfig'), { component: 'StadiumPlayer', file: 'StadiumPlayer.tsx', reason: 'Fetch global video player configuration settings' });
         if (snap.exists()) {
           setConfig(snap.data() as PlayerSettings);
         }

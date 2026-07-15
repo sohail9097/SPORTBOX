@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { collection, query, where, getDocs, addDoc, deleteDoc, doc, updateDoc, setDoc } from 'firebase/firestore';
+import { db, handleFirestoreError, OperationType, getDocs } from '../lib/firebase';
+import { collection, query, where, addDoc, deleteDoc, doc, updateDoc, setDoc } from 'firebase/firestore';
 import { SportsContent } from '../types';
 import { FALLBACK_SPORTS_CONTENT } from '../lib/fallbackData';
 import { 
@@ -1128,7 +1128,7 @@ export default function Olympics() {
       try {
         // 1. Fetch Content Video collection under category 'olympics'
         const qContent = query(collection(db, 'content'), where('category', '==', 'olympics'));
-        const contentSnapshot = await getDocs(qContent);
+        const contentSnapshot = await getDocs(qContent, { component: 'Olympics', file: 'Olympics.tsx', reason: 'Fetch active olympic video content assets' });
         if (!isMounted) return;
 
         const list = contentSnapshot.docs.map(doc => ({
@@ -1151,7 +1151,7 @@ export default function Olympics() {
       try {
         // 2. Fetch olympic_medalists collection
         const qMedalists = query(collection(db, 'olympic_medalists'));
-        const medalistsSnapshot = await getDocs(qMedalists);
+        const medalistsSnapshot = await getDocs(qMedalists, { component: 'Olympics', file: 'Olympics.tsx', reason: 'Fetch national olympic medalist roster statistics' });
         if (!isMounted) return;
 
         if (medalistsSnapshot.empty) {

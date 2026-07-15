@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { doc, getDoc, updateDoc, increment, arrayUnion, arrayRemove, collection, query, where, limit, getDocs, setDoc, deleteDoc } from 'firebase/firestore';
+import { db, handleFirestoreError, OperationType, getDoc, getDocs } from '../lib/firebase';
+import { doc, updateDoc, increment, arrayUnion, arrayRemove, collection, query, where, limit, setDoc, deleteDoc } from 'firebase/firestore';
 import { SportsContent, PlayerSettings } from '../types';
 import { FALLBACK_SPORTS_CONTENT, FALLBACK_PLAYER_CONFIG } from '../lib/fallbackData';
 import { useAuth } from '../hooks/useAuth';
@@ -148,7 +148,7 @@ export default function Watch() {
     const fetchSpectators = async () => {
       try {
         const spectatorsCol = collection(db, 'content', id, 'spectators');
-        const snapshot = await getDocs(spectatorsCol);
+        const snapshot = await getDocs(spectatorsCol, { component: 'Watch', file: 'Watch.tsx', reason: 'Fetch active live stream live spectator presence' });
         const now = Date.now();
         const activeList: { id: string; uid: string | null; name: string }[] = [];
 
@@ -211,7 +211,7 @@ export default function Watch() {
   useEffect(() => {
     if (id && user) {
       // Check if user has liked
-      getDoc(doc(db, 'content', id, 'likes', user.uid)).then(snap => {
+      getDoc(doc(db, 'content', id, 'likes', user.uid), { component: 'Watch', file: 'Watch.tsx', reason: 'Check if current user liked this video' }).then(snap => {
         setHasLiked(snap.exists());
       }).catch(err => {
         console.warn("[Watch] Error fetching like state:", err);
@@ -251,8 +251,8 @@ export default function Watch() {
       const fetchOnce = async () => {
         try {
           const [snap, playerSnap] = await Promise.all([
-            getDoc(doc(db, 'content', id)),
-            getDoc(doc(db, 'settings', 'playerConfig')).catch(err => {
+            getDoc(doc(db, 'content', id), { component: 'Watch', file: 'Watch.tsx', reason: 'Fetch active video details and link info' }),
+            getDoc(doc(db, 'settings', 'playerConfig'), { component: 'Watch', file: 'Watch.tsx', reason: 'Fetch player control configuration settings' }).catch(err => {
               console.warn("Failed to fetch player settings:", err);
               return null;
             })
@@ -275,7 +275,7 @@ export default function Watch() {
               where('category', '==', contentData.category),
               limit(12)
             );
-            const relatedSnap = await getDocs(q);
+            const relatedSnap = await getDocs(q, { component: 'Watch', file: 'Watch.tsx', reason: 'Fetch related videos under the same category' });
             const related = relatedSnap.docs
               .map(d => ({ id: d.id, ...d.data() } as SportsContent))
               .filter(item => item.id !== id);
@@ -372,7 +372,7 @@ export default function Watch() {
       
       let uniqueViewSnap;
       try {
-        uniqueViewSnap = await getDoc(uniqueViewRef);
+        uniqueViewSnap = await getDoc(uniqueViewRef, { component: 'Watch', file: 'Watch.tsx', reason: 'Verify unique view state for the viewer session' });
       } catch (err) {
         console.error("[UniqueView] Error getting unique view:", err);
         uniqueViewTrackedRef.current = null;

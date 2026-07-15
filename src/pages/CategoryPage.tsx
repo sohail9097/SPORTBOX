@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { collection, query, where, getDocs, orderBy, limit, onSnapshot } from 'firebase/firestore';
+import { db, handleFirestoreError, OperationType, getDocs } from '../lib/firebase';
+import { collection, query, where, orderBy, limit } from 'firebase/firestore';
 import { SportsContent, Category } from '../types';
 import { FALLBACK_SPORTS_CONTENT } from '../lib/fallbackData';
 import ContentCard from '../components/ContentCard';
@@ -44,7 +44,7 @@ export default function CategoryPage() {
           where('category', '==', category),
           limit(100)
         );
-        const snap = await getDocs(allQuery);
+        const snap = await getDocs(allQuery, { component: 'CategoryPage', file: 'CategoryPage.tsx', reason: 'Fetch all category assets' });
         if (!isMounted) return;
 
         const items = snap.docs
@@ -70,7 +70,7 @@ export default function CategoryPage() {
           where('category', '==', category),
           limit(20)
         );
-        const snap = await getDocs(liveQuery);
+        const snap = await getDocs(liveQuery, { component: 'CategoryPage', file: 'CategoryPage.tsx', reason: 'Fetch active category live streams' });
         if (!isMounted) return;
 
         const items = snap.docs

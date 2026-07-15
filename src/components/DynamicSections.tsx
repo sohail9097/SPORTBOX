@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { collection, query, where, orderBy, getDocs, doc, getDoc, documentId } from 'firebase/firestore';
+import { db, handleFirestoreError, OperationType, getDoc, getDocs } from '../lib/firebase';
+import { collection, query, where, orderBy, doc, documentId } from 'firebase/firestore';
 import { ContentSection, SportsContent, Category } from '../types';
 import { FALLBACK_SECTIONS, FALLBACK_SPORTS_CONTENT } from '../lib/fallbackData';
 import ContentCard from './ContentCard';
@@ -24,7 +24,7 @@ export default function DynamicSections({ page }: DynamicSectionsProps) {
     setLoading(true);
     // 1. Fetch sections (one-time)
     const q = query(collection(db, 'sections'), where('page', '==', page));
-    getDocs(q).then((snap) => {
+    getDocs(q, { component: 'DynamicSections', file: 'DynamicSections.tsx', reason: `Fetch page content sections configuration for ${page}` }).then((snap) => {
       if (!isMounted) return;
       const sectionsList = snap.docs
         .map(doc => ({ ...doc.data(), id: doc.id } as ContentSection))
@@ -120,7 +120,7 @@ export default function DynamicSections({ page }: DynamicSectionsProps) {
           let results: SportsContent[] = [];
           for (const chunk of chunkedIds) {
             const qContent = query(collection(db, 'content'), where(documentId(), 'in', chunk));
-            const contentSnap = await getDocs(qContent);
+            const contentSnap = await getDocs(qContent, { component: 'DynamicSections', file: 'DynamicSections.tsx', reason: `Fetch batch content IDs for section ${section.title}` });
             results = results.concat(contentSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as SportsContent)));
           }
 
@@ -134,7 +134,7 @@ export default function DynamicSections({ page }: DynamicSectionsProps) {
           try {
             const results = await Promise.all(
               section.contentIds.map(id => 
-                getDoc(doc(db, 'content', id)).then(s => 
+                getDoc(doc(db, 'content', id), { component: 'DynamicSections', file: 'DynamicSections.tsx', reason: `Sequential fallback fetch for content ID ${id}` }).then(s => 
                   s.exists() ? ({ ...s.data(), id: s.id } as SportsContent) : null
                 )
               )

@@ -3,8 +3,8 @@ import { Check, Crown, Zap, ShieldCheck, X, Loader2, CreditCard, Phone, Mail, St
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
 import { useAuth } from '../hooks/useAuth';
-import { db, handleFirestoreError, OperationType, signInWithGoogle, auth } from '../lib/firebase';
-import { doc, updateDoc, setDoc, collection, query, orderBy, getDocs } from 'firebase/firestore';
+import { db, handleFirestoreError, OperationType, signInWithGoogle, auth, getDocs } from '../lib/firebase';
+import { doc, updateDoc, setDoc, collection, query, orderBy } from 'firebase/firestore';
 import { SubscriptionPlan } from '../types';
 import LoadingScreen from '../components/LoadingScreen';
 import { toast } from 'sonner';
@@ -190,7 +190,7 @@ export default function Plans() {
   const fetchPlans = async () => {
     try {
       const q = query(collection(db, 'subscription_plans'), orderBy('order', 'asc'));
-      const snap = await getDocs(q);
+      const snap = await getDocs(q, { component: 'Plans', file: 'Plans.tsx', reason: 'Fetch premium subscription plans pricing table' });
       setPlans(snap.docs.map(d => ({ id: d.id, ...d.data() } as SubscriptionPlan)));
     } catch (err) {
       console.error("Fetch plans error:", err);

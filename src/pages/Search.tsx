@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { collection, query, getDocs, where, limit } from 'firebase/firestore';
+import { db, handleFirestoreError, OperationType, getDocs } from '../lib/firebase';
+import { collection, query, where, limit } from 'firebase/firestore';
 import { SportsContent } from '../types';
 import { Search as SearchIcon, Play, Filter, X, Loader2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -24,7 +24,7 @@ export default function Search() {
     setLoading(true);
     try {
       const q = query(collection(db, 'content'), limit(100));
-      const snap = await getDocs(q);
+      const snap = await getDocs(q, { component: 'Search', file: 'Search.tsx', reason: 'Pre-fetch content items for local full-text search index' });
       const data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as SportsContent));
       setAllContent(data);
       setResults(data);

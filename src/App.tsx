@@ -1,7 +1,4 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { useEffect } from 'react';
-import { db } from './lib/firebase';
-import { collection, query, where, getDocs, updateDoc, doc } from 'firebase/firestore';
 import Layout from './components/Layout';
 import ScrollToTop from './components/ScrollToTop';
 import Home from './pages/Home';
@@ -24,34 +21,6 @@ import { AuthProvider } from './hooks/useAuth';
 import { Toaster } from 'sonner';
 
 function App() {
-  useEffect(() => {
-    // One-time initialization to reset existing views of ALL media content in the database to 0
-    const resetAllViewsToZeroOnce = async () => {
-      const key = 'has_reset_all_views_to_zero_v5';
-      if (localStorage.getItem(key)) return;
-      try {
-        const q = query(collection(db, 'content'));
-        const snap = await getDocs(q);
-        const promises = snap.docs.map(docSnap => {
-          const data = docSnap.data();
-          if ((data.viewCount || 0) > 0) {
-            return updateDoc(doc(db, 'content', docSnap.id), { viewCount: 0 });
-          }
-          return null;
-        }).filter(Boolean);
-        
-        if (promises.length > 0) {
-          await Promise.all(promises);
-          console.log(`Successfully reset viewCount for ${promises.length} content items to 0.`);
-        }
-        localStorage.setItem(key, 'true');
-      } catch (error) {
-        console.error('Failed to run initial all views reset script:', error);
-      }
-    };
-    resetAllViewsToZeroOnce();
-  }, []);
-
   return (
     <AuthProvider>
       <ThemeProvider>

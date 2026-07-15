@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { collection, query, where, getDocs, limit } from 'firebase/firestore';
+import { db, handleFirestoreError, OperationType, getDocs } from '../lib/firebase';
+import { collection, query, where, limit } from 'firebase/firestore';
 import { SportsContent } from '../types';
 import { FALLBACK_SPORTS_CONTENT } from '../lib/fallbackData';
 import ContentCard from '../components/ContentCard';
@@ -41,7 +41,7 @@ export default function Live() {
           where('type', '==', 'live'),
           limit(100)
         );
-        const snap = await getDocs(q);
+        const snap = await getDocs(q, { component: 'Live', file: 'Live.tsx', reason: 'Fetch active and upcoming live video contents' });
         const items = snap.docs
           .map(d => ({ id: d.id, ...d.data() } as SportsContent))
           .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());

@@ -11,7 +11,13 @@ import {
   enableNetwork,
   setLogLevel,
   terminate,
-  clearIndexedDbPersistence
+  clearIndexedDbPersistence,
+  getDoc as firestoreGetDoc,
+  getDocs as firestoreGetDocs,
+  DocumentReference,
+  Query,
+  DocumentSnapshot,
+  QuerySnapshot
 } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import firebaseConfig from '../../firebase-applet-config.json';
@@ -64,6 +70,357 @@ export const analytics = isSupported().then(yes => yes ? getAnalytics(app) : nul
 
 googleProvider.setCustomParameters({ prompt: 'select_account' });
 
+// --- FIRESTORE CACHE, DEDUPLICATION & LOGGING ENGINE ---
+
+class MockDocumentSnapshot {
+  id: string;
+  ref: any;
+  private _data: any;
+  private _exists: boolean;
+
+  constructor(id: string, data: any, exists: boolean) {
+    this.id = id;
+    this._data = data;
+    this._exists = exists;
+    this.ref = { id };
+  }
+
+  exists() {
+    return this._exists;
+  }
+
+  data() {
+    return this._data;
+  }
+}
+
+class MockQuerySnapshot {
+  docs: MockDocumentSnapshot[];
+  empty: boolean;
+  size: number;
+
+  constructor(docs: MockDocumentSnapshot[]) {
+    this.docs = docs;
+    this.empty = docs.length === 0;
+    this.size = docs.length;
+  }
+
+  forEach(callback: (doc: any) => void) {
+    this.docs.forEach(callback);
+  }
+}
+
+// In-memory cache for fast deduplication and short-term caching
+const inMemoryCache = new Map<string, { data: any; expiry: number }>();
+// In-flight promises to eliminate simultaneous duplicate requests (deduplication)
+const inFlightPromises = new Map<string, Promise<any>>();
+
+// Helper to check if a collection path should be cached for the entire session
+function isSessionCacheCollection(path: string): boolean {
+  if (!path) return false;
+  const normalized = path.toLowerCase();
+  return (
+    normalized.includes('settings') ||
+    normalized.includes('sections') ||
+    normalized.includes('slider') ||
+    normalized.includes('subscription_plans') ||
+    normalized.includes('olympic_medalists') ||
+    normalized.includes('navigation') ||
+    normalized.includes('categories') ||
+    normalized.includes('sports') ||
+    normalized.includes('countries')
+  );
+}
+
+// Helper to get session storage cache
+function getSessionCache(key: string): any {
+  try {
+    const cached = sessionStorage.getItem(`firestore_cache:${key}`);
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      if (parsed.type === 'doc') {
+        return new MockDocumentSnapshot(parsed.id, parsed.data, parsed.exists);
+      } else if (parsed.type === 'query') {
+        const docs = parsed.docs.map((d: any) => new MockDocumentSnapshot(d.id, d.data, d.exists));
+        return new MockQuerySnapshot(docs);
+      }
+    }
+  } catch (e) {
+    console.warn("[Cache] Error reading from sessionStorage cache:", e);
+  }
+  return null;
+}
+
+// Helper to set session storage cache
+function setSessionCache(key: string, type: 'doc' | 'query', snap: any) {
+  try {
+    let serialized: any;
+    if (type === 'doc') {
+      serialized = {
+        type: 'doc',
+        id: snap.id,
+        exists: snap.exists(),
+        data: snap.exists() ? snap.data() : null
+      };
+    } else {
+      serialized = {
+        type: 'query',
+        docs: snap.docs.map((d: any) => ({
+          id: d.id,
+          exists: d.exists(),
+          data: d.exists() ? d.data() : null
+        }))
+      };
+    }
+    sessionStorage.setItem(`firestore_cache:${key}`, JSON.stringify(serialized));
+  } catch (e) {
+    console.warn("[Cache] Error writing to sessionStorage cache:", e);
+  }
+}
+
+// Helper to get precise serialization of query filters & orders
+function getQueryCacheKey(q: any): string {
+  if (!q) return '';
+  if (typeof q.path === 'string') {
+    return `doc:${q.path}`;
+  }
+  if (q.path && typeof q.path.toString === 'function') {
+    return `doc:${q.path.toString()}`;
+  }
+  
+  try {
+    const path = q._query?.path?.segments?.join('/') || q.path || 'unknown';
+    const limitVal = q._query?.limit || '';
+    const filters = q._query?.filters?.map((f: any) => {
+      const field = f.field?.segments?.join('.') || '';
+      const op = f.op || '';
+      const val = f.value?.internalValue || f.value || '';
+      return `${field}:${op}:${val}`;
+    }).join(',') || '';
+    const orders = q._query?.explicitOrderBy?.map((o: any) => {
+      const field = o.field?.segments?.join('.') || '';
+      const dir = o.dir || '';
+      return `${field}:${dir}`;
+    }).join(',') || '';
+    
+    return `query:${path}|filters:${filters}|orders:${orders}|limit:${limitVal}`;
+  } catch (err) {
+    return `query-fallback:${q.toString ? q.toString() : 'unknown'}`;
+  }
+}
+
+interface CacheOptions {
+  component?: string;
+  file?: string;
+  reason?: string;
+  maxAge?: number; // in ms
+  bypassCache?: boolean;
+}
+
+// Custom wrapper for getDoc with global caching, deduplication, and developer logging
+export async function getDoc<T = any>(
+  docRef: DocumentReference<T>,
+  options: CacheOptions = {}
+): Promise<DocumentSnapshot<T>> {
+  const path = docRef.path;
+  const collectionName = docRef.parent.path;
+  const cacheKey = `doc:${path}`;
+  const timestamp = new Date().toISOString();
+  
+  const component = options.component || 'unknown';
+  const file = options.file || 'unknown';
+  const reason = options.reason || 'General fetch';
+  const bypassCache = options.bypassCache || false;
+  const isStatic = isSessionCacheCollection(collectionName);
+  
+  // 1. Session Storage Cache hit check (once per session for static lists/config)
+  if (!bypassCache && isStatic) {
+    const sessionHit = getSessionCache(cacheKey);
+    if (sessionHit) {
+      console.log(
+        `%c[Firestore Request]\n` +
+        `Component: ${component}\n` +
+        `File: ${file}\n` +
+        `Collection: ${collectionName}\n` +
+        `Query: getDoc(${path})\n` +
+        `Timestamp: ${timestamp}\n` +
+        `Cache hit or miss: HIT (SessionStorage)\n` +
+        `Reason for fetch: ${reason}`,
+        'color: #10B981; font-weight: bold;'
+      );
+      return sessionHit;
+    }
+  }
+
+  // 2. In-Memory Cache hit check
+  if (!bypassCache) {
+    const memoryHit = inMemoryCache.get(cacheKey);
+    if (memoryHit && Date.now() < memoryHit.expiry) {
+      console.log(
+        `%c[Firestore Request]\n` +
+        `Component: ${component}\n` +
+        `File: ${file}\n` +
+        `Collection: ${collectionName}\n` +
+        `Query: getDoc(${path})\n` +
+        `Timestamp: ${timestamp}\n` +
+        `Cache hit or miss: HIT (Memory)\n` +
+        `Reason for fetch: ${reason}`,
+        'color: #3B82F6; font-weight: bold;'
+      );
+      return memoryHit.data;
+    }
+  }
+
+  // 3. Deduplicate active parallel requests
+  let activePromise = inFlightPromises.get(cacheKey);
+  if (activePromise) {
+    console.log(`[Firestore Deduplication] Simultaneous request merged for path: ${cacheKey}`);
+    return activePromise;
+  }
+
+  // 4. Cache MISS - Fetch from firestore
+  console.log(
+    `%c[Firestore Request]\n` +
+    `Component: ${component}\n` +
+    `File: ${file}\n` +
+    `Collection: ${collectionName}\n` +
+    `Query: getDoc(${path})\n` +
+    `Timestamp: ${timestamp}\n` +
+    `Cache hit or miss: MISS\n` +
+    `Reason for fetch: ${reason}`,
+    'color: #F59E0B; font-weight: bold;'
+  );
+
+  const fetchPromise = (async () => {
+    try {
+      const snap = await firestoreGetDoc(docRef);
+      
+      // Cache the result
+      const maxAge = options.maxAge || (isStatic ? 24 * 60 * 60 * 1000 : 30 * 1000); // 24 hours for static, 30s for dynamic
+      inMemoryCache.set(cacheKey, {
+        data: snap,
+        expiry: Date.now() + maxAge
+      });
+
+      // Save to Session Storage if static collection
+      if (isStatic) {
+        setSessionCache(cacheKey, 'doc', snap);
+      }
+
+      return snap;
+    } finally {
+      inFlightPromises.delete(cacheKey);
+    }
+  })();
+
+  inFlightPromises.set(cacheKey, fetchPromise);
+  return fetchPromise;
+}
+
+// Custom wrapper for getDocs with global caching, deduplication, and developer logging
+export async function getDocs<T = any>(
+  q: Query<T>,
+  options: CacheOptions = {}
+): Promise<QuerySnapshot<T>> {
+  const cacheKey = getQueryCacheKey(q);
+  const timestamp = new Date().toISOString();
+  
+  // Extract collection name safely
+  let collectionName = 'unknown';
+  try {
+    collectionName = (q as any)._query?.path?.segments?.join('/') || 'unknown';
+  } catch (_) {}
+  
+  const component = options.component || 'unknown';
+  const file = options.file || 'unknown';
+  const reason = options.reason || 'General fetch';
+  const bypassCache = options.bypassCache || false;
+  const isStatic = isSessionCacheCollection(collectionName);
+  
+  // 1. Session Storage Cache check
+  if (!bypassCache && isStatic) {
+    const sessionHit = getSessionCache(cacheKey);
+    if (sessionHit) {
+      console.log(
+        `%c[Firestore Request]\n` +
+        `Component: ${component}\n` +
+        `File: ${file}\n` +
+        `Collection: ${collectionName}\n` +
+        `Query: ${cacheKey}\n` +
+        `Timestamp: ${timestamp}\n` +
+        `Cache hit or miss: HIT (SessionStorage)\n` +
+        `Reason for fetch: ${reason}`,
+        'color: #10B981; font-weight: bold;'
+      );
+      return sessionHit;
+    }
+  }
+
+  // 2. In-Memory Cache check
+  if (!bypassCache) {
+    const memoryHit = inMemoryCache.get(cacheKey);
+    if (memoryHit && Date.now() < memoryHit.expiry) {
+      console.log(
+        `%c[Firestore Request]\n` +
+        `Component: ${component}\n` +
+        `File: ${file}\n` +
+        `Collection: ${collectionName}\n` +
+        `Query: ${cacheKey}\n` +
+        `Timestamp: ${timestamp}\n` +
+        `Cache hit or miss: HIT (Memory)\n` +
+        `Reason for fetch: ${reason}`,
+        'color: #3B82F6; font-weight: bold;'
+      );
+      return memoryHit.data;
+    }
+  }
+
+  // 3. Deduplicate active parallel requests
+  let activePromise = inFlightPromises.get(cacheKey);
+  if (activePromise) {
+    console.log(`[Firestore Deduplication] Simultaneous query merged for: ${cacheKey}`);
+    return activePromise;
+  }
+
+  // 4. Cache MISS - Fetch from firestore
+  console.log(
+    `%c[Firestore Request]\n` +
+    `Component: ${component}\n` +
+    `File: ${file}\n` +
+    `Collection: ${collectionName}\n` +
+    `Query: ${cacheKey}\n` +
+    `Timestamp: ${timestamp}\n` +
+    `Cache hit or miss: MISS\n` +
+    `Reason for fetch: ${reason}`,
+    'color: #F59E0B; font-weight: bold;'
+  );
+
+  const fetchPromise = (async () => {
+    try {
+      const snap = await firestoreGetDocs(q);
+      
+      // Cache the result
+      const maxAge = options.maxAge || (isStatic ? 24 * 60 * 60 * 1000 : 30 * 1000); // 24 hours for static, 30s for dynamic
+      inMemoryCache.set(cacheKey, {
+        data: snap,
+        expiry: Date.now() + maxAge
+      });
+
+      // Save to Session Storage if static collection
+      if (isStatic) {
+        setSessionCache(cacheKey, 'query', snap);
+      }
+
+      return snap;
+    } finally {
+      inFlightPromises.delete(cacheKey);
+    }
+  })();
+
+  inFlightPromises.set(cacheKey, fetchPromise);
+  return fetchPromise;
+}
+
 export async function signInWithGoogle(useRedirectFallback = true) {
   try {
     console.log("[AuthSync] Initiating signInWithPopup with Custom Domain: ", firebaseConfig.authDomain);
@@ -92,9 +449,9 @@ export async function signInWithGoogle(useRedirectFallback = true) {
       console.log("[AuthSync] Popup request cancelled by user.");
     } else if (error.code === 'auth/unauthorized-domain') {
        toast.error("Auth domain not authorized. Check Firebase console settings.");
-    } else if (error.code === 'auth/network-request-failed') {
-       toast.error("Network request failed. Please check internet connection.");
-    } else {
+     } else if (error.code === 'auth/network-request-failed') {
+        toast.error("Network request failed. Please check internet connection.");
+     } else {
       // For cross-origin blocked environments during local development or if popup was closed/blocked silently,
       // offer a safe fallback redirection
       if (useRedirectFallback && (error.message?.includes('closed') || error.message?.includes('cross-origin') || error.code === 'auth/popup-closed-by-user')) {

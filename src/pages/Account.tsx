@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../hooks/useAuth';
-import { db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { doc, updateDoc, collection, getDocs, query, where, documentId } from 'firebase/firestore';
+import { db, handleFirestoreError, OperationType, getDocs } from '../lib/firebase';
+import { doc, updateDoc, collection, query, where, documentId } from 'firebase/firestore';
 import { motion, AnimatePresence } from 'motion/react';
 import { User, Phone, CheckCircle2, ShieldCheck, Mail, LogOut, ChevronRight, Loader2, Key, Settings, Clock, Crown, Play } from 'lucide-react';
 import { cn } from '../lib/utils';
@@ -43,7 +43,7 @@ export default function Account() {
       try {
         const contentRef = collection(db, 'content');
         const q = query(contentRef, where(documentId(), 'in', profile.watchLater.slice(0, 10)));
-        const snapshot = await getDocs(q);
+        const snapshot = await getDocs(q, { component: 'Account', file: 'Account.tsx', reason: 'Fetch watch later videos associated with user profile' });
         const fetchedContent = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as SportsContent));
         setWatchLaterContent(fetchedContent);
       } catch (error) {
@@ -69,7 +69,7 @@ export default function Account() {
         // Get last 10 recently watched
         const recentIds = [...profile.recentlyWatched].reverse().slice(0, 10);
         const q = query(contentRef, where(documentId(), 'in', recentIds));
-        const snapshot = await getDocs(q);
+        const snapshot = await getDocs(q, { component: 'Account', file: 'Account.tsx', reason: 'Fetch recently watched videos history for user dashboard' });
         const fetchedContent = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as SportsContent));
         
         // Restore order based on recentIds

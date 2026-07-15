@@ -1,7 +1,7 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, ReactNode, useRef } from 'react';
 import { User, onAuthStateChanged, onIdTokenChanged, getRedirectResult } from 'firebase/auth';
-import { auth, db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { auth, db, handleFirestoreError, OperationType, getDoc } from '../lib/firebase';
+import { doc, setDoc } from 'firebase/firestore';
 import { toast } from 'sonner';
 
 interface AuthContextType {
@@ -19,6 +19,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const currentUserRef = useRef<User | null>(null);
+  const currentProfileRef = useRef<any | null>(null);
+
+  // Keep refs in sync with state
+  useEffect(() => {
+    currentUserRef.current = user;
+  }, [user]);
+
+  useEffect(() => {
+    currentProfileRef.current = profile;
+  }, [profile]);
 
   useEffect(() => {
     // 🌟 Variable Initialization ko top par rakhein (Reference Error se bachne ke liye)
@@ -43,8 +55,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const handleUserTransition = async (currentUser: User | null) => {
       if (isCleanedUp) return;
       
+      const prevUser = currentUserRef.current;
+      const prevProfile = currentProfileRef.current;
+
       // 🚀 optimization: Prevent redundant profile fetches on focus, storage sync, or visibility changes
-      if (currentUser?.uid === user?.uid && profile) {
+      if (currentUser?.uid === prevUser?.uid && prevProfile) {
         console.log("[AuthSync] User is already synchronized and profile is loaded. Skipping redundant initialization.");
         return;
       }
@@ -61,7 +76,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
         }, 3000);
 
-        getDoc(userDocRef)
+        getDoc(userDocRef, { component: 'AuthProvider', file: 'useAuth.tsx', reason: 'Fetch user profile doc on auth state change' })
           .then((docSnap) => {
             clearTimeout(authTimeout);
             if (isCleanedUp) return;
@@ -110,7 +125,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const unsubscribeToken = onIdTokenChanged(auth, (currentUser) => {
       console.log("[AuthSync] ID Token verification updated:", currentUser?.uid || 'anonymous');
       // If user state is different from what we hold, sync it
-      if (currentUser?.uid !== user?.uid) {
+      if (currentUser?.uid !== currentUserRef.current?.uid) {
         handleUserTransition(currentUser);
       }
     });
@@ -122,7 +137,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           // Let Firebase SDK process local storage state then update
           setTimeout(() => {
             const freshUser = auth.currentUser;
-            if (freshUser?.uid !== user?.uid) {
+            if (freshUser?.uid !== currentUserRef.current?.uid) {
               handleUserTransition(freshUser);
             }
           }, 400);
@@ -181,7 +196,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       window.removeEventListener('focus', handleWindowFocus);
       window.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [user?.uid]);
+  }, []);
 
   const initializeProfile = async (authenticatedUser: User) => {
     const userDocRef = doc(db, 'users', authenticatedUser.uid);

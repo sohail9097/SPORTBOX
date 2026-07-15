@@ -260,8 +260,9 @@ export default function Shots() {
   }, []);
 
   // Fetch comments persistently from Firestore for the current activeShort
+  // 🚀 Optimization: Only fetch comments from DB when the comments drawer is actually open
   useEffect(() => {
-    if (!activeShort) return;
+    if (!activeShort || !isCommentsOpen) return;
     let isMounted = true;
 
     const fetchCommentsForActiveShort = async () => {
@@ -345,7 +346,7 @@ export default function Shots() {
     return () => {
       isMounted = false;
     };
-  }, [currentIndex, activeShort]);
+  }, [currentIndex, activeShort, isCommentsOpen]);
 
   // Handle current video play/pause and mute/unmute state based on active short index
   useEffect(() => {
@@ -458,13 +459,6 @@ export default function Shots() {
       }
     });
 
-    // Increase view count in firestore asynchronously
-    if (activeShort) {
-      updateDoc(doc(db, 'content', activeShort.id), {
-        viewCount: increment(1)
-      }).catch(err => console.log('Silent view count error:', err));
-    }
-
     return () => {
       Object.keys(videoRefs.current).forEach((key) => {
         const idx = parseInt(key, 10);
@@ -479,6 +473,16 @@ export default function Shots() {
       });
     };
   }, [currentIndex, isPlaying, isMuted, shorts]);
+
+  // 🚀 Optimization: Increment view count ONLY when the active short ID changes.
+  // This prevents play/pause/mute state toggles from triggering redundant write operations to Firestore!
+  useEffect(() => {
+    if (activeShort?.id) {
+      updateDoc(doc(db, 'content', activeShort.id), {
+        viewCount: increment(1)
+      }).catch(err => console.log('Silent view count error:', err));
+    }
+  }, [activeShort?.id]);
 
   // Navigate to next short
   const handleNext = () => {

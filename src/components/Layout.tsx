@@ -8,7 +8,7 @@ import {
   Search, Menu, X, Sun, Moon, Home, Tv, 
   Calendar, UserCircle, Bell, Clock, Flame, BookOpen, Trophy
 } from 'lucide-react';
-import { doc, onSnapshot, query, collection, where } from 'firebase/firestore';
+import { doc, getDoc, getDocs, query, collection, where } from 'firebase/firestore';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
 import { SiteConfig } from '../types';
@@ -29,34 +29,48 @@ export default function Layout({ children }: { children: ReactNode }) {
   const location = useLocation();
 
   useEffect(() => {
+    let isMounted = true;
     // Sync site configuration
-    const unsubscribe = onSnapshot(doc(db, 'settings', 'siteConfig'), (snapshot) => {
-      if (snapshot.exists()) {
-        setSiteConfig(prev => ({ ...prev, ...snapshot.data() }));
-      } else {
+    getDoc(doc(db, 'settings', 'siteConfig'))
+      .then((snapshot) => {
+        if (!isMounted) return;
+        if (snapshot.exists()) {
+          setSiteConfig(prev => ({ ...prev, ...snapshot.data() }));
+        } else {
+          setSiteConfig(FALLBACK_SITE_CONFIG);
+        }
+      })
+      .catch((error) => {
+        if (!isMounted) return;
+        console.error("[Layout] SiteConfig fetch error:", error);
         setSiteConfig(FALLBACK_SITE_CONFIG);
-      }
-    }, (error) => {
-      console.error("[Layout] SiteConfig sync error:", error);
-      setSiteConfig(FALLBACK_SITE_CONFIG);
-      handleFirestoreError(error, OperationType.GET, 'settings/siteConfig');
-    });
+        handleFirestoreError(error, OperationType.GET, 'settings/siteConfig');
+      });
 
-    return () => unsubscribe();
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   useEffect(() => {
+    let isMounted = true;
     const q = query(collection(db, 'content'), where('status', '==', 'live'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      // Sum views of all active live streams
-      const totalViews = snapshot.empty ? 52160 : snapshot.docs.reduce((acc, doc) => acc + (doc.data().viewCount || 0), 0);
-      setLiveCount(totalViews);
-    }, (error) => {
-      console.error("Live count snapshot error:", error);
-      setLiveCount(52160); // Robust fallback active spectator volume
-      handleFirestoreError(error, OperationType.GET, 'content');
-    });
-    return () => unsubscribe();
+    getDocs(q)
+      .then((snapshot) => {
+        if (!isMounted) return;
+        // Sum views of all active live streams
+        const totalViews = snapshot.empty ? 52160 : snapshot.docs.reduce((acc, doc) => acc + (doc.data().viewCount || 0), 0);
+        setLiveCount(totalViews);
+      })
+      .catch((error) => {
+        if (!isMounted) return;
+        console.error("Live count fetch error:", error);
+        setLiveCount(52160); // Robust fallback active spectator volume
+        handleFirestoreError(error, OperationType.GET, 'content');
+      });
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const navLinks = [

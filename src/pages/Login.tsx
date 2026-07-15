@@ -13,7 +13,7 @@ import {
   signInWithEmailAndPassword,
   updateProfile,
 } from 'firebase/auth';
-import { doc, onSnapshot, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { cn } from '../lib/utils';
 import BrandLogo from '../components/BrandLogo';
 import { SiteConfig } from '../types';
@@ -42,15 +42,22 @@ export default function Login() {
   const RECAPTCHA_SITE_KEY = "6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI";
 
   useEffect(() => {
-    const unsub = onSnapshot(doc(db, 'settings', 'siteConfig'), (snap) => {
-      if (snap.exists()) {
-        setSiteConfig(snap.data() as SiteConfig);
-      }
-    }, (err) => {
-      console.warn("[Login] Config fetch offline:", err.message);
-      handleFirestoreError(err, OperationType.GET, 'settings/siteConfig');
-    });
-    return () => unsub();
+    let isMounted = true;
+    getDoc(doc(db, 'settings', 'siteConfig'))
+      .then((snap) => {
+        if (isMounted && snap.exists()) {
+          setSiteConfig(snap.data() as SiteConfig);
+        }
+      })
+      .catch((err) => {
+        if (isMounted) {
+          console.warn("[Login] Config fetch offline:", err.message);
+          handleFirestoreError(err, OperationType.GET, 'settings/siteConfig');
+        }
+      });
+    return () => {
+      isMounted = false;
+    };
   }, [navigate]);
 
   const handleRecaptchaChange = (token: string | null) => {

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { collection, query, orderBy, onSnapshot, doc, setDoc, updateDoc, increment } from 'firebase/firestore';
+import { collection, query, orderBy, getDocs, doc, setDoc, updateDoc, increment } from 'firebase/firestore';
 import { useAuth } from '../hooks/useAuth';
 import { BlogPost } from '../types';
 import { 
@@ -47,33 +47,40 @@ export default function Blogs() {
 
   // Sync blogs from Firestore (with Mock seed fallback)
   useEffect(() => {
+    let isMounted = true;
     setLoading(true);
     const q = query(collection(db, 'blogs'));
     
-    const unsubscribe = onSnapshot(q, async (snapshot) => {
-      let items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as BlogPost));
-      
-      // Sort in-memory to prevent missing index errors and missing field exclusions
-      items.sort((a, b) => {
-        const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-        const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-        return dateB - dateA;
+    getDocs(q)
+      .then((snapshot) => {
+        if (!isMounted) return;
+        let items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as BlogPost));
+        
+        // Sort in-memory to prevent missing index errors and missing field exclusions
+        items.sort((a, b) => {
+          const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return dateB - dateA;
+        });
+
+        if (items.length === 0) {
+          setBlogs(MOCK_BLOGS);
+        } else {
+          setBlogs(items);
+        }
+        setLoading(false);
+      })
+      .catch((error) => {
+        if (!isMounted) return;
+        console.warn("[Blogs] Firestore connection issues. Falling back to memory states:", error);
+        setBlogs(MOCK_BLOGS);
+        setLoading(false);
+        handleFirestoreError(error, OperationType.GET, 'blogs');
       });
 
-      if (items.length === 0) {
-        setBlogs(MOCK_BLOGS);
-      } else {
-        setBlogs(items);
-      }
-      setLoading(false);
-    }, (error) => {
-      console.warn("[Blogs] Firestore connection issues. Falling back to memory states:", error);
-      setBlogs(MOCK_BLOGS);
-      setLoading(false);
-      handleFirestoreError(error, OperationType.GET, 'blogs');
-    });
-
-    return () => unsubscribe();
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   // Live filter matching search term

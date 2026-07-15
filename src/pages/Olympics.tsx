@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { collection, query, where, onSnapshot, addDoc, deleteDoc, doc, updateDoc, setDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, addDoc, deleteDoc, doc, updateDoc, setDoc } from 'firebase/firestore';
 import { SportsContent } from '../types';
 import { FALLBACK_SPORTS_CONTENT } from '../lib/fallbackData';
 import { 
@@ -1120,62 +1120,75 @@ export default function Olympics() {
     };
   }, []);
 
-  // Real-time Database Subscriptions
+  // Real-time Database Subscriptions (replaced with optimized one-time fetches)
   useEffect(() => {
-    // 1. Subscribe to Content Video collection under category 'olympics'
-    const qContent = query(collection(db, 'content'), where('category', '==', 'olympics'));
-    const unsubscribeContent = onSnapshot(qContent, (snapshot) => {
-      const list = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      } as SportsContent));
-      
-      if (list.length === 0) {
-        setFirestoreVideos(FALLBACK_SPORTS_CONTENT.filter(item => item.category === 'olympics'));
-      } else {
-        setFirestoreVideos(list);
-      }
-    }, (err) => {
-      console.warn("Firestore Olympic category query disabled or offline:", err);
-      setFirestoreVideos(FALLBACK_SPORTS_CONTENT.filter(item => item.category === 'olympics'));
-      handleFirestoreError(err, OperationType.GET, 'content');
-    });
+    let isMounted = true;
 
-    // 2. Subscribe to olympic_medalists collection
-    const qMedalists = query(collection(db, 'olympic_medalists'));
-    const unsubscribeMedalists = onSnapshot(qMedalists, (snapshot) => {
-      if (snapshot.empty) {
-        setMedalists(INDIAN_MEDALISTS);
-      } else {
-        const list = snapshot.docs.map(doc => ({
+    const fetchOlympicsData = async () => {
+      try {
+        // 1. Fetch Content Video collection under category 'olympics'
+        const qContent = query(collection(db, 'content'), where('category', '==', 'olympics'));
+        const contentSnapshot = await getDocs(qContent);
+        if (!isMounted) return;
+
+        const list = contentSnapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data()
-        } as IndianMedalist));
-
-        // Merge any statically defined medalists that are not yet in Firestore (ensures instant availability)
-        const existingIds = new Set(list.map(m => m.id));
-        const missingDefaults = INDIAN_MEDALISTS.filter(m => !existingIds.has(m.id));
-        const mergedList = [...list, ...missingDefaults];
-
-        // Sort to match default ordering
-        const orderMap = new Map(INDIAN_MEDALISTS.map((m, idx) => [m.id, idx]));
-        mergedList.sort((a, b) => {
-          const indexA = orderMap.get(a.id) ?? 999;
-          const indexB = orderMap.get(b.id) ?? 999;
-          return indexA - indexB;
-        });
-
-        setMedalists(mergedList);
+        } as SportsContent));
+        
+        if (list.length === 0) {
+          setFirestoreVideos(FALLBACK_SPORTS_CONTENT.filter(item => item.category === 'olympics'));
+        } else {
+          setFirestoreVideos(list);
+        }
+      } catch (err: any) {
+        if (!isMounted) return;
+        console.warn("Firestore Olympic category query disabled or offline:", err);
+        setFirestoreVideos(FALLBACK_SPORTS_CONTENT.filter(item => item.category === 'olympics'));
+        handleFirestoreError(err, OperationType.GET, 'content');
       }
-    }, (err) => {
-      console.warn("Firestore medalists query disabled or offline:", err);
-      setMedalists(INDIAN_MEDALISTS);
-      handleFirestoreError(err, OperationType.GET, 'olympic_medalists');
-    });
+
+      try {
+        // 2. Fetch olympic_medalists collection
+        const qMedalists = query(collection(db, 'olympic_medalists'));
+        const medalistsSnapshot = await getDocs(qMedalists);
+        if (!isMounted) return;
+
+        if (medalistsSnapshot.empty) {
+          setMedalists(INDIAN_MEDALISTS);
+        } else {
+          const list = medalistsSnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          } as IndianMedalist));
+
+          // Merge any statically defined medalists that are not yet in Firestore (ensures instant availability)
+          const existingIds = new Set(list.map(m => m.id));
+          const missingDefaults = INDIAN_MEDALISTS.filter(m => !existingIds.has(m.id));
+          const mergedList = [...list, ...missingDefaults];
+
+          // Sort to match default ordering
+          const orderMap = new Map(INDIAN_MEDALISTS.map((m, idx) => [m.id, idx]));
+          mergedList.sort((a, b) => {
+            const indexA = orderMap.get(a.id) ?? 999;
+            const indexB = orderMap.get(b.id) ?? 999;
+            return indexA - indexB;
+          });
+
+          setMedalists(mergedList);
+        }
+      } catch (err: any) {
+        if (!isMounted) return;
+        console.warn("Firestore medalists query disabled or offline:", err);
+        setMedalists(INDIAN_MEDALISTS);
+        handleFirestoreError(err, OperationType.GET, 'olympic_medalists');
+      }
+    };
+
+    fetchOlympicsData();
 
     return () => {
-      unsubscribeContent();
-      unsubscribeMedalists();
+      isMounted = false;
     };
   }, []);
 

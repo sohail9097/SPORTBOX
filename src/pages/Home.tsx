@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { collection, query, orderBy, limit, getDocs, where, doc, onSnapshot, getDoc, documentId } from 'firebase/firestore';
+import { collection, query, orderBy, limit, getDocs, where, doc, getDoc, documentId } from 'firebase/firestore';
 import { SportsContent, VideoPromoSettings, ContentSection } from '../types';
 import { FALLBACK_SPORTS_CONTENT, FALLBACK_PROMO } from '../lib/fallbackData';
 import ContentCard from '../components/ContentCard';
@@ -19,122 +19,154 @@ export default function Home() {
   const [videoPromo, setVideoPromo] = useState<VideoPromoSettings | null>(null);
 
   useEffect(() => {
+    let isMounted = true;
+    setLoading(true);
+
     // Safety timeout: stop loading after 2.5 seconds regardless of sync state
     const timer = setTimeout(() => {
-      setLoading(false);
+      if (isMounted) {
+        setLoading(false);
+      }
     }, 2500);
 
-    // 1. Video Promo sync
-    const unsubPromo = onSnapshot(doc(db, 'settings', 'videoPromo'), (snap) => {
-      if (snap.exists()) {
-        setVideoPromo(snap.data() as VideoPromoSettings);
-      } else {
+    // Helper to load promo
+    const fetchPromo = async () => {
+      try {
+        const snap = await getDoc(doc(db, 'settings', 'videoPromo'));
+        if (!isMounted) return;
+        if (snap.exists()) {
+          setVideoPromo(snap.data() as VideoPromoSettings);
+        } else {
+          setVideoPromo(FALLBACK_PROMO);
+        }
+      } catch (err: any) {
+        if (!isMounted) return;
+        console.warn("[Home] Promo fetch offline:", err.message);
         setVideoPromo(FALLBACK_PROMO);
+        handleFirestoreError(err, OperationType.GET, 'settings/videoPromo');
       }
-    }, (err) => {
-      console.warn("[Home] Promo sync offline:", err.message);
-      setVideoPromo(FALLBACK_PROMO);
-      handleFirestoreError(err, OperationType.GET, 'settings/videoPromo');
-    });
+    };
 
-    // 2. Live Content sync
-    const liveQuery = query(collection(db, 'content'), where('type', '==', 'live'), limit(20));
-    const unsubLive = onSnapshot(liveQuery, (snap) => {
-      // Filter status in-memory to avoid complex index requirements
-      const liveItems = snap.docs
-        .map(d => ({ id: d.id, ...d.data() } as SportsContent))
-        .filter(item => item.status === 'live')
-        .slice(0, 6);
-      
-      setLiveNow(liveItems);
-      setLoading(false);
-    }, (err) => {
-      console.error("[Home] Live sync error:", err);
-      setLiveNow([]);
-      setLoading(false);
-      handleFirestoreError(err, OperationType.GET, 'content');
-    });
+    // Helper to load live content
+    const fetchLiveContent = async () => {
+      try {
+        const liveQuery = query(collection(db, 'content'), where('type', '==', 'live'), limit(20));
+        const snap = await getDocs(liveQuery);
+        if (!isMounted) return;
+        // Filter status in-memory to avoid complex index requirements
+        const liveItems = snap.docs
+          .map(d => ({ id: d.id, ...d.data() } as SportsContent))
+          .filter(item => item.status === 'live')
+          .slice(0, 6);
+        
+        setLiveNow(liveItems);
+      } catch (err: any) {
+        if (!isMounted) return;
+        console.error("[Home] Live fetch error:", err);
+        setLiveNow([]);
+        handleFirestoreError(err, OperationType.GET, 'content');
+      }
+    };
 
-    // 3. Dynamic Sections sync (including the one intended for Trending)
-    const sectionsQuery = query(collection(db, 'sections'), where('page', '==', 'home'));
+    // Helper to load sections and trending
+    const fetchSectionsAndTrending = async () => {
+      try {
+        const sectionsQuery = query(collection(db, 'sections'), where('page', '==', 'home'));
+        const snap = await getDocs(sectionsQuery);
+        if (!isMounted) return;
 
-    const unsubSections = onSnapshot(sectionsQuery, async (snap) => {
-      const sectionsList = snap.docs
-        .map(d => ({ id: d.id, ...d.data() } as ContentSection))
-        .filter(s => s.isActive)
-        .sort((a, b) => (a.order || 0) - (b.order || 0));
-      
-      // Find a section that might be the "Trending" one
-      const trendingSection = sectionsList.find(s => s.title.toLowerCase().includes('trending'));
-      
-      if (trendingSection && trendingSection.contentIds && trendingSection.contentIds.length > 0) {
-        try {
-          // Optimization: Batch fetch instead of multiple getDoc calls
-          const targetIds = trendingSection.contentIds.slice(0, 10);
-          const qContent = query(collection(db, 'content'), where(documentId(), 'in', targetIds));
-          const contentSnap = await getDocs(qContent);
-          const results = contentSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as SportsContent));
-          
-          // Maintain sequence
-          const orderMap = new Map(targetIds.map((id, idx) => [id, idx]));
-          results.sort((a, b) => (orderMap.get(a.id) ?? 999) - (orderMap.get(b.id) ?? 999));
-
-          if (results.length === 0) {
-            setTrending(FALLBACK_SPORTS_CONTENT.slice(0, 6));
-          } else {
-            setTrending(results);
-          }
-        } catch (e) {
-          console.error("[Home] Error batch fetching manual trending, trying fallback:", e);
+        const sectionsList = snap.docs
+          .map(d => ({ id: d.id, ...d.data() } as ContentSection))
+          .filter(s => s.isActive)
+          .sort((a, b) => (a.order || 0) - (b.order || 0));
+        
+        // Find a section that might be the "Trending" one
+        const trendingSection = sectionsList.find(s => s.title.toLowerCase().includes('trending'));
+        
+        if (trendingSection && trendingSection.contentIds && trendingSection.contentIds.length > 0) {
           try {
-            const results = await Promise.all(
-              trendingSection.contentIds.slice(0, 10).map(id => getDoc(doc(db, 'content', id)).then(s => 
-                s.exists() ? ({ ...s.data(), id: s.id } as SportsContent) : null
-              ))
-            );
-            const filteredResults = results.filter((i): i is SportsContent => i !== null);
-            if (filteredResults.length === 0) {
+            // Optimization: Batch fetch instead of multiple getDoc calls
+            const targetIds = trendingSection.contentIds.slice(0, 10);
+            const qContent = query(collection(db, 'content'), where(documentId(), 'in', targetIds));
+            const contentSnap = await getDocs(qContent);
+            const results = contentSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as SportsContent));
+            
+            if (!isMounted) return;
+
+            // Maintain sequence
+            const orderMap = new Map(targetIds.map((id, idx) => [id, idx]));
+            results.sort((a, b) => (orderMap.get(a.id) ?? 999) - (orderMap.get(b.id) ?? 999));
+
+            if (results.length === 0) {
               setTrending(FALLBACK_SPORTS_CONTENT.slice(0, 6));
             } else {
-              setTrending(filteredResults);
+              setTrending(results);
             }
-          } catch (errFallback) {
-            console.error("[Home] Fallback also failed:", errFallback);
+          } catch (e) {
+            if (!isMounted) return;
+            console.error("[Home] Error batch fetching manual trending, trying fallback:", e);
+            try {
+              const results = await Promise.all(
+                trendingSection.contentIds.slice(0, 10).map(id => getDoc(doc(db, 'content', id)).then(s => 
+                  s.exists() ? ({ ...s.data(), id: s.id } as SportsContent) : null
+                ))
+              );
+              if (!isMounted) return;
+              const filteredResults = results.filter((i): i is SportsContent => i !== null);
+              if (filteredResults.length === 0) {
+                setTrending(FALLBACK_SPORTS_CONTENT.slice(0, 6));
+              } else {
+                setTrending(filteredResults);
+              }
+            } catch (errFallback) {
+              if (!isMounted) return;
+              console.error("[Home] Fallback also failed:", errFallback);
+              setTrending(FALLBACK_SPORTS_CONTENT.slice(0, 6));
+            }
+          }
+        } else {
+          // Fallback: Just fetch recent content if no trending section identified
+          const fallbackQuery = query(collection(db, 'content'), limit(20));
+          try {
+            const s = await getDocs(fallbackQuery);
+            if (!isMounted) return;
+            const items = s.docs
+              .map(d => ({ id: d.id, ...d.data() } as SportsContent))
+              .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+            
+            if (items.length === 0) {
+              setTrending(FALLBACK_SPORTS_CONTENT.slice(0, 6));
+            } else {
+              setTrending(items.slice(0, 6));
+            }
+          } catch (err) {
+            if (!isMounted) return;
             setTrending(FALLBACK_SPORTS_CONTENT.slice(0, 6));
+            handleFirestoreError(err, OperationType.GET, 'content');
           }
         }
-      } else {
-        // Fallback: Just fetch recent content if no trending section identified
-        const fallbackQuery = query(collection(db, 'content'), limit(20));
-        getDocs(fallbackQuery).then(s => {
-          const items = s.docs
-            .map(d => ({ id: d.id, ...d.data() } as SportsContent))
-            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-          
-          if (items.length === 0) {
-            setTrending(FALLBACK_SPORTS_CONTENT.slice(0, 6));
-          } else {
-            setTrending(items.slice(0, 6));
-          }
-        }).catch(err => {
-          setTrending(FALLBACK_SPORTS_CONTENT.slice(0, 6));
-          handleFirestoreError(err, OperationType.GET, 'content');
-        });
+      } catch (err: any) {
+        if (!isMounted) return;
+        console.error("[Home] Sections fetch error:", err);
+        setTrending(FALLBACK_SPORTS_CONTENT.slice(0, 6));
+        handleFirestoreError(err, OperationType.GET, 'sections');
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
       }
-      
-      setLoading(false);
-    }, (err) => {
-       console.error("[Home] Sections sync error:", err);
-       setTrending(FALLBACK_SPORTS_CONTENT.slice(0, 6));
-       setLoading(false);
-       handleFirestoreError(err, OperationType.GET, 'sections');
+    };
+
+    // Run fetches
+    Promise.all([fetchPromo(), fetchLiveContent(), fetchSectionsAndTrending()]).finally(() => {
+      if (isMounted) {
+        setLoading(false);
+      }
     });
 
     return () => {
+      isMounted = false;
       clearTimeout(timer);
-      unsubPromo();
-      unsubLive();
-      unsubSections();
     };
   }, []);
 

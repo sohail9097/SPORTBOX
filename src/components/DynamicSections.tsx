@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { collection, query, where, orderBy, getDocs, doc, getDoc, onSnapshot, documentId } from 'firebase/firestore';
+import { collection, query, where, orderBy, getDocs, doc, getDoc, documentId } from 'firebase/firestore';
 import { ContentSection, SportsContent, Category } from '../types';
 import { FALLBACK_SECTIONS, FALLBACK_SPORTS_CONTENT } from '../lib/fallbackData';
 import ContentCard from './ContentCard';
@@ -20,10 +20,12 @@ export default function DynamicSections({ page }: DynamicSectionsProps) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let isMounted = true;
     setLoading(true);
-    // 1. Sync sections
+    // 1. Fetch sections (one-time)
     const q = query(collection(db, 'sections'), where('page', '==', page));
-    const unsubscribeSections = onSnapshot(q, (snap) => {
+    getDocs(q).then((snap) => {
+      if (!isMounted) return;
       const sectionsList = snap.docs
         .map(doc => ({ ...doc.data(), id: doc.id } as ContentSection))
         .filter(s => s.isActive)
@@ -65,8 +67,9 @@ export default function DynamicSections({ page }: DynamicSectionsProps) {
         // 2. Fetch content for each section
         fetchContentForSections(sectionsList);
       }
-    }, (err) => {
-      console.error("[Dynamic] Sections sync error:", err);
+    }).catch((err) => {
+      if (!isMounted) return;
+      console.error("[Dynamic] Sections fetch error:", err);
       
       const fallbacks = FALLBACK_SECTIONS.filter(s => s.page === page || (page !== 'home' && s.page === 'home'));
       const remappedFallbacks = fallbacks.map(f => ({ ...f, page }));
@@ -142,10 +145,14 @@ export default function DynamicSections({ page }: DynamicSectionsProps) {
           }
         }
       }
-      setSectionData(data);
+      if (isMounted) {
+        setSectionData(data);
+      }
     };
 
-    return () => unsubscribeSections();
+    return () => {
+      isMounted = false;
+    };
   }, [page]);
 
   if (loading) {

@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { doc, getDoc, updateDoc, increment, arrayUnion, arrayRemove, collection, query, where, limit, getDocs, setDoc, deleteDoc, onSnapshot } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, increment, arrayUnion, arrayRemove, collection, query, where, limit, getDocs, setDoc, deleteDoc } from 'firebase/firestore';
 import { SportsContent, PlayerSettings } from '../types';
 import { FALLBACK_SPORTS_CONTENT, FALLBACK_PLAYER_CONFIG } from '../lib/fallbackData';
 import { useAuth } from '../hooks/useAuth';
@@ -250,7 +250,20 @@ export default function Watch() {
       // Initial fetch for content and related items
       const fetchOnce = async () => {
         try {
-          const snap = await getDoc(doc(db, 'content', id));
+          const [snap, playerSnap] = await Promise.all([
+            getDoc(doc(db, 'content', id)),
+            getDoc(doc(db, 'settings', 'playerConfig')).catch(err => {
+              console.warn("Failed to fetch player settings:", err);
+              return null;
+            })
+          ]);
+
+          if (playerSnap && playerSnap.exists()) {
+            setPlayerConfig(playerSnap.data() as PlayerSettings);
+          } else {
+            setPlayerConfig(FALLBACK_PLAYER_CONFIG);
+          }
+
           if (snap.exists()) {
             const contentData = { id: snap.id, ...snap.data() } as SportsContent;
             setContent(contentData);
@@ -320,43 +333,12 @@ export default function Watch() {
             });
             setSections(grouped);
           }
+          setPlayerConfig(FALLBACK_PLAYER_CONFIG);
           setLoading(false);
         }
       };
 
       fetchOnce();
-      
-      // Live metadata updates only (doesn't trigger related fetch again)
-      const unsubContent = onSnapshot(doc(db, 'content', id), (snap) => {
-        if (snap.exists()) {
-          setContent({ id: snap.id, ...snap.data() } as SportsContent);
-        } else {
-          const fallbackItem = FALLBACK_SPORTS_CONTENT.find(item => item.id === id);
-          if (fallbackItem) setContent(fallbackItem);
-        }
-      }, (err) => {
-        console.error("[Watch] Error listening to content:", err);
-        const fallbackItem = FALLBACK_SPORTS_CONTENT.find(item => item.id === id);
-        if (fallbackItem) setContent(fallbackItem);
-        handleFirestoreError(err, OperationType.GET, `content/${id}`);
-      });
-
-      const unsubPlayer = onSnapshot(doc(db, 'settings', 'playerConfig'), (snap) => {
-        if (snap.exists()) {
-          setPlayerConfig(snap.data() as PlayerSettings);
-        } else {
-          setPlayerConfig(FALLBACK_PLAYER_CONFIG);
-        }
-      }, (err) => {
-        console.error("[Watch] Error listening to playerConfig:", err);
-        setPlayerConfig(FALLBACK_PLAYER_CONFIG);
-        handleFirestoreError(err, OperationType.GET, 'settings/playerConfig');
-      });
-
-      return () => {
-        unsubContent();
-        unsubPlayer();
-      };
     }
   }, [id]);
 

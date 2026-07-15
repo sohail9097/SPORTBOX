@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { User, onAuthStateChanged, onIdTokenChanged, getRedirectResult } from 'firebase/auth';
 import { auth, db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { toast } from 'sonner';
 
 interface AuthContextType {
@@ -22,7 +22,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     // 🌟 Variable Initialization ko top par rakhein (Reference Error se bachne ke liye)
-    let unsubscribeProfile: (() => void) | null = null;
     let isCleanedUp = false;
     const authChannel = typeof window !== 'undefined' ? new BroadcastChannel('sportsbox_auth_session_sync') : null;
 
@@ -44,18 +43,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const handleUserTransition = async (currentUser: User | null) => {
       if (isCleanedUp) return;
       
-      // 🚀 optimization: Prevent redundant profile snaps on focus, storage sync, or visibility changes
-      if (currentUser?.uid === user?.uid && unsubscribeProfile) {
-        console.log("[AuthSync] User is already synchronized and profile snapshot is active. Skipping redundant initialization.");
+      // 🚀 optimization: Prevent redundant profile fetches on focus, storage sync, or visibility changes
+      if (currentUser?.uid === user?.uid && profile) {
+        console.log("[AuthSync] User is already synchronized and profile is loaded. Skipping redundant initialization.");
         return;
       }
       
       setUser(currentUser);
-      
-      if (unsubscribeProfile) {
-        unsubscribeProfile();
-        unsubscribeProfile = null;
-      }
 
       if (currentUser) {
         const userDocRef = doc(db, 'users', currentUser.uid);
@@ -67,20 +61,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
         }, 3000);
 
-        unsubscribeProfile = onSnapshot(userDocRef, (doc) => {
-          clearTimeout(authTimeout);
-          if (doc.exists()) {
-            setProfile(doc.data());
-          } else {
-            initializeProfile(currentUser);
-          }
-          setLoading(false);
-        }, (error) => {
-          clearTimeout(authTimeout);
-          console.error("[AuthSync] Firestore profile snapshot error:", error);
-          setLoading(false);
-          handleFirestoreError(error, OperationType.GET, `users/${currentUser.uid}`);
-        });
+        getDoc(userDocRef)
+          .then((docSnap) => {
+            clearTimeout(authTimeout);
+            if (isCleanedUp) return;
+            if (docSnap.exists()) {
+              setProfile(docSnap.data());
+            } else {
+              initializeProfile(currentUser);
+            }
+            setLoading(false);
+          })
+          .catch((error) => {
+            clearTimeout(authTimeout);
+            if (isCleanedUp) return;
+            console.error("[AuthSync] Firestore profile fetch error:", error);
+            setLoading(false);
+            handleFirestoreError(error, OperationType.GET, `users/${currentUser.uid}`);
+          });
 
         // Broadcast to other tabs that login was successful
         if (authChannel && !isCleanedUp) {
@@ -174,7 +172,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isCleanedUp = true;
       unsubscribeAuth();
       unsubscribeToken();
-      if (unsubscribeProfile) unsubscribeProfile();
       if (authChannel) {
         try {
           authChannel.close();

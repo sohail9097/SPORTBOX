@@ -33,52 +33,68 @@ export default function CategoryPage() {
   useEffect(() => {
     if (!category) return;
     
-    // 1. Sync All Category Assets
-    const allQuery = query(
-      collection(db, 'content'),
-      where('category', '==', category),
-      limit(100)
-    );
-    const unsubAll = onSnapshot(allQuery, (snap) => {
-      const items = snap.docs
-        .map(d => ({ id: d.id, ...d.data() } as SportsContent))
-        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-      
-      if (items.length === 0) {
-        setContent(FALLBACK_SPORTS_CONTENT.filter(item => item.category === category));
-      } else {
-        setContent(items);
-      }
-      setLoading(false);
-    }, (err) => {
-      console.error("All category sync error:", err);
-      setContent(FALLBACK_SPORTS_CONTENT.filter(item => item.category === category));
-      setLoading(false);
-      handleFirestoreError(err, OperationType.GET, 'content');
-    });
+    let isMounted = true;
+    setLoading(true);
 
-    // 2. Sync Live Category Content
-    const liveQuery = query(
-      collection(db, 'content'),
-      where('category', '==', category),
-      limit(20)
-    );
-    const unsubLive = onSnapshot(liveQuery, (snap) => {
-      const items = snap.docs
-        .map(d => ({ id: d.id, ...d.data() } as SportsContent))
-        .filter(item => item.status === 'live')
-        .slice(0, 4);
-      
-      setLiveNow(items);
-    }, (err) => {
-      console.warn("Live category sync offline:", err.message);
-      setLiveNow([]);
-      handleFirestoreError(err, OperationType.GET, 'content');
-    });
+    const fetchCategoryData = async () => {
+      try {
+        // 1. Fetch All Category Assets
+        const allQuery = query(
+          collection(db, 'content'),
+          where('category', '==', category),
+          limit(100)
+        );
+        const snap = await getDocs(allQuery);
+        if (!isMounted) return;
+
+        const items = snap.docs
+          .map(d => ({ id: d.id, ...d.data() } as SportsContent))
+          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        
+        if (items.length === 0) {
+          setContent(FALLBACK_SPORTS_CONTENT.filter(item => item.category === category));
+        } else {
+          setContent(items);
+        }
+      } catch (err: any) {
+        if (!isMounted) return;
+        console.error("All category sync error:", err);
+        setContent(FALLBACK_SPORTS_CONTENT.filter(item => item.category === category));
+        handleFirestoreError(err, OperationType.GET, 'content');
+      }
+
+      try {
+        // 2. Fetch Live Category Content
+        const liveQuery = query(
+          collection(db, 'content'),
+          where('category', '==', category),
+          limit(20)
+        );
+        const snap = await getDocs(liveQuery);
+        if (!isMounted) return;
+
+        const items = snap.docs
+          .map(d => ({ id: d.id, ...d.data() } as SportsContent))
+          .filter(item => item.status === 'live')
+          .slice(0, 4);
+        
+        setLiveNow(items);
+      } catch (err: any) {
+        if (!isMounted) return;
+        console.warn("Live category sync offline:", err.message);
+        setLiveNow([]);
+        handleFirestoreError(err, OperationType.GET, 'content');
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    fetchCategoryData();
 
     return () => {
-      unsubAll();
-      unsubLive();
+      isMounted = false;
     };
   }, [category]);
 

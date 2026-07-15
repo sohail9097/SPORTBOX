@@ -216,6 +216,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       };
       
       await setDoc(userDocRef, initialProfile, { merge: true });
+      setProfile(initialProfile);
       console.log("[Auth] Profile sync requested for user:", authenticatedUser.uid);
     } catch (error: any) {
       // If it's an offline error, don't break the UI

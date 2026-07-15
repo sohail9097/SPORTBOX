@@ -6,6 +6,7 @@ import {
   doc, 
   initializeFirestore, 
   persistentLocalCache,
+  persistentMultipleTabManager,
   disableNetwork,
   enableNetwork,
   setLogLevel,
@@ -31,7 +32,9 @@ try {
   console.log(`[Firebase] Initializing Firestore for Project: ${firebaseConfig.projectId}, Database ID: ${dbId || '(default)'}`);
   
   dbInstance = initializeFirestore(app, {
-    localCache: persistentLocalCache({})
+    localCache: persistentLocalCache({
+      tabManager: persistentMultipleTabManager()
+    })
   }, dbId);
 
   // If we previously detected quota exhaustion, boot immediately in offline mode to avoid console errors and blockages

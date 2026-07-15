@@ -202,7 +202,7 @@ export default function Shots() {
 
   useEffect(() => {
     fetchShorts();
-  }, [user?.uid]);
+  }, []);
 
   // Lazy-load like status for the active and adjacent shorts to optimize Firestore reads
   const fetchedLikesRef = useRef<Set<string>>(new Set());

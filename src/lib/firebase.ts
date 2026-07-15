@@ -7,6 +7,10 @@ import {
   persistentLocalCache,
   getDoc as firestoreGetDoc,
   getDocs as firestoreGetDocs,
+  setDoc as firestoreSetDoc,
+  updateDoc as firestoreUpdateDoc,
+  addDoc as firestoreAddDoc,
+  deleteDoc as firestoreDeleteDoc,
   DocumentReference,
   Query,
   DocumentSnapshot,
@@ -54,17 +58,91 @@ export {
   where,
   limit,
   orderBy,
-  updateDoc, 
   increment, 
   arrayUnion, 
   arrayRemove, 
-  addDoc, 
-  setDoc, 
-  deleteDoc,
   documentId,
   serverTimestamp,
   onSnapshot
 } from 'firebase/firestore';
+
+// --- IN-MEMORY CACHE FOR FIRESTORE READS ---
+
+const getDocCache = new Map<string, { snapshot: DocumentSnapshot<any>; timestamp: number }>();
+const getDocsCache = new Map<string, { snapshot: QuerySnapshot<any>; timestamp: number }>();
+
+// Default Cache TTL: 60 seconds (60,000 milliseconds)
+const DEFAULT_TTL = 60000;
+
+function stringifyQuery(q: any): string {
+  if (!q) return '';
+  try {
+    if (typeof q.path === 'string') {
+      return q.path;
+    }
+    if (q._query) {
+      const parts: string[] = [];
+      if (q._query.path) {
+        parts.push(q._query.path.toString());
+      }
+      if (q._query.filters) {
+        parts.push(JSON.stringify(q._query.filters.map((f: any) => ({
+          field: f.field?.toString(),
+          op: f.op,
+          val: f.value?._value?.toString() || f.value?.toString()
+        }))));
+      }
+      if (q._query.limit) {
+        parts.push(`limit:${q._query.limit}`);
+      }
+      if (q._query.explicitOrderBy) {
+        parts.push(JSON.stringify(q._query.explicitOrderBy.map((o: any) => ({
+          field: o.field?.toString(),
+          dir: o.dir
+        }))));
+      }
+      return parts.join('|');
+    }
+    return q.converter ? 'converted-query' : 'standard-query';
+  } catch (e) {
+    console.warn("[Cache] Error serializing query, using basic fallback:", e);
+    return 'fallback-query-key';
+  }
+}
+
+// Invalidate cache on write mutations to ensure 100% data freshness
+export function invalidateCache(docPath?: string) {
+  if (docPath) {
+    getDocCache.delete(docPath);
+    console.log(`[Cache Invalidation] Cleared cached doc for path: ${docPath}`);
+  } else {
+    getDocCache.clear();
+    console.log("[Cache Invalidation] Cleared entire single-document cache.");
+  }
+  getDocsCache.clear();
+  console.log("[Cache Invalidation] Cleared query collection cache.");
+}
+
+// Wrapped Mutation Operations to automatically handle Cache Invalidation
+export async function setDoc(ref: any, data: any, options?: any) {
+  invalidateCache(ref?.path);
+  return firestoreSetDoc(ref, data, options);
+}
+
+export async function updateDoc(ref: any, data: any) {
+  invalidateCache(ref?.path);
+  return firestoreUpdateDoc(ref, data);
+}
+
+export async function addDoc(colRef: any, data: any) {
+  invalidateCache(colRef?.path);
+  return firestoreAddDoc(colRef, data);
+}
+
+export async function deleteDoc(ref: any) {
+  invalidateCache(ref?.path);
+  return firestoreDeleteDoc(ref);
+}
 
 interface CacheOptions {
   component?: string;
@@ -74,20 +152,50 @@ interface CacheOptions {
   bypassCache?: boolean;
 }
 
-// Thin, high-performance wrappers that accept but ignore logging/cache options,
-// executing pure standard Firestore SDK requests instantly!
+// Highly optimized caching getDoc wrapper
 export async function getDoc(
   docRef: DocumentReference<any>,
-  _options?: CacheOptions
+  options?: CacheOptions
 ): Promise<DocumentSnapshot<any>> {
-  return firestoreGetDoc(docRef);
+  const path = docRef.path;
+  const maxAge = options?.maxAge ?? DEFAULT_TTL;
+  const bypass = options?.bypassCache ?? false;
+
+  if (!bypass) {
+    const cached = getDocCache.get(path);
+    if (cached && Date.now() - cached.timestamp < maxAge) {
+      console.log(`[Cache Hit] Serving cached doc for path: ${path} (TTL remaining: ${Math.round((maxAge - (Date.now() - cached.timestamp)) / 1000)}s)`);
+      return cached.snapshot;
+    }
+  }
+
+  console.log(`[Cache Miss] Fetching doc from server for path: ${path}`);
+  const snapshot = await firestoreGetDoc(docRef);
+  getDocCache.set(path, { snapshot, timestamp: Date.now() });
+  return snapshot;
 }
 
+// Highly optimized caching getDocs wrapper
 export async function getDocs(
   q: Query<any>,
-  _options?: CacheOptions
+  options?: CacheOptions
 ): Promise<QuerySnapshot<any>> {
-  return firestoreGetDocs(q);
+  const key = stringifyQuery(q);
+  const maxAge = options?.maxAge ?? DEFAULT_TTL;
+  const bypass = options?.bypassCache ?? false;
+
+  if (!bypass) {
+    const cached = getDocsCache.get(key);
+    if (cached && Date.now() - cached.timestamp < maxAge) {
+      console.log(`[Cache Hit] Serving cached query: ${key.substring(0, 100)}... (TTL remaining: ${Math.round((maxAge - (Date.now() - cached.timestamp)) / 1000)}s)`);
+      return cached.snapshot;
+    }
+  }
+
+  console.log(`[Cache Miss] Fetching query from server: ${key.substring(0, 100)}...`);
+  const snapshot = await firestoreGetDocs(q);
+  getDocsCache.set(key, { snapshot, timestamp: Date.now() });
+  return snapshot;
 }
 
 export async function signInWithGoogle(useRedirectFallback = true) {

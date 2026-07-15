@@ -256,6 +256,22 @@ export default function Watch() {
         }
       }
 
+      // 1. Local Browser Cache Check: Check if this video has already been tracked locally
+      let trackedVideos: string[] = [];
+      try {
+        const saved = localStorage.getItem('sportsbox_tracked_videos');
+        if (saved) {
+          trackedVideos = JSON.parse(saved);
+        }
+      } catch (e) {
+        console.error("[UniqueView] Local storage parse error:", e);
+      }
+
+      if (trackedVideos.includes(id)) {
+        console.log("[UniqueView] Already tracked locally in this browser. Skipping Firestore check completely!");
+        return;
+      }
+
       const sessionKey = `${id}_${viewerId}`;
       if (uniqueViewTrackedRef.current === sessionKey) {
         console.log("[UniqueView] Dynamic key already tracked for session:", sessionKey);
@@ -276,6 +292,20 @@ export default function Watch() {
         handleFirestoreError(err, OperationType.GET, `content/${id}/unique_views/${viewerId}`);
         return;
       }
+
+      // Helper to add to local cache list
+      const saveTrackedLocally = () => {
+        try {
+          const saved = localStorage.getItem('sportsbox_tracked_videos');
+          const currentList = saved ? JSON.parse(saved) : [];
+          if (!currentList.includes(id)) {
+            currentList.push(id);
+            localStorage.setItem('sportsbox_tracked_videos', JSON.stringify(currentList));
+          }
+        } catch (e) {
+          console.error("[UniqueView] Save local storage error:", e);
+        }
+      };
 
       if (!uniqueViewSnap.exists()) {
         console.log("[UniqueView] New viewer detected! Recording unique view entry in DB.");
@@ -301,9 +331,12 @@ export default function Watch() {
           handleFirestoreError(err, OperationType.UPDATE, `content/${id}`);
           return;
         }
-        console.log("[UniqueView] Successfully registered and incremented unique live views count!");
+        
+        saveTrackedLocally();
+        console.log("[UniqueView] Successfully registered, cached locally, and incremented unique live views count!");
       } else {
-        console.log("[UniqueView] Returning viewer. Already verified in database unique subcollection.");
+        console.log("[UniqueView] Returning viewer. Already verified in database unique subcollection. Caching locally...");
+        saveTrackedLocally();
       }
     };
 

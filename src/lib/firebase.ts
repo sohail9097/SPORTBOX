@@ -34,6 +34,7 @@ export const db = dbInstance;
 export const auth = getAuth(app);
 export const storage = getStorage(app);
 export const googleProvider = new GoogleAuthProvider();
+export { doc };
 
 // Initialize Analytics
 export const analytics = isSupported().then(yes => yes ? getAnalytics(app) : null);

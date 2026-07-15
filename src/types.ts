@@ -91,17 +91,6 @@ export interface VideoPromoSettings {
   backgroundColor: string;
 }
 
-export interface PlayerSettings {
-  useCustomPlayer: boolean;
-  autoplay: boolean;
-  muted: boolean;
-  loop: boolean;
-  showControls: boolean;
-  primaryColor: string;
-  playbackRates: number[];
-  isGeoBlockNepalEnabled?: boolean;
-}
-
 export interface SiteConfig {
   founderImageUrl?: string;
   logoUrl?: string;

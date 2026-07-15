@@ -4,8 +4,6 @@ import 'video.js/dist/video-js.css';
 import { Play, Pause, RotateCcw, RotateCw, Volume2, VolumeX, Maximize, Settings, FastForward, Radio } from 'lucide-react';
 import { cn, sanitizeVideoUrlOrIframe, getEmbedUrl } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
-import { db, getDoc, doc } from '../lib/firebase';
-import { PlayerSettings } from '../types';
 
 import { toast } from 'sonner';
 
@@ -15,6 +13,16 @@ interface StadiumPlayerProps {
   isLive?: boolean;
   useIframe?: boolean;
 }
+
+const config = {
+  useCustomPlayer: true,
+  autoplay: true,
+  muted: false,
+  loop: false,
+  showControls: true,
+  primaryColor: '#e11d48',
+  playbackRates: [0.5, 1, 1.25, 1.5, 2]
+};
 
 export default function StadiumPlayer({ url, poster, isLive, useIframe: initialUseIframe }: StadiumPlayerProps) {
   const videoRef = useRef<HTMLDivElement>(null);
@@ -29,35 +37,9 @@ export default function StadiumPlayer({ url, poster, isLive, useIframe: initialU
   const [playbackRate, setPlaybackRate] = useState(1);
   const [hasError, setHasError] = useState(false);
   const [useIframe, setUseIframe] = useState(initialUseIframe);
-  const [config, setConfig] = useState<PlayerSettings>({
-    useCustomPlayer: true,
-    autoplay: true,
-    muted: false,
-    loop: false,
-    showControls: true,
-    primaryColor: '#ff0000',
-    playbackRates: [0.5, 1, 1.5, 2]
-  });
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const [isChangingState, setIsChangingState] = useState(false);
-
-  useEffect(() => {
-    const fetchConfig = async () => {
-      try {
-        const snap = await getDoc(doc(db, 'settings', 'playerConfig'), { component: 'StadiumPlayer', file: 'StadiumPlayer.tsx', reason: 'Fetch global video player configuration settings' });
-        if (snap.exists()) {
-          setConfig(snap.data() as PlayerSettings);
-        }
-      } catch (err: any) {
-        // Only log if it's not a common offline error
-        if (!err.message?.includes('offline')) {
-          console.warn("Player config could not be fetched (offline or permission issue):", err.message);
-        }
-      }
-    };
-    fetchConfig();
-  }, []);
 
   useEffect(() => {
     if (!videoRef.current) return;
@@ -121,7 +103,7 @@ export default function StadiumPlayer({ url, poster, isLive, useIframe: initialU
         player.dispose();
       }
     };
-  }, [url, config]);
+  }, [url]);
 
   const togglePlay = async () => {
     if (!playerRef.current || isChangingState) return;

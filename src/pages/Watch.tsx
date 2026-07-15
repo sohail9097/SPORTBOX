@@ -1,10 +1,10 @@
 import { useEffect, useState, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { db, handleFirestoreError, OperationType, getDoc, getDocs, doc, updateDoc, increment, arrayUnion, arrayRemove, collection, query, where, limit, setDoc, deleteDoc } from '../lib/firebase';
-import { SportsContent, PlayerSettings } from '../types';
-import { FALLBACK_SPORTS_CONTENT, FALLBACK_PLAYER_CONFIG } from '../lib/fallbackData';
+import { SportsContent } from '../types';
+import { FALLBACK_SPORTS_CONTENT } from '../lib/fallbackData';
 import { useAuth } from '../hooks/useAuth';
-import { Play, Share2, Heart, MessageSquare, Crown, Info, ChevronRight, Activity, PlusCircle, CheckCircle2, Lock, Globe } from 'lucide-react';
+import { Play, Share2, Heart, MessageSquare, Crown, Info, ChevronRight, Activity, PlusCircle, CheckCircle2, Lock } from 'lucide-react';
 import { motion } from 'motion/react';
 import { cn, formatDate, transformGDriveUrl, getVideoAutoThumbnail, sanitizeVideoUrlOrIframe, getEmbedUrl } from '../lib/utils';
 import StadiumPlayer from '../components/StadiumPlayer';
@@ -12,97 +12,6 @@ import ReactMarkdown from 'react-markdown';
 import { toast } from 'sonner';
 
 import LoadingScreen from '../components/LoadingScreen';
-
-const isDevelopmentEnvironment = (): boolean => {
-  try {
-    const host = window.location.hostname;
-    return (
-      host.includes('localhost') || 
-      host.includes('127.0.0.1') || 
-      host.includes('run.app') || 
-      host.includes('stackblitz') || 
-      host.includes('gitpod') || 
-      host.includes('webcontainer')
-    );
-  } catch (_) {
-    return false;
-  }
-};
-
-const checkUserCountry = async (): Promise<string> => {
-  // Check localStorage first for simulations / development testing
-  try {
-    const sim = localStorage.getItem('simulate_nepal');
-    if (sim === 'true') {
-      console.log("[GeoCheck] Simulating Nepal location via localStorage override.");
-      return 'NP';
-    }
-  } catch (_) {}
-
-  // Check URL search parameters
-  try {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('simulate_nepal') === 'true' || params.get('bypass_geo') === 'true') {
-      localStorage.setItem('simulate_nepal', 'true');
-      console.log("[GeoCheck] Simulating Nepal location via query parameter.");
-      return 'NP';
-    }
-  } catch (_) {}
-
-  // 1. Try ipwho.is (highly reliable and CORS-friendly HTTPS API)
-  try {
-    const res = await fetch('https://ipwho.is/');
-    if (res.ok) {
-      const data = await res.json();
-      if (data && data.success && data.country_code) {
-        return data.country_code.toUpperCase();
-      }
-    }
-  } catch (e) {
-    console.warn("ipwho.is check failed, trying fallback:", e);
-  }
-
-  // 2. Try country.is
-  try {
-    const res = await fetch('https://api.country.is/');
-    if (res.ok) {
-      const data = await res.json();
-      if (data && data.country) {
-        return data.country.toUpperCase();
-      }
-    }
-  } catch (e) {
-    console.warn("country.is check failed, trying fallback:", e);
-  }
-
-  // 3. Try freeipapi.com
-  try {
-    const res = await fetch('https://freeipapi.com/api/json');
-    if (res.ok) {
-      const data = await res.json();
-      if (data && data.countryCode) {
-        return data.countryCode.toUpperCase();
-      }
-    }
-  } catch (e) {
-    console.warn("freeipapi check failed, trying fallback:", e);
-  }
-
-  // 4. Try ipapi.co
-  try {
-    const res = await fetch('https://ipapi.co/json/');
-    if (res.ok) {
-      const data = await res.json();
-      if (data && data.country) {
-        return data.country.toUpperCase();
-      }
-    }
-  } catch (e) {
-    console.warn("ipapi.co check failed:", e);
-  }
-
-  return 'XX';
-};
 
 export default function Watch() {
   const { id } = useParams<{ id: string }>();
@@ -112,12 +21,8 @@ export default function Watch() {
   const [loading, setLoading] = useState(true);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isWatchLater, setIsWatchLater] = useState(false);
-  const [playerConfig, setPlayerConfig] = useState<PlayerSettings | null>(null);
   const nativeVideoRef = useRef<HTMLVideoElement | null>(null);
   const uniqueViewTrackedRef = useRef<string | null>(null);
-
-  const [geoChecking, setGeoChecking] = useState(false);
-  const [userCountry, setUserCountry] = useState<string | null>(null);
 
   const [hasLiked, setHasLiked] = useState(false);
   const [spectatorsCount, setSpectatorsCount] = useState<number>(0);
@@ -249,19 +154,7 @@ export default function Watch() {
       // Initial fetch for content and related items
       const fetchOnce = async () => {
         try {
-          const [snap, playerSnap] = await Promise.all([
-            getDoc(doc(db, 'content', id), { component: 'Watch', file: 'Watch.tsx', reason: 'Fetch active video details and link info' }),
-            getDoc(doc(db, 'settings', 'playerConfig'), { component: 'Watch', file: 'Watch.tsx', reason: 'Fetch player control configuration settings' }).catch(err => {
-              console.warn("Failed to fetch player settings:", err);
-              return null;
-            })
-          ]);
-
-          if (playerSnap && playerSnap.exists()) {
-            setPlayerConfig(playerSnap.data() as PlayerSettings);
-          } else {
-            setPlayerConfig(FALLBACK_PLAYER_CONFIG);
-          }
+          const snap = await getDoc(doc(db, 'content', id), { component: 'Watch', file: 'Watch.tsx', reason: 'Fetch active video details and link info' });
 
           if (snap.exists()) {
             const contentData = { id: snap.id, ...snap.data() } as SportsContent;
@@ -332,7 +225,6 @@ export default function Watch() {
             });
             setSections(grouped);
           }
-          setPlayerConfig(FALLBACK_PLAYER_CONFIG);
           setLoading(false);
         }
       };
@@ -411,46 +303,6 @@ export default function Watch() {
 
     trackUniqueView();
   }, [id, content?.id, content?.status, content?.type, user?.uid]);
-
-  // Geo-blocking location verification effect (Live streaming or locked videos only available in Nepal)
-  useEffect(() => {
-    if (!content || isAdmin) return;
-    
-    const isLiveStream = content.type === 'live' || content.status === 'live';
-    const isGeoBlockEnabled = !!playerConfig?.isGeoBlockNepalEnabled;
-    const needsGeoCheck = isGeoBlockEnabled;
-    
-    if (!needsGeoCheck) {
-      setUserCountry(null);
-      return;
-    }
-
-    let active = true;
-    const performGeoCheck = async () => {
-      setGeoChecking(true);
-      try {
-        const country = await checkUserCountry();
-        if (active) {
-          setUserCountry(country || 'UNKNOWN');
-        }
-      } catch (err) {
-        console.error("Geo check error:", err);
-        if (active) {
-          setUserCountry('FAILED');
-        }
-      } finally {
-        if (active) {
-          setGeoChecking(false);
-        }
-      }
-    };
-
-    performGeoCheck();
-
-    return () => {
-      active = false;
-    };
-  }, [content?.id, content?.type, content?.status, isAdmin, playerConfig?.isGeoBlockNepalEnabled]);
 
   // Handle play/pause and cleanup of the native video element securely
   useEffect(() => {
@@ -561,10 +413,6 @@ export default function Watch() {
     (content.isPremium && (!profile || profile.subscriptionTier === 'free' || profile.subscriptionStatus !== 'active'))
   );
 
-  const isLiveStream = content.type === 'live' || content.status === 'live';
-  const isGeoBlockEnabled = !!playerConfig?.isGeoBlockNepalEnabled;
-  const isGeoBlocked = !isAdmin && isGeoBlockEnabled && userCountry !== null && userCountry !== 'NP';
-
   const isIframeUrl = (url: string) => {
     if (!url) return false;
     const iframeProviders = [
@@ -616,102 +464,6 @@ export default function Watch() {
                     </Link>
                   </motion.div>
                 </div>
-              ) : geoChecking ? (
-                <div className="absolute inset-0 z-40 bg-black/95 flex items-center justify-center p-8 animate-fade-in">
-                  <div className="max-w-md text-center space-y-4">
-                    <Globe className="w-12 h-12 text-brand mx-auto animate-spin" />
-                    <div className="space-y-1">
-                      <h3 className="text-lg font-black uppercase italic tracking-tighter">Securing Broadcast...</h3>
-                      <p className="text-text-muted text-xs font-medium">Verifying regional access rights for this content.</p>
-                    </div>
-                  </div>
-                </div>
-              ) : isGeoBlocked ? (
-                <div className="absolute inset-0 z-40 bg-black/95 flex items-center justify-center p-8 animate-fade-in">
-                  <motion.div 
-                    initial={{ scale: 0.9, opacity: 0 }}
-                    whileInView={{ scale: 1, opacity: 1 }}
-                    className="max-w-md text-center space-y-6"
-                  >
-                    <Globe className="w-12 h-12 text-red-500 mx-auto animate-pulse" />
-                    <div className="space-y-2">
-                      <h2 className="text-2xl font-black uppercase italic tracking-tighter text-red-500">
-                        Broadcast Region Locked
-                      </h2>
-                      <p className="text-text-muted text-xs font-medium leading-relaxed">
-                        This content is geo-restricted and can only be viewed from within <span className="text-white font-bold">Nepal</span>. 
-                        Your detected region: <span className="text-brand font-bold uppercase font-mono">{userCountry || 'International'}</span> is not authorized.
-                      </p>
-                    </div>
-                    {isDevelopmentEnvironment() && (
-                      <button 
-                        onClick={() => {
-                          try {
-                            localStorage.setItem('simulate_nepal', 'true');
-                            setUserCountry('NP');
-                            toast.success("Successfully simulated location: Nepal (NP)");
-                          } catch (_) {}
-                        }}
-                        className="inline-flex items-center gap-2 px-6 py-2.5 bg-green-600 hover:bg-green-700 text-white font-black text-[10px] uppercase tracking-widest rounded-lg transition-all"
-                      >
-                        <Globe className="w-3.5 h-3.5 animate-spin" />
-                        Simulate Nepal (Dev Mode)
-                      </button>
-                    )}
-                  </motion.div>
-                </div>
-              ) : (userCountry === 'FAILED' || userCountry === 'UNKNOWN') && isGeoBlockEnabled ? (
-                <div className="absolute inset-0 z-40 bg-black/95 flex items-center justify-center p-8 animate-fade-in">
-                  <motion.div 
-                    initial={{ scale: 0.9, opacity: 0 }}
-                    whileInView={{ scale: 1, opacity: 1 }}
-                    className="max-w-md text-center space-y-6"
-                  >
-                    <Globe className="w-12 h-12 text-amber-500 mx-auto" />
-                    <div className="space-y-2">
-                      <h2 className="text-2xl font-black uppercase italic tracking-tighter text-amber-500">
-                        Location Verification Failed
-                      </h2>
-                      <p className="text-text-muted text-xs font-medium leading-relaxed">
-                        We could not securely verify your location. This content is exclusive to viewers in Nepal.
-                        Please disable any VPNs, proxies, or strict ad-blockers and try again.
-                      </p>
-                    </div>
-                    <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-                      <button 
-                        onClick={async () => {
-                          setGeoChecking(true);
-                          try {
-                            const country = await checkUserCountry();
-                            setUserCountry(country || 'UNKNOWN');
-                          } catch (err) {
-                            setUserCountry('FAILED');
-                          } finally {
-                            setGeoChecking(false);
-                          }
-                        }}
-                        className="inline-block px-8 py-3 bg-brand hover:bg-brand-hover text-white font-black text-[10px] uppercase tracking-widest rounded-lg transition-colors"
-                      >
-                        Retry Verification
-                      </button>
-                      {isDevelopmentEnvironment() && (
-                        <button 
-                          onClick={() => {
-                            try {
-                              localStorage.setItem('simulate_nepal', 'true');
-                              setUserCountry('NP');
-                              toast.success("Successfully simulated location: Nepal (NP)");
-                            } catch (_) {}
-                          }}
-                          className="inline-flex items-center gap-2 px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-black text-[10px] uppercase tracking-widest rounded-lg transition-all"
-                        >
-                          <Globe className="w-3.5 h-3.5 animate-spin" />
-                          Simulate Nepal (Dev Mode)
-                        </button>
-                      )}
-                    </div>
-                  </motion.div>
-                </div>
               ) : (
                 <div className="absolute inset-0 w-full h-full">
                   {!isPlaying ? (
@@ -741,24 +493,16 @@ export default function Watch() {
                         </div>
                       </div>
                     </div>
-                  ) : content.videoUrl && content.videoUrl.trim() !== '' && (isIframeUrl(content.videoUrl) || (playerConfig && !playerConfig.useCustomPlayer)) ? (
+                  ) : content.videoUrl && content.videoUrl.trim() !== '' && isIframeUrl(content.videoUrl) ? (
                     // Using Native/Iframe Player (Server)
                     content.videoUrl.includes('<iframe') ? (
                       <div className="w-full h-full flex items-center justify-center p-0" dangerouslySetInnerHTML={{ __html: sanitizeVideoUrlOrIframe(content.videoUrl).replace('<iframe', '<iframe style="width:100%;height:100%;border:0;position:absolute;top:0;left:0;"') }} />
-                    ) : isIframeUrl(content.videoUrl) ? (
+                    ) : (
                       <iframe
                         src={sanitizeVideoUrlOrIframe(getEmbedUrl(content.videoUrl))}
                         className="w-full h-full border-0 absolute inset-0"
                         allowFullScreen
                         allow="autoplay; encrypted-media; picture-in-picture"
-                      />
-                    ) : (
-                      <video 
-                        ref={nativeVideoRef}
-                        src={transformGDriveUrl(content.videoUrl, 'video')}
-                        controls
-                        className="w-full h-full bg-black object-contain"
-                        poster={(content.thumbnailUrl && content.thumbnailUrl.trim() !== '') ? transformGDriveUrl(content.thumbnailUrl, 'image') : getVideoAutoThumbnail(content.videoUrl || '', content.category)}
                       />
                     )
                   ) : content.videoUrl && content.videoUrl.trim() !== '' ? (

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { db, handleFirestoreError, OperationType, auth, isDbOffline, forceGoOnline, clearOfflineCache, withTimeout, getDoc, getDocs, collection, addDoc, deleteDoc, doc, updateDoc, query, orderBy, setDoc, onSnapshot } from '../lib/firebase';
-import { SportsContent, Category, ContentType, ContentSection, SliderElement, VideoPromoSettings, SiteConfig, PlayerSettings, SubscriptionPlan, BlogPost } from '../types';
+import { SportsContent, Category, ContentType, ContentSection, SliderElement, VideoPromoSettings, SiteConfig, SubscriptionPlan, BlogPost } from '../types';
 import { Plus, Trash2, Edit2, Play, LayoutDashboard, Film, Users, Settings, Save, X, Eye, Radio, Crown, Layers, MoveUp, MoveDown, CheckSquare, Square, Image as ImageIcon, Upload, Library, ShieldCheck, ShieldAlert, Zap, Percent, Trophy, ChevronRight, Activity, Heart, Dribbble, CircleDot, Target, Disc, Flag, Gamepad2, Folder, ChevronLeft, BookOpen, Scissors, Waves, Flame, Compass, Award, Sparkles, Wand2, Clock, BarChart2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn, formatDate, transformGDriveUrl, getVideoAutoThumbnail } from '../lib/utils';
@@ -285,16 +285,6 @@ export default function Admin() {
     buttonText: 'Join Now',
     buttonUrl: '/plans',
     backgroundColor: '#ff0000'
-  });
-  const [playerConfig, setPlayerConfig] = useState<PlayerSettings>({
-    useCustomPlayer: true,
-    autoplay: true,
-    muted: false,
-    loop: false,
-    showControls: true,
-    primaryColor: '#ff0000',
-    playbackRates: [0.5, 1, 1.5, 2],
-    isGeoBlockNepalEnabled: false
   });
   const [isAdding, setIsAdding] = useState(false);
   const [isAddingSection, setIsAddingSection] = useState(false);
@@ -617,13 +607,6 @@ export default function Admin() {
         handleFirestoreError(err, OperationType.GET, 'settings/videoPromo');
       });
 
-      const unsubPlayer = onSnapshot(doc(db, 'settings', 'playerConfig'), (snap) => {
-        if (snap.exists()) setPlayerConfig(prev => ({ ...prev, ...snap.data() }));
-      }, (err) => {
-        console.warn("[Admin] Player sync offline:", err.message);
-        handleFirestoreError(err, OperationType.GET, 'settings/playerConfig');
-      });
-
       const unsubPlans = onSnapshot(query(collection(db, 'subscription_plans'), orderBy('order', 'asc')), (snap) => {
         if (!snap.empty) {
           setSubscriptionPlans(snap.docs.map(d => ({ id: d.id, ...(d.data() as any) } as SubscriptionPlan)));
@@ -663,7 +646,6 @@ export default function Admin() {
       return () => {
         unsubConfig();
         unsubPromo();
-        unsubPlayer();
         unsubPlans();
         unsubMedalists();
       };
@@ -845,23 +827,7 @@ export default function Admin() {
     }
   };
 
-  // fetchPlayerConfig, fetchVideoPromo, fetchSiteConfig are handled by onSnapshot in useEffect
-
-  const handlePlayerConfigUpdate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSaving(true);
-    try {
-      const docRef = doc(db, 'settings', 'playerConfig');
-      await setDoc(docRef, playerConfig);
-      toast.success("Player configuration updated!");
-    } catch (error) {
-      console.error("Player Config Save Error:", error);
-      toast.error("Failed to update player configuration. " + (error instanceof Error ? error.message : ""));
-      handleFirestoreError(error, OperationType.UPDATE, 'settings/playerConfig');
-    } finally {
-      setIsSaving(false);
-    }
-  };
+  // fetchVideoPromo, fetchSiteConfig are handled by onSnapshot in useEffect
 
   const loadAllLibraryVideos = async () => {
     setLoadingVideos(true);
@@ -2767,121 +2733,6 @@ export default function Admin() {
                     >
                       {isSaving ? <Activity className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
                       {isSaving ? "Saving..." : "Save Banner Configuration"}
-                    </button>
-                  </form>
-                </div>
-
-                <div className="glass-card p-8 space-y-6">
-                  <div className="flex items-center gap-4 mb-4">
-                    <div className="p-3 bg-brand/10 rounded-xl text-brand">
-                      <Play className="w-6 h-6" />
-                    </div>
-                    <h2 className="text-xl font-display font-black uppercase italic tracking-widest">Global Player Configuration</h2>
-                  </div>
-
-                  <form onSubmit={handlePlayerConfigUpdate} className="space-y-6">
-                    <div className="p-4 bg-brand/5 border border-brand/20 rounded-xl space-y-4">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-xs font-black uppercase italic text-brand">Player Engine</p>
-                          <p className="text-[10px] text-text-muted font-bold uppercase tracking-widest mt-1">
-                            {playerConfig.useCustomPlayer ? "Using SportsBox Custom Player" : "Using Server Native/Iframe Player"}
-                          </p>
-                        </div>
-                        <button 
-                          type="button"
-                          onClick={() => setPlayerConfig({...playerConfig, useCustomPlayer: !playerConfig.useCustomPlayer})}
-                          className={cn("w-14 h-7 rounded-full transition-all relative border border-white/10", playerConfig.useCustomPlayer ? "bg-brand" : "bg-surface")}
-                        >
-                          <div className={cn("absolute top-1 w-5 h-5 rounded-full bg-white shadow-xl transition-all", playerConfig.useCustomPlayer ? "right-1" : "left-1")} />
-                        </button>
-                      </div>
-                      <p className="text-[9px] text-text-muted italic uppercase leading-tight">
-                        {playerConfig.useCustomPlayer 
-                          ? "Our custom player provides cinematic controls, gestures, and premium UI. Recommended for MP4 files." 
-                          : "Native player uses raw iframes or browser defaults. Recommended for Bunny Stream, external hosts, and better mobile compatibility."}
-                      </p>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="flex items-center justify-between bg-white/5 p-4 rounded-xl">
-                        <span className="text-xs font-bold uppercase italic">Autoplay</span>
-                        <button 
-                          type="button"
-                          onClick={() => setPlayerConfig({...playerConfig, autoplay: !playerConfig.autoplay})}
-                          className={cn("w-10 h-5 rounded-full transition-all relative", playerConfig.autoplay ? "bg-brand" : "bg-surface")}
-                        >
-                          <div className={cn("absolute top-1 w-3 h-3 rounded-full bg-white transition-all", playerConfig.autoplay ? "right-1" : "left-1")} />
-                        </button>
-                      </div>
-                      <div className="flex items-center justify-between bg-white/5 p-4 rounded-xl">
-                        <span className="text-xs font-bold uppercase italic">Muted Default</span>
-                        <button 
-                          type="button"
-                          onClick={() => setPlayerConfig({...playerConfig, muted: !playerConfig.muted})}
-                          className={cn("w-10 h-5 rounded-full transition-all relative", playerConfig.muted ? "bg-brand" : "bg-surface")}
-                        >
-                          <div className={cn("absolute top-1 w-3 h-3 rounded-full bg-white transition-all", playerConfig.muted ? "right-1" : "left-1")} />
-                        </button>
-                      </div>
-                      <div className="flex items-center justify-between bg-white/5 p-4 rounded-xl">
-                        <span className="text-xs font-bold uppercase italic">Loop Video</span>
-                        <button 
-                          type="button"
-                          onClick={() => setPlayerConfig({...playerConfig, loop: !playerConfig.loop})}
-                          className={cn("w-10 h-5 rounded-full transition-all relative", playerConfig.loop ? "bg-brand" : "bg-surface")}
-                        >
-                          <div className={cn("absolute top-1 w-3 h-3 rounded-full bg-white transition-all", playerConfig.loop ? "right-1" : "left-1")} />
-                        </button>
-                      </div>
-                      <div className="flex items-center justify-between bg-white/5 p-4 rounded-xl">
-                        <span className="text-xs font-bold uppercase italic">Show Custom Controls</span>
-                        <button 
-                          type="button"
-                          onClick={() => setPlayerConfig({...playerConfig, showControls: !playerConfig.showControls})}
-                          className={cn("w-10 h-5 rounded-full transition-all relative", playerConfig.showControls ? "bg-brand" : "bg-surface")}
-                        >
-                          <div className={cn("absolute top-1 w-3 h-3 rounded-full bg-white transition-all", playerConfig.showControls ? "right-1" : "left-1")} />
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="p-4 bg-red-500/5 border border-red-500/20 rounded-xl space-y-4">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-xs font-black uppercase italic text-red-500">Nepal Geo-Blocking Lock</p>
-                          <p className="text-[10px] text-text-muted font-bold uppercase tracking-widest mt-1">
-                            {playerConfig.isGeoBlockNepalEnabled ? "Locked to Nepal Only" : "Global Access Allowed"}
-                          </p>
-                        </div>
-                        <button 
-                          type="button"
-                          onClick={() => setPlayerConfig({...playerConfig, isGeoBlockNepalEnabled: !playerConfig.isGeoBlockNepalEnabled})}
-                          className={cn("w-14 h-7 rounded-full transition-all relative border border-white/10", playerConfig.isGeoBlockNepalEnabled ? "bg-red-500" : "bg-surface")}
-                        >
-                          <div className={cn("absolute top-1 w-5 h-5 rounded-full bg-white shadow-xl transition-all", playerConfig.isGeoBlockNepalEnabled ? "right-1" : "left-1")} />
-                        </button>
-                      </div>
-                      <p className="text-[9px] text-text-muted italic uppercase leading-tight text-white/55">
-                        When enabled, live streams and normal videos can only be played by users located in Nepal. Users outside of Nepal will see a restriction message.
-                      </p>
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Player Accent Color</label>
-                      <div className="flex gap-4">
-                        <input type="color" value={playerConfig.primaryColor || '#ff0000'} onChange={e => setPlayerConfig({...playerConfig, primaryColor: e.target.value})} className="h-10 w-20 bg-bg border border-white/10 rounded cursor-pointer" />
-                        <input type="text" value={playerConfig.primaryColor || '#ff0000'} onChange={e => setPlayerConfig({...playerConfig, primaryColor: e.target.value})} className="flex-grow bg-bg border border-white/10 p-2 rounded focus:border-brand outline-none uppercase font-mono text-xs" />
-                      </div>
-                    </div>
-
-                    <button 
-                      type="submit" 
-                      disabled={isSaving}
-                      className="btn-primary w-full flex items-center justify-center gap-2 py-4 disabled:opacity-50"
-                    >
-                      {isSaving ? <Activity className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
-                      {isSaving ? "Updating..." : "Update Player Config"}
                     </button>
                   </form>
                 </div>

@@ -1,4 +1,4 @@
-import { SportsContent, SliderElement, ContentSection, BlogPost, PlayerSettings, SiteConfig, VideoPromoSettings } from '../types';
+import { SportsContent, SliderElement, ContentSection, BlogPost, SiteConfig, VideoPromoSettings } from '../types';
 
 // Robust, high-fidelity sample MP4 streams
 const VIDEO_LINKS = {
@@ -424,17 +424,6 @@ export const FALLBACK_PROMO: VideoPromoSettings = {
   buttonText: 'Get Premium Pass',
   buttonUrl: '/plans',
   backgroundColor: '#111827'
-};
-
-export const FALLBACK_PLAYER_CONFIG: PlayerSettings = {
-  useCustomPlayer: true,
-  autoplay: true,
-  muted: false,
-  loop: false,
-  showControls: true,
-  primaryColor: '#e11d48',
-  playbackRates: [0.5, 1, 1.25, 1.5, 2],
-  isGeoBlockNepalEnabled: false
 };
 
 export const FALLBACK_SITE_CONFIG: SiteConfig = {

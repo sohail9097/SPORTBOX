@@ -12,44 +12,18 @@ import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
 import { SiteConfig } from '../types';
 import { FALLBACK_SITE_CONFIG } from '../lib/fallbackData';
+import { useFirestoreCache } from '../context/FirestoreContext';
 
 import BrandLogo from './BrandLogo';
 
 export default function Layout({ children }: { children: ReactNode }) {
   const { user, isAdmin, profile } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const { siteConfig } = useFirestoreCache();
   const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [siteConfig, setSiteConfig] = useState<SiteConfig>({
-    founderImageUrl: FALLBACK_SITE_CONFIG.founderImageUrl || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=1000&auto=format&fit=crop',
-    logoUrl: FALLBACK_SITE_CONFIG.logoUrl || ''
-  });
   const [liveCount, setLiveCount] = useState(0);
   const location = useLocation();
-
-  useEffect(() => {
-    let isMounted = true;
-    // Sync site configuration
-    getDoc(doc(db, 'settings', 'siteConfig'), { component: 'Layout', file: 'Layout.tsx', reason: 'Fetch global site configurations (logo, founder image)' })
-      .then((snapshot) => {
-        if (!isMounted) return;
-        if (snapshot.exists()) {
-          setSiteConfig(prev => ({ ...prev, ...snapshot.data() }));
-        } else {
-          setSiteConfig(FALLBACK_SITE_CONFIG);
-        }
-      })
-      .catch((error) => {
-        if (!isMounted) return;
-        console.error("[Layout] SiteConfig fetch error:", error);
-        setSiteConfig(FALLBACK_SITE_CONFIG);
-        handleFirestoreError(error, OperationType.GET, 'settings/siteConfig');
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
 
   useEffect(() => {
     let isMounted = true;

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { db, handleFirestoreError, OperationType, getDoc, getDocs, collection, query, where, orderBy, doc, documentId } from '../lib/firebase';
 import { ContentSection, SportsContent, Category } from '../types';
 import { FALLBACK_SECTIONS, FALLBACK_SPORTS_CONTENT } from '../lib/fallbackData';
@@ -8,95 +8,30 @@ import { Link } from 'react-router-dom';
 import { cn } from '../lib/utils';
 import { motion } from 'motion/react';
 import AutoScrollingRow from './AutoScrollingRow';
+import { useFirestoreCache } from '../context/FirestoreContext';
 
 interface DynamicSectionsProps {
   page: 'home' | Category;
 }
 
 export default function DynamicSections({ page }: DynamicSectionsProps) {
-  const [sections, setSections] = useState<ContentSection[]>([]);
+  const { sections: cachedSections, loading: cacheLoading } = useFirestoreCache();
   const [sectionData, setSectionData] = useState<Record<string, SportsContent[]>>({});
   const [loading, setLoading] = useState(true);
 
+  const sections = useMemo(() => {
+    return cachedSections
+      .filter(s => s.page === page && s.isActive !== false)
+      .sort((a, b) => (a.order || 0) - (b.order || 0));
+  }, [cachedSections, page]);
+
   useEffect(() => {
     let isMounted = true;
-    setLoading(true);
-    // 1. Fetch sections (one-time)
-    const q = query(collection(db, 'sections'), where('page', '==', page));
-    getDocs(q, { component: 'DynamicSections', file: 'DynamicSections.tsx', reason: `Fetch page content sections configuration for ${page}` }).then((snap) => {
-      if (!isMounted) return;
-      const sectionsList = snap.docs
-        .map(doc => ({ ...doc.data(), id: doc.id } as ContentSection))
-        .filter(s => s.isActive)
-        .sort((a, b) => (a.order || 0) - (b.order || 0));
-      
-      if (sectionsList.length === 0) {
-        // Find default sections for this page or default to home fallbacks
-        const fallbacks = FALLBACK_SECTIONS.filter(s => s.page === page || (page !== 'home' && s.page === 'home'));
-        // Remap page field to match the current page
-        const remappedFallbacks = fallbacks.map(f => ({ ...f, page }));
-        setSections(remappedFallbacks);
-        
-        const data: Record<string, SportsContent[]> = {};
-        remappedFallbacks.forEach(section => {
-          // Filter content to match category or type
-          let items = FALLBACK_SPORTS_CONTENT;
-          if (page !== 'home') {
-            items = FALLBACK_SPORTS_CONTENT.filter(item => item.category === page);
-          }
-          
-          if (section.id === 'sec_live') {
-            data[section.id] = items.filter(item => item.status === 'live');
-          } else if (section.id === 'sec_trending') {
-            data[section.id] = items.filter(item => item.type !== 'live');
-          } else {
-            data[section.id] = items.filter(item => section.contentIds.includes(item.id));
-          }
-          
-          // If empty, just give some items
-          if (data[section.id].length === 0) {
-            data[section.id] = items.slice(0, 4);
-          }
-        });
-        setSectionData(data);
-        setLoading(false);
-      } else {
-        setSections(sectionsList);
-        setLoading(false);
-        // 2. Fetch content for each section
-        fetchContentForSections(sectionsList);
-      }
-    }).catch((err) => {
-      if (!isMounted) return;
-      console.error("[Dynamic] Sections fetch error:", err);
-      
-      const fallbacks = FALLBACK_SECTIONS.filter(s => s.page === page || (page !== 'home' && s.page === 'home'));
-      const remappedFallbacks = fallbacks.map(f => ({ ...f, page }));
-      setSections(remappedFallbacks);
-      
-      const data: Record<string, SportsContent[]> = {};
-      remappedFallbacks.forEach(section => {
-        let items = FALLBACK_SPORTS_CONTENT;
-        if (page !== 'home') {
-          items = FALLBACK_SPORTS_CONTENT.filter(item => item.category === page);
-        }
-        
-        if (section.id === 'sec_live') {
-          data[section.id] = items.filter(item => item.status === 'live');
-        } else if (section.id === 'sec_trending') {
-          data[section.id] = items.filter(item => item.type !== 'live');
-        } else {
-          data[section.id] = items.filter(item => section.contentIds.includes(item.id));
-        }
-        
-        if (data[section.id].length === 0) {
-          data[section.id] = items.slice(0, 4);
-        }
-      });
-      setSectionData(data);
-      setLoading(false);
-      handleFirestoreError(err, OperationType.GET, 'sections');
-    });
+    
+    if (cacheLoading) {
+      setLoading(true);
+      return;
+    }
 
     const fetchContentForSections = async (list: ContentSection[]) => {
       const data: Record<string, SportsContent[]> = {};
@@ -148,6 +83,41 @@ export default function DynamicSections({ page }: DynamicSectionsProps) {
         setSectionData(data);
       }
     };
+
+    if (sections.length === 0) {
+      // Find default sections for this page or default to home fallbacks
+      const fallbacks = FALLBACK_SECTIONS.filter(s => s.page === page || (page !== 'home' && s.page === 'home'));
+      // Remap page field to match the current page
+      const remappedFallbacks = fallbacks.map(f => ({ ...f, page }));
+      
+      const data: Record<string, SportsContent[]> = {};
+      remappedFallbacks.forEach(section => {
+        // Filter content to match category or type
+        let items = FALLBACK_SPORTS_CONTENT;
+        if (page !== 'home') {
+          items = FALLBACK_SPORTS_CONTENT.filter(item => item.category === page);
+        }
+        
+        if (section.id === 'sec_live') {
+          data[section.id] = items.filter(item => item.status === 'live');
+        } else if (section.id === 'sec_trending') {
+          data[section.id] = items.filter(item => item.type !== 'live');
+        } else {
+          data[section.id] = items.filter(item => section.contentIds.includes(item.id));
+        }
+        
+        // If empty, just give some items
+        if (data[section.id].length === 0) {
+          data[section.id] = items.slice(0, 4);
+        }
+      });
+      setSectionData(data);
+      setLoading(false);
+    } else {
+      setLoading(false);
+      // Fetch content for each section
+      fetchContentForSections(sections);
+    }
 
     return () => {
       isMounted = false;

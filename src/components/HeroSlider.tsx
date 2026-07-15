@@ -7,6 +7,7 @@ import { Play, ChevronLeft, ChevronRight, X, Info, Calendar, Plus, Volume2, Volu
 import { Link, useNavigate } from 'react-router-dom';
 import { cn, sanitizeVideoUrlOrIframe } from '../lib/utils';
 import ReactPlayer from 'react-player';
+import { useFirestoreCache } from '../context/FirestoreContext';
 
 const Player = ReactPlayer as any;
 
@@ -16,42 +17,15 @@ interface HeroSliderProps {
 
 export default function HeroSlider({ page = 'home' }: HeroSliderProps) {
   const navigate = useNavigate();
-  const [allActiveSlides, setAllActiveSlides] = useState<SliderElement[]>([]);
+  const { slider: cachedSlider, loading } = useFirestoreCache();
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [loading, setLoading] = useState(true);
   const [videoModal, setVideoModal] = useState<string | null>(null);
   const [isMuted, setIsMuted] = useState(true);
   const autoPlayRef = useRef<NodeJS.Timeout | null>(null);
 
-  useEffect(() => {
-    let isMounted = true;
-    const fetchAllSlidesOnce = async () => {
-      setLoading(true);
-      try {
-        const q = query(
-          collection(db, 'slider'),
-          where('isActive', '==', true),
-          limit(20)
-        );
-        const snap = await getDocs(q, { component: 'HeroSlider', file: 'HeroSlider.tsx', reason: 'Fetch active hero promo slides' });
-        if (!isMounted) return;
-        const items = snap.docs.map(doc => ({ ...doc.data(), id: doc.id } as SliderElement));
-        setAllActiveSlides(items);
-      } catch (error) {
-        console.error('Slider fetch error:', error);
-        handleFirestoreError(error, OperationType.GET, 'slider');
-      } finally {
-        if (isMounted) {
-          setLoading(false);
-        }
-      }
-    };
-
-    fetchAllSlidesOnce();
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+  const allActiveSlides = useMemo(() => {
+    return cachedSlider.filter(slide => slide.isActive !== false);
+  }, [cachedSlider]);
 
   const slides = useMemo(() => {
     const filtered = allActiveSlides

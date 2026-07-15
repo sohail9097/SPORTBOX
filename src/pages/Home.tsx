@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { db, handleFirestoreError, OperationType, getDoc, getDocs, collection, query, orderBy, limit, where, doc, documentId } from '../lib/firebase';
 import { SportsContent, VideoPromoSettings, ContentSection } from '../types';
 import { FALLBACK_SPORTS_CONTENT, FALLBACK_PROMO } from '../lib/fallbackData';
@@ -10,12 +10,20 @@ import VideoPromoBanner from '../components/VideoPromoBanner';
 import { Play, TrendingUp, Trophy, ChevronRight, Bell, Activity, Dribbble, Target, Flag, Zap, Gamepad2, CircleDot, Disc } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { cn } from '../lib/utils';
+import { useFirestoreCache } from '../context/FirestoreContext';
 
 export default function Home() {
+  const { sections: cachedSections, loading: cacheLoading } = useFirestoreCache();
   const [liveNow, setLiveNow] = useState<SportsContent[]>([]);
   const [trending, setTrending] = useState<SportsContent[]>([]);
   const [loading, setLoading] = useState(true);
   const [videoPromo, setVideoPromo] = useState<VideoPromoSettings | null>(null);
+
+  const homeSections = useMemo(() => {
+    return cachedSections
+      .filter(s => s.page === 'home' && s.isActive !== false)
+      .sort((a, b) => (a.order || 0) - (b.order || 0));
+  }, [cachedSections]);
 
   useEffect(() => {
     let isMounted = true;
@@ -70,24 +78,18 @@ export default function Home() {
     // Helper to load sections and trending
     const fetchSectionsAndTrending = async () => {
       try {
-        const sectionsQuery = query(collection(db, 'sections'), where('page', '==', 'home'));
-        const snap = await getDocs(sectionsQuery, { component: 'Home', file: 'Home.tsx', reason: 'Fetch structural landing content sections' });
+        if (cacheLoading) return;
         if (!isMounted) return;
 
-        const sectionsList = snap.docs
-          .map(d => ({ id: d.id, ...d.data() } as ContentSection))
-          .filter(s => s.isActive)
-          .sort((a, b) => (a.order || 0) - (b.order || 0));
-        
-        // Find a section that might be the "Trending" one
-        const trendingSection = sectionsList.find(s => s.title.toLowerCase().includes('trending'));
+        // Find a section that might be the "Trending" one from the cached sections
+        const trendingSection = homeSections.find(s => s.title.toLowerCase().includes('trending'));
         
         if (trendingSection && trendingSection.contentIds && trendingSection.contentIds.length > 0) {
           try {
             // Optimization: Batch fetch instead of multiple getDoc calls
             const targetIds = trendingSection.contentIds.slice(0, 10);
             const qContent = query(collection(db, 'content'), where(documentId(), 'in', targetIds));
-            const contentSnap = await getDocs(qContent);
+            const contentSnap = await getDocs(qContent, { component: 'Home', file: 'Home.tsx', reason: 'Fetch trending content list items' });
             const results = contentSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as SportsContent));
             
             if (!isMounted) return;
@@ -106,7 +108,7 @@ export default function Home() {
             console.error("[Home] Error batch fetching manual trending, trying fallback:", e);
             try {
               const results = await Promise.all(
-                trendingSection.contentIds.slice(0, 10).map(id => getDoc(doc(db, 'content', id)).then(s => 
+                trendingSection.contentIds.slice(0, 10).map(id => getDoc(doc(db, 'content', id), { component: 'Home', file: 'Home.tsx', reason: 'Individual trending item fallback fetch' }).then(s => 
                   s.exists() ? ({ ...s.data(), id: s.id } as SportsContent) : null
                 ))
               );
@@ -127,7 +129,7 @@ export default function Home() {
           // Fallback: Just fetch recent content if no trending section identified
           const fallbackQuery = query(collection(db, 'content'), limit(20));
           try {
-            const s = await getDocs(fallbackQuery);
+            const s = await getDocs(fallbackQuery, { component: 'Home', file: 'Home.tsx', reason: 'Fetch default trending fallback items' });
             if (!isMounted) return;
             const items = s.docs
               .map(d => ({ id: d.id, ...d.data() } as SportsContent))
@@ -148,7 +150,6 @@ export default function Home() {
         if (!isMounted) return;
         console.error("[Home] Sections fetch error:", err);
         setTrending(FALLBACK_SPORTS_CONTENT.slice(0, 6));
-        handleFirestoreError(err, OperationType.GET, 'sections');
       } finally {
         if (isMounted) {
           setLoading(false);
@@ -156,18 +157,20 @@ export default function Home() {
       }
     };
 
-    // Run fetches
-    Promise.all([fetchPromo(), fetchLiveContent(), fetchSectionsAndTrending()]).finally(() => {
-      if (isMounted) {
-        setLoading(false);
-      }
-    });
+    if (!cacheLoading) {
+      // Run fetches in parallel
+      Promise.all([fetchPromo(), fetchLiveContent(), fetchSectionsAndTrending()]).finally(() => {
+        if (isMounted) {
+          setLoading(false);
+        }
+      });
+    }
 
     return () => {
       isMounted = false;
       clearTimeout(timer);
     };
-  }, []);
+  }, [cacheLoading, homeSections]);
 
   // Use skeletons or partial loading instead of total block if possible
   // Restore loading screen for initial load as requested

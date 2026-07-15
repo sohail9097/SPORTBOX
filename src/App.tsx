@@ -17,38 +17,41 @@ import Blogs from './pages/Blogs';
 import Olympics from './pages/Olympics';
 import { ThemeProvider } from './lib/ThemeContext';
 import { AuthProvider } from './hooks/useAuth';
+import { FirestoreProvider } from './context/FirestoreContext';
 
 import { Toaster } from 'sonner';
 
 function App() {
   return (
     <AuthProvider>
-      <ThemeProvider>
-        <Router>
-          <Toaster position="top-center" richColors />
-          <ScrollToTop />
-          <Layout>
-            <Routes>
-              <Route path="/" element={<Home />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/live" element={<Live />} />
-              <Route path="/category/:category" element={<CategoryPage />} />
-              <Route path="/shorts" element={<Shots />} />
-              <Route path="/watch/:id" element={<Watch />} />
-              <Route path="/plans" element={<Plans />} />
-              <Route path="/account" element={<Account />} />
-              <Route path="/admin" element={<Admin />} />
-              <Route path="/search" element={<Search />} />
-              <Route path="/blogs" element={<Blogs />} />
-              <Route path="/olympics" element={<Olympics />} />
-              <Route path="/legal/privacy" element={<Legal />} />
-              <Route path="/legal/terms" element={<Legal />} />
-              <Route path="/legal/cookies" element={<Legal />} />
-              <Route path="/data-deletion" element={<DataDeletion />} />
-            </Routes>
-          </Layout>
-        </Router>
-      </ThemeProvider>
+      <FirestoreProvider>
+        <ThemeProvider>
+          <Router>
+            <Toaster position="top-center" richColors />
+            <ScrollToTop />
+            <Layout>
+              <Routes>
+                <Route path="/" element={<Home />} />
+                <Route path="/login" element={<Login />} />
+                <Route path="/live" element={<Live />} />
+                <Route path="/category/:category" element={<CategoryPage />} />
+                <Route path="/shorts" element={<Shots />} />
+                <Route path="/watch/:id" element={<Watch />} />
+                <Route path="/plans" element={<Plans />} />
+                <Route path="/account" element={<Account />} />
+                <Route path="/admin" element={<Admin />} />
+                <Route path="/search" element={<Search />} />
+                <Route path="/blogs" element={<Blogs />} />
+                <Route path="/olympics" element={<Olympics />} />
+                <Route path="/legal/privacy" element={<Legal />} />
+                <Route path="/legal/terms" element={<Legal />} />
+                <Route path="/legal/cookies" element={<Legal />} />
+                <Route path="/data-deletion" element={<DataDeletion />} />
+              </Routes>
+            </Layout>
+          </Router>
+        </ThemeProvider>
+      </FirestoreProvider>
     </AuthProvider>
   );
 }

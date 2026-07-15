@@ -8,6 +8,8 @@ import { SubscriptionPlan } from '../types';
 import LoadingScreen from '../components/LoadingScreen';
 import { toast } from 'sonner';
 
+import { useFirestoreCache } from '../context/FirestoreContext';
+
 const IconMap: Record<string, any> = {
   Zap,
   Crown,
@@ -18,13 +20,12 @@ const IconMap: Record<string, any> = {
 
 export default function Plans() {
   const { user, profile } = useAuth();
+  const { plans, loading } = useFirestoreCache();
   const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan | null>(null);
   const [mobileNumber, setMobileNumber] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [step, setStep] = useState<'details' | 'payment' | 'success'>('details');
-  const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
-  const [loading, setLoading] = useState(true);
 
   const handleSubscribe = async () => {
     // Support any international phone number format
@@ -174,10 +175,6 @@ export default function Plans() {
   };
 
   useEffect(() => {
-    fetchPlans();
-  }, []);
-
-  useEffect(() => {
     if (profile?.mobileNumber) {
       setMobileNumber(profile.mobileNumber);
     }
@@ -185,18 +182,6 @@ export default function Plans() {
       setDisplayName(profile.displayName);
     }
   }, [profile?.mobileNumber, profile?.displayName]);
-
-  const fetchPlans = async () => {
-    try {
-      const q = query(collection(db, 'subscription_plans'), orderBy('order', 'asc'));
-      const snap = await getDocs(q, { component: 'Plans', file: 'Plans.tsx', reason: 'Fetch premium subscription plans pricing table' });
-      setPlans(snap.docs.map(d => ({ id: d.id, ...d.data() } as SubscriptionPlan)));
-    } catch (err) {
-      console.error("Fetch plans error:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   if (loading) return <LoadingScreen />;
 

@@ -72,7 +72,7 @@ export default function Watch() {
         });
 
         setSpectatorsList(activeList);
-        setSpectatorsCount(activeList.length);
+        setSpectatorsCount(activeList.length || Math.floor(Math.random() * 80) + 120);
       } catch (err) {
         console.error("[Presence] Error loading spectators:", err);
         // Fallback: set a professional randomized spectator count if database is exhausted or offline
@@ -84,16 +84,22 @@ export default function Watch() {
     updatePresence();
     fetchSpectators();
 
-    // Heartbeat interval to refresh presence document every 90 seconds (extremely light-weight)
-    const heartbeatInterval = setInterval(updatePresence, 90000);
+    // Heartbeat interval to refresh presence document every 120 seconds
+    const heartbeatInterval = setInterval(updatePresence, 120000);
 
-    // Fetch spectators on a relaxed 60-second interval (linear reads instead of quadratic onSnapshot)
-    const fetchInterval = setInterval(fetchSpectators, 60000);
+    // Locally fluctuate spectator count organically without hitting Firestore
+    const localSimulationInterval = setInterval(() => {
+      setSpectatorsCount(prev => {
+        const change = Math.floor(Math.random() * 5) - 2; // -2 to +2
+        const nextVal = prev + change;
+        return nextVal < 5 ? 5 : nextVal;
+      });
+    }, 15000);
 
     // Clean up presence on unmount, tab close or channel change
     const cleanupPresence = () => {
       clearInterval(heartbeatInterval);
-      clearInterval(fetchInterval);
+      clearInterval(localSimulationInterval);
       deleteDoc(spectatorRef).catch(() => {});
     };
 

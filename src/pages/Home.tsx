@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { collection, query, orderBy, limit, getDocs, where, doc, onSnapshot, getDoc } from 'firebase/firestore';
+import { collection, query, orderBy, limit, getDocs, where, doc, onSnapshot, getDoc, documentId } from 'firebase/firestore';
 import { SportsContent, VideoPromoSettings, ContentSection } from '../types';
 import { FALLBACK_SPORTS_CONTENT, FALLBACK_PROMO } from '../lib/fallbackData';
 import ContentCard from '../components/ContentCard';
@@ -69,21 +69,39 @@ export default function Home() {
       
       if (trendingSection && trendingSection.contentIds && trendingSection.contentIds.length > 0) {
         try {
-          // Optimization: Batch fetch instead of many getDoc calls
-          const results = await Promise.all(
-            trendingSection.contentIds.slice(0, 10).map(id => getDoc(doc(db, 'content', id)).then(s => 
-              s.exists() ? ({ ...s.data(), id: s.id } as SportsContent) : null
-            ))
-          );
-          const filteredResults = results.filter((i): i is SportsContent => i !== null);
-          if (filteredResults.length === 0) {
+          // Optimization: Batch fetch instead of multiple getDoc calls
+          const targetIds = trendingSection.contentIds.slice(0, 10);
+          const qContent = query(collection(db, 'content'), where(documentId(), 'in', targetIds));
+          const contentSnap = await getDocs(qContent);
+          const results = contentSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as SportsContent));
+          
+          // Maintain sequence
+          const orderMap = new Map(targetIds.map((id, idx) => [id, idx]));
+          results.sort((a, b) => (orderMap.get(a.id) ?? 999) - (orderMap.get(b.id) ?? 999));
+
+          if (results.length === 0) {
             setTrending(FALLBACK_SPORTS_CONTENT.slice(0, 6));
           } else {
-            setTrending(filteredResults);
+            setTrending(results);
           }
         } catch (e) {
-          console.error("[Home] Error fetching manual trending:", e);
-          setTrending(FALLBACK_SPORTS_CONTENT.slice(0, 6));
+          console.error("[Home] Error batch fetching manual trending, trying fallback:", e);
+          try {
+            const results = await Promise.all(
+              trendingSection.contentIds.slice(0, 10).map(id => getDoc(doc(db, 'content', id)).then(s => 
+                s.exists() ? ({ ...s.data(), id: s.id } as SportsContent) : null
+              ))
+            );
+            const filteredResults = results.filter((i): i is SportsContent => i !== null);
+            if (filteredResults.length === 0) {
+              setTrending(FALLBACK_SPORTS_CONTENT.slice(0, 6));
+            } else {
+              setTrending(filteredResults);
+            }
+          } catch (errFallback) {
+            console.error("[Home] Fallback also failed:", errFallback);
+            setTrending(FALLBACK_SPORTS_CONTENT.slice(0, 6));
+          }
         }
       } else {
         // Fallback: Just fetch recent content if no trending section identified

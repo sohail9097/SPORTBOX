@@ -180,25 +180,7 @@ export default function Shots() {
       });
       setLikesState(initialLikes);
 
-      // Fetch user's individual likes
-      if (user && items !== MOCK_SHORTS) {
-        items.forEach(async (item) => {
-          try {
-            const likeSnap = await getDoc(doc(db, 'content', item.id, 'likes', user.uid));
-            if (likeSnap.exists()) {
-              setLikesState(prev => ({
-                ...prev,
-                [item.id]: {
-                  ...prev[item.id],
-                  liked: true
-                }
-              }));
-            }
-          } catch (e) {
-            console.error("Error reading like status:", e);
-          }
-        });
-      }
+      // Fetch user's individual likes lazily on scroll to optimize Firestore reads
 
     } catch (err) {
       console.error("Error loading sport shorts:", err);
@@ -221,6 +203,44 @@ export default function Shots() {
   useEffect(() => {
     fetchShorts();
   }, [user?.uid]);
+
+  // Lazy-load like status for the active and adjacent shorts to optimize Firestore reads
+  const fetchedLikesRef = useRef<Set<string>>(new Set());
+  const prevUserUidRef = useRef<string | undefined>(user?.uid);
+
+  useEffect(() => {
+    if (prevUserUidRef.current !== user?.uid) {
+      fetchedLikesRef.current.clear();
+      prevUserUidRef.current = user?.uid;
+    }
+
+    if (!user || shorts.length === 0) return;
+
+    const indicesToFetch = [currentIndex, currentIndex + 1, currentIndex - 1].filter(
+      idx => idx >= 0 && idx < shorts.length
+    );
+
+    indicesToFetch.forEach(async (idx) => {
+      const item = shorts[idx];
+      if (!item || fetchedLikesRef.current.has(item.id)) return;
+      
+      fetchedLikesRef.current.add(item.id);
+      try {
+        const likeSnap = await getDoc(doc(db, 'content', item.id, 'likes', user.uid));
+        if (likeSnap.exists()) {
+          setLikesState(prev => ({
+            ...prev,
+            [item.id]: {
+              ...prev[item.id],
+              liked: true
+            }
+          }));
+        }
+      } catch (e) {
+        console.error("Error reading like status:", e);
+      }
+    });
+  }, [currentIndex, shorts, user?.uid]);
 
   // Detect mobile viewports
   useEffect(() => {

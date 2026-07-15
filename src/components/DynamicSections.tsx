@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { collection, query, where, orderBy, getDocs, doc, getDoc, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, orderBy, getDocs, doc, getDoc, onSnapshot, documentId } from 'firebase/firestore';
 import { ContentSection, SportsContent, Category } from '../types';
 import { FALLBACK_SECTIONS, FALLBACK_SPORTS_CONTENT } from '../lib/fallbackData';
 import ContentCard from './ContentCard';
@@ -106,16 +106,40 @@ export default function DynamicSections({ page }: DynamicSectionsProps) {
         }
         
         try {
-          const results = await Promise.all(
-            section.contentIds.map(id => 
-              getDoc(doc(db, 'content', id)).then(s => 
-                s.exists() ? ({ ...s.data(), id: s.id } as SportsContent) : null
-              )
-            )
-          );
-          data[section.id] = results.filter((i): i is SportsContent => i !== null);
+          // Firestore 'in' queries allow up to 30 elements in a chunk.
+          // This is a massive optimization over Promise.all(getDoc(...)) as it reduces connection overhead
+          const chunkedIds = [];
+          const idsToFetch = section.contentIds;
+          for (let i = 0; i < idsToFetch.length; i += 30) {
+            chunkedIds.push(idsToFetch.slice(i, i + 30));
+          }
+
+          let results: SportsContent[] = [];
+          for (const chunk of chunkedIds) {
+            const qContent = query(collection(db, 'content'), where(documentId(), 'in', chunk));
+            const contentSnap = await getDocs(qContent);
+            results = results.concat(contentSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as SportsContent)));
+          }
+
+          // Maintain the original order defined in contentIds
+          const orderMap = new Map(section.contentIds.map((id, idx) => [id, idx]));
+          results.sort((a, b) => (orderMap.get(a.id) ?? 999) - (orderMap.get(b.id) ?? 999));
+
+          data[section.id] = results;
         } catch (e) {
-          console.warn(`[Dynamic] Error fetching content for section ${section.id}:`, e);
+          console.warn(`[Dynamic] Error batch fetching content for section ${section.id}, falling back to sequential:`, e);
+          try {
+            const results = await Promise.all(
+              section.contentIds.map(id => 
+                getDoc(doc(db, 'content', id)).then(s => 
+                  s.exists() ? ({ ...s.data(), id: s.id } as SportsContent) : null
+                )
+              )
+            );
+            data[section.id] = results.filter((i): i is SportsContent => i !== null);
+          } catch (errFallback) {
+            console.error(`[Dynamic] Fallback also failed for section ${section.id}:`, errFallback);
+          }
         }
       }
       setSectionData(data);

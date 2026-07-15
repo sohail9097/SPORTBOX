@@ -43,6 +43,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Setup active observers for state transitions
     const handleUserTransition = async (currentUser: User | null) => {
       if (isCleanedUp) return;
+      
+      // 🚀 optimization: Prevent redundant profile snaps on focus, storage sync, or visibility changes
+      if (currentUser?.uid === user?.uid && unsubscribeProfile) {
+        console.log("[AuthSync] User is already synchronized and profile snapshot is active. Skipping redundant initialization.");
+        return;
+      }
+      
       setUser(currentUser);
       
       if (unsubscribeProfile) {

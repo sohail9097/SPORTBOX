@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { db, handleFirestoreError, OperationType, auth, isDbOffline, forceGoOnline, clearOfflineCache, withTimeout, getDoc, getDocs, collection, addDoc, deleteDoc, doc, updateDoc, query, orderBy, setDoc, onSnapshot } from '../lib/firebase';
 import { SportsContent, Category, ContentType, ContentSection, SliderElement, VideoPromoSettings, SiteConfig, SubscriptionPlan, BlogPost } from '../types';
-import { Plus, Trash2, Edit2, Play, LayoutDashboard, Film, Users, Settings, Save, X, Eye, Radio, Crown, Layers, MoveUp, MoveDown, CheckSquare, Square, Image as ImageIcon, Upload, Library, ShieldCheck, ShieldAlert, Zap, Percent, Trophy, ChevronRight, Activity, Heart, Dribbble, CircleDot, Target, Disc, Flag, Gamepad2, Folder, ChevronLeft, BookOpen, Scissors, Waves, Flame, Compass, Award, Sparkles, Wand2, Clock, BarChart2 } from 'lucide-react';
+import { Plus, Trash2, Edit2, Play, LayoutDashboard, Film, Users, Settings, Save, X, Eye, Radio, Crown, Layers, MoveUp, MoveDown, CheckSquare, Square, Image as ImageIcon, Upload, Library, ShieldCheck, ShieldAlert, Zap, Percent, Trophy, ChevronRight, Activity, Heart, Dribbble, CircleDot, Target, Disc, Flag, Gamepad2, Folder, ChevronLeft, BookOpen, Scissors, Waves, Flame, Compass, Award, Sparkles, Wand2, Clock, BarChart2, RefreshCw } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn, formatDate, transformGDriveUrl, getVideoAutoThumbnail } from '../lib/utils';
 import { useAuth } from '../hooks/useAuth';
@@ -89,51 +89,55 @@ function LiveControlCard({
   onEdit: (item: SportsContent) => void; 
   onDelete: (id: string) => void; 
 }) {
-  const [currentActive, setCurrentActive] = useState(0);
+  const [currentActive, setCurrentActive] = useState<number | null>(null);
   const [liveItem, setLiveItem] = useState<SportsContent>(item);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Sync specific content document in real-time to track unique views
+  // Sync specific content document from item prop
   useEffect(() => {
-    const unsubDoc = onSnapshot(doc(db, 'content', item.id), (snap) => {
-      if (snap.exists()) {
-        setLiveItem({ id: snap.id, ...snap.data() } as SportsContent);
-      }
-    }, err => {
-      console.error("Error syncing live doc:", err);
-      handleFirestoreError(err, OperationType.GET, `content/${item.id}`);
-    });
+    setLiveItem(item);
+  }, [item]);
 
-    return () => unsubDoc();
-  }, [item.id]);
-
-  // Sync concurrent spectators in real-time if the event is currently LIVE
-  useEffect(() => {
+  const refreshSpectators = async () => {
     if (liveItem.status !== 'live') {
       setCurrentActive(0);
       return;
     }
-
-    const spectatorsCol = collection(db, 'content', item.id, 'spectators');
-    const unsubscribeSpec = onSnapshot(spectatorsCol, (snapshot) => {
+    setIsRefreshing(true);
+    try {
+      const spectatorsCol = collection(db, 'content', item.id, 'spectators');
+      const snapshot = await getDocs(spectatorsCol, { 
+        component: 'AdminLiveControl', 
+        file: 'Admin.tsx', 
+        reason: 'Manual admin fetch of active spectator count' 
+      });
       const now = Date.now();
       let count = 0;
       snapshot.docs.forEach(snapDoc => {
         const data = snapDoc.data();
         if (data.lastActive) {
           const lastActiveTime = new Date(data.lastActive).getTime();
-          // same 30 seconds expiration logic as Watch
-          if (now - lastActiveTime < 30000) {
+          // Relaxed 60 seconds active window
+          if (now - lastActiveTime < 60000) {
             count++;
           }
         }
       });
       setCurrentActive(count);
-    }, err => {
+    } catch (err) {
       console.error("Error monitoring active viewers:", err);
-      handleFirestoreError(err, OperationType.GET, `content/${item.id}/spectators`);
-    });
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
-    return () => unsubscribeSpec();
+  // Sync concurrent spectators on-demand once if the event is currently LIVE
+  useEffect(() => {
+    if (liveItem.status === 'live') {
+      refreshSpectators();
+    } else {
+      setCurrentActive(0);
+    }
   }, [item.id, liveItem.status]);
 
   return (
@@ -166,9 +170,20 @@ function LiveControlCard({
             <p className="text-[9px] text-text-muted uppercase tracking-wider font-extrabold leading-tight">Current Viewers</p>
             <p className="text-sm font-black text-brand tracking-tight mt-1">
               {liveItem.status === 'live' ? (
-                <span className="flex items-center gap-1 text-red-500 font-extrabold">
+                <span className="flex items-center gap-1.5 text-red-500 font-extrabold">
                   <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-ping inline-block" />
-                  {currentActive} Active
+                  <span>{currentActive === null ? "..." : currentActive} Active</span>
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      refreshSpectators();
+                    }}
+                    disabled={isRefreshing}
+                    className="p-1 text-text-muted hover:text-brand transition-colors focus:outline-none disabled:opacity-50"
+                    title="Refresh current viewer count"
+                  >
+                    <RefreshCw className={cn("w-3 h-3", isRefreshing && "animate-spin")} />
+                  </button>
                 </span>
               ) : (
                 <span className="text-text-muted font-bold uppercase text-[10px]">Off-Air</span>

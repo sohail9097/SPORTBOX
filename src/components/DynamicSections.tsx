@@ -1,12 +1,11 @@
 import { useState, useEffect, useMemo } from 'react';
-import { db, handleFirestoreError, OperationType, getDoc, getDocs, collection, query, where, orderBy, doc, documentId } from '../lib/firebase';
+import { db, collection, query, where, getDocs, documentId } from '../lib/firebase';
 import { ContentSection, SportsContent, Category } from '../types';
 import { FALLBACK_SECTIONS, FALLBACK_SPORTS_CONTENT } from '../lib/fallbackData';
 import ContentCard from './ContentCard';
 import { ChevronRight, Layers, Trophy } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { cn } from '../lib/utils';
-import { motion } from 'motion/react';
 import AutoScrollingRow from './AutoScrollingRow';
 import { useFirestoreCache } from '../context/FirestoreContext';
 
@@ -36,95 +35,79 @@ export default function DynamicSections({ page }: DynamicSectionsProps) {
     const fetchContentForSections = async (list: ContentSection[]) => {
       const data: Record<string, SportsContent[]> = {};
       
-      for (const section of list) {
-        if (!section.contentIds || section.contentIds.length === 0) {
-          data[section.id] = [];
-          continue;
+      // Collect all unique IDs to batch fetch in one go (preventing loops)
+      const allIds = Array.from(new Set(list.flatMap(s => s.contentIds || [])));
+
+      if (allIds.length === 0) {
+        if (isMounted) {
+          list.forEach(s => { data[s.id] = []; });
+          setSectionData(data);
+          setLoading(false);
         }
-        
-        try {
-          // Firestore 'in' queries allow up to 30 elements in a chunk.
-          // This is a massive optimization over Promise.all(getDoc(...)) as it reduces connection overhead
-          const chunkedIds = [];
-          const idsToFetch = section.contentIds;
-          for (let i = 0; i < idsToFetch.length; i += 30) {
-            chunkedIds.push(idsToFetch.slice(i, i + 30));
-          }
-
-          let results: SportsContent[] = [];
-          for (const chunk of chunkedIds) {
-            const qContent = query(collection(db, 'content'), where(documentId(), 'in', chunk));
-            const contentSnap = await getDocs(qContent, { component: 'DynamicSections', file: 'DynamicSections.tsx', reason: `Fetch batch content IDs for section ${section.title}` });
-            results = results.concat(contentSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as SportsContent)));
-          }
-
-          // Maintain the original order defined in contentIds
-          const orderMap = new Map(section.contentIds.map((id, idx) => [id, idx]));
-          results.sort((a, b) => (orderMap.get(a.id) ?? 999) - (orderMap.get(b.id) ?? 999));
-
-          data[section.id] = results;
-        } catch (e) {
-          console.warn(`[Dynamic] Error batch fetching content for section ${section.id}, falling back to sequential:`, e);
-          try {
-            const results = await Promise.all(
-              section.contentIds.map(id => 
-                getDoc(doc(db, 'content', id), { component: 'DynamicSections', file: 'DynamicSections.tsx', reason: `Sequential fallback fetch for content ID ${id}` }).then(s => 
-                  s.exists() ? ({ ...s.data(), id: s.id } as SportsContent) : null
-                )
-              )
-            );
-            data[section.id] = results.filter((i): i is SportsContent => i !== null);
-          } catch (errFallback) {
-            console.error(`[Dynamic] Fallback also failed for section ${section.id}:`, errFallback);
-          }
-        }
+        return;
       }
+
+      try {
+        // Single batch fetch optimization
+        let fetchedContent: SportsContent[] = [];
+        const chunkedIds = [];
+        for (let i = 0; i < allIds.length; i += 30) {
+          chunkedIds.push(allIds.slice(i, i + 30));
+        }
+
+        for (const chunk of chunkedIds) {
+          const qContent = query(collection(db, 'content'), where(documentId(), 'in', chunk));
+          const contentSnap = await getDocs(qContent);
+          fetchedContent = fetchedContent.concat(
+            contentSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as SportsContent))
+          );
+        }
+
+        const contentMap = new Map(fetchedContent.map(item => [item.id, item]));
+
+        // Map data for each section
+        list.forEach(section => {
+          const sectionItems = (section.contentIds || [])
+            .map(id => contentMap.get(id))
+            .filter((item): item is SportsContent => !!item);
+          data[section.id] = sectionItems;
+        });
+
+      } catch (e) {
+        console.warn("[Dynamic] Error optimized batch fetching, using fallbacks:", e);
+        // Fallback to offline static data to avoid database load
+        list.forEach(s => { data[s.id] = FALLBACK_SPORTS_CONTENT.slice(0, 4); });
+      }
+
       if (isMounted) {
         setSectionData(data);
+        setLoading(false);
       }
     };
 
     if (sections.length === 0) {
-      // Find default sections for this page or default to home fallbacks
       const fallbacks = FALLBACK_SECTIONS.filter(s => s.page === page || (page !== 'home' && s.page === 'home'));
-      // Remap page field to match the current page
-      const remappedFallbacks = fallbacks.map(f => ({ ...f, page }));
-      
       const data: Record<string, SportsContent[]> = {};
-      remappedFallbacks.forEach(section => {
-        // Filter content to match category or type
+      
+      fallbacks.forEach(section => {
         let items = FALLBACK_SPORTS_CONTENT;
         if (page !== 'home') {
           items = FALLBACK_SPORTS_CONTENT.filter(item => item.category === page);
         }
-        
-        if (section.id === 'sec_live') {
-          data[section.id] = items.filter(item => item.status === 'live');
-        } else if (section.id === 'sec_trending') {
-          data[section.id] = items.filter(item => item.type !== 'live');
-        } else {
-          data[section.id] = items.filter(item => section.contentIds.includes(item.id));
-        }
-        
-        // If empty, just give some items
-        if (data[section.id].length === 0) {
-          data[section.id] = items.slice(0, 4);
-        }
+        data[section.id] = items.slice(0, 6);
       });
       setSectionData(data);
       setLoading(false);
     } else {
-      setLoading(false);
-      // Fetch content for each section
       fetchContentForSections(sections);
     }
 
     return () => {
       isMounted = false;
     };
-  }, [page]);
+  }, [page, sections, cacheLoading]);
 
-  if (loading) {
+  if (loading || cacheLoading) {
     return (
       <div className="space-y-12">
         {[1, 2].map((i) => (

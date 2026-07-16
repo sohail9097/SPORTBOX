@@ -1,10 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
-import { db, collection, query, where, getDocs, documentId } from '../lib/firebase';
 import { ContentSection, SportsContent, Category } from '../types';
 import { FALLBACK_SECTIONS, FALLBACK_SPORTS_CONTENT } from '../lib/fallbackData';
 import ContentCard from './ContentCard';
-import { ChevronRight, Layers, Trophy } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Layers, Trophy } from 'lucide-react';
 import { cn } from '../lib/utils';
 import AutoScrollingRow from './AutoScrollingRow';
 import { useFirestoreCache } from '../context/FirestoreContext';
@@ -14,7 +12,7 @@ interface DynamicSectionsProps {
 }
 
 export default function DynamicSections({ page }: DynamicSectionsProps) {
-  const { sections: cachedSections, loading: cacheLoading } = useFirestoreCache();
+  const { sections: cachedSections, content: cachedContent, loading: cacheLoading } = useFirestoreCache();
   const [sectionData, setSectionData] = useState<Record<string, SportsContent[]>>({});
   const [loading, setLoading] = useState(true);
 
@@ -32,52 +30,18 @@ export default function DynamicSections({ page }: DynamicSectionsProps) {
       return;
     }
 
-    const fetchContentForSections = async (list: ContentSection[]) => {
+    const fetchContentForSections = (list: ContentSection[]) => {
       const data: Record<string, SportsContent[]> = {};
       
-      // Collect all unique IDs to batch fetch in one go (preventing loops)
-      const allIds = Array.from(new Set(list.flatMap(s => s.contentIds || [])));
+      const contentMap = new Map(cachedContent.map(item => [item.id, item]));
 
-      if (allIds.length === 0) {
-        if (isMounted) {
-          list.forEach(s => { data[s.id] = []; });
-          setSectionData(data);
-          setLoading(false);
-        }
-        return;
-      }
-
-      try {
-        // Single batch fetch optimization
-        let fetchedContent: SportsContent[] = [];
-        const chunkedIds = [];
-        for (let i = 0; i < allIds.length; i += 30) {
-          chunkedIds.push(allIds.slice(i, i + 30));
-        }
-
-        for (const chunk of chunkedIds) {
-          const qContent = query(collection(db, 'content'), where(documentId(), 'in', chunk));
-          const contentSnap = await getDocs(qContent);
-          fetchedContent = fetchedContent.concat(
-            contentSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as SportsContent))
-          );
-        }
-
-        const contentMap = new Map(fetchedContent.map(item => [item.id, item]));
-
-        // Map data for each section
-        list.forEach(section => {
-          const sectionItems = (section.contentIds || [])
-            .map(id => contentMap.get(id))
-            .filter((item): item is SportsContent => !!item);
-          data[section.id] = sectionItems;
-        });
-
-      } catch (e) {
-        console.warn("[Dynamic] Error optimized batch fetching, using fallbacks:", e);
-        // Fallback to offline static data to avoid database load
-        list.forEach(s => { data[s.id] = FALLBACK_SPORTS_CONTENT.slice(0, 4); });
-      }
+      // Map data for each section
+      list.forEach(section => {
+        const sectionItems = (section.contentIds || [])
+          .map(id => contentMap.get(id))
+          .filter((item): item is SportsContent => !!item);
+        data[section.id] = sectionItems;
+      });
 
       if (isMounted) {
         setSectionData(data);
@@ -86,6 +50,12 @@ export default function DynamicSections({ page }: DynamicSectionsProps) {
     };
 
     if (sections.length === 0) {
+      if (cachedContent.length > 0) {
+        setSectionData({});
+        setLoading(false);
+        return;
+      }
+
       const fallbacks = FALLBACK_SECTIONS.filter(s => s.page === page || (page !== 'home' && s.page === 'home'));
       const data: Record<string, SportsContent[]> = {};
       
@@ -105,7 +75,7 @@ export default function DynamicSections({ page }: DynamicSectionsProps) {
     return () => {
       isMounted = false;
     };
-  }, [page, sections, cacheLoading]);
+  }, [page, sections, cachedContent, cacheLoading]);
 
   if (loading || cacheLoading) {
     return (

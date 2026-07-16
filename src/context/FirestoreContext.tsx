@@ -1,13 +1,14 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { db, getDoc, getDocs, doc, collection, query, orderBy } from '../lib/firebase';
-import { SiteConfig, ContentSection, SliderElement, SubscriptionPlan } from '../types';
-import { FALLBACK_SITE_CONFIG, FALLBACK_SECTIONS, FALLBACK_SLIDER_ITEMS } from '../lib/fallbackData';
+import { SiteConfig, ContentSection, SliderElement, SubscriptionPlan, SportsContent } from '../types';
+import { FALLBACK_SITE_CONFIG, FALLBACK_SECTIONS, FALLBACK_SLIDER_ITEMS, FALLBACK_SPORTS_CONTENT } from '../lib/fallbackData';
 
 interface FirestoreContextType {
   siteConfig: SiteConfig;
   sections: ContentSection[];
   slider: SliderElement[];
   plans: SubscriptionPlan[];
+  content: SportsContent[];
   sports: any[];
   categories: any[];
   countries: any[];
@@ -18,6 +19,7 @@ interface FirestoreContextType {
   updatePlansState: (plans: SubscriptionPlan[]) => void;
   updateSectionsState: (sections: ContentSection[]) => void;
   updateSliderState: (slides: SliderElement[]) => void;
+  updateContentState: (content: SportsContent[]) => void;
 }
 
 const FirestoreContext = createContext<FirestoreContextType | undefined>(undefined);
@@ -67,6 +69,7 @@ export function FirestoreProvider({ children }: { children: React.ReactNode }) {
   const [sections, setSections] = useState<ContentSection[]>([]);
   const [slider, setSlider] = useState<SliderElement[]>([]);
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
+  const [content, setContent] = useState<SportsContent[]>([]);
   const [sports, setSports] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [countries, setCountries] = useState<any[]>([]);
@@ -76,80 +79,104 @@ export function FirestoreProvider({ children }: { children: React.ReactNode }) {
 
   const hasFetchedRef = useRef(false);
 
-  const fetchAll = async () => {
+  const fetchAll = async (force = false) => {
     // Preventive guard clause: If already loaded, completely short-circuit to block redundant network reads
-    if (isDataLoaded) {
+    if (isDataLoaded && !force) {
       console.log("[FirestoreProvider] fetchAll call short-circuited. Data is locked and loaded.");
       return;
     }
 
     setLoading(true);
     const start = Date.now();
-    console.log("[FirestoreProvider] Starting optimized pre-fetch...");
+    console.log("[FirestoreProvider] Starting optimized parallel pre-fetch...");
 
     try {
-      // 🚀 Optimization: Only fetch essential dynamic configs from network, rely on fallbacks or cache
-      await Promise.all([
-        // 1. Site Config (Single Doc - Safe)
-        getDoc(doc(db, 'settings', 'siteConfig')).then(snap => {
-          if (snap.exists()) {
-            setSiteConfig(prev => ({ ...prev, ...snap.data() }));
-          } else {
-            setSiteConfig(FALLBACK_SITE_CONFIG);
-          }
-        }).catch(err => {
-          console.warn("[FirestoreProvider] Error pre-fetching settings/siteConfig, using fallback:", err);
-          setSiteConfig(FALLBACK_SITE_CONFIG);
-        }),
-
-        // 2. Sections (Optimized Fallback Integration)
-        getDocs(collection(db, 'sections')).then(snap => {
-          if (snap.empty) {
-            setSections(FALLBACK_SECTIONS as any);
-          } else {
-            setSections(snap.docs.map(d => ({ id: d.id, ...d.data() } as ContentSection)));
-          }
-        }).catch(err => {
-          console.warn("[FirestoreProvider] Error pre-fetching sections, using fallback:", err);
-          setSections(FALLBACK_SECTIONS as any);
-        }),
-
-        // 3. Slider
-        getDocs(collection(db, 'slider')).then(snap => {
-          if (snap.empty) {
-            setSlider(FALLBACK_SLIDER_ITEMS as any);
-          } else {
-            setSlider(snap.docs.map(d => ({ id: d.id, ...d.data() } as SliderElement)));
-          }
-        }).catch(err => {
-          console.warn("[FirestoreProvider] Error pre-fetching slider, using fallback:", err);
-          setSlider(FALLBACK_SLIDER_ITEMS as any);
-        }),
-
-        // 4. Subscription Plans
-        getDocs(query(collection(db, 'subscription_plans'), orderBy('order', 'asc'))).then(snap => {
-          if (snap.empty) {
-            setPlans(FALLBACK_PLANS);
-          } else {
-            setPlans(snap.docs.map(d => ({ id: d.id, ...d.data() } as SubscriptionPlan)));
-          }
-        }).catch(err => {
-          console.warn("[FirestoreProvider] Error pre-fetching subscription plans, using fallback:", err);
-          setPlans(FALLBACK_PLANS);
-        })
+      const [
+        contentSnapResult,
+        sectionsSnapResult,
+        sliderSnapResult,
+        plansSnapResult,
+        siteConfigResult
+      ] = await Promise.allSettled([
+        getDocs(collection(db, 'content')),
+        getDocs(collection(db, 'sections')),
+        getDocs(collection(db, 'slider')),
+        getDocs(collection(db, 'subscription_plans')),
+        getDoc(doc(db, 'settings', 'siteConfig'))
       ]);
 
-      // Flip the flag to true only after a successful Promise.all resolution
+      // 1. Content
+      if (contentSnapResult.status === 'fulfilled' && !contentSnapResult.value.empty) {
+        setContent(contentSnapResult.value.docs.map(d => ({ id: d.id, ...d.data() } as SportsContent)));
+      } else {
+        if (contentSnapResult.status === 'rejected') {
+          console.warn("[FirestoreProvider] Content query failed, using fallbacks:", contentSnapResult.reason);
+        }
+        setContent(FALLBACK_SPORTS_CONTENT);
+      }
+
+      // 2. Sections
+      if (sectionsSnapResult.status === 'fulfilled' && !sectionsSnapResult.value.empty) {
+        const fetchedSections = sectionsSnapResult.value.docs.map(d => ({ id: d.id, ...d.data() } as ContentSection));
+        fetchedSections.sort((a, b) => (a.order || 0) - (b.order || 0));
+        setSections(fetchedSections);
+      } else {
+        if (sectionsSnapResult.status === 'rejected') {
+          console.warn("[FirestoreProvider] Sections query failed, using fallbacks:", sectionsSnapResult.reason);
+        }
+        setSections(FALLBACK_SECTIONS as any);
+      }
+
+      // 3. Slider
+      if (sliderSnapResult.status === 'fulfilled' && !sliderSnapResult.value.empty) {
+        const fetchedSlider = sliderSnapResult.value.docs.map(d => ({ id: d.id, ...d.data() } as SliderElement));
+        fetchedSlider.sort((a, b) => (a.order || 0) - (b.order || 0));
+        setSlider(fetchedSlider);
+      } else {
+        if (sliderSnapResult.status === 'rejected') {
+          console.warn("[FirestoreProvider] Slider query failed, using fallbacks:", sliderSnapResult.reason);
+        }
+        setSlider(FALLBACK_SLIDER_ITEMS as any);
+      }
+
+      // 4. Plans
+      if (plansSnapResult.status === 'fulfilled' && !plansSnapResult.value.empty) {
+        const fetchedPlans = plansSnapResult.value.docs.map(d => ({ id: d.id, ...d.data() } as SubscriptionPlan));
+        fetchedPlans.sort((a, b) => (a.order || 0) - (b.order || 0));
+        setPlans(fetchedPlans);
+      } else {
+        if (plansSnapResult.status === 'rejected') {
+          console.warn("[FirestoreProvider] Plans query failed, using fallbacks:", plansSnapResult.reason);
+        }
+        setPlans(FALLBACK_PLANS);
+      }
+
+      // 5. Site Config
+      if (siteConfigResult.status === 'fulfilled' && siteConfigResult.value.exists()) {
+        setSiteConfig(siteConfigResult.value.data() as SiteConfig);
+      } else {
+        if (siteConfigResult.status === 'rejected') {
+          console.warn("[FirestoreProvider] SiteConfig query failed, using fallbacks:", siteConfigResult.reason);
+        }
+        setSiteConfig(FALLBACK_SITE_CONFIG);
+      }
+
+      // Flip the flag to true only after successful resolution
       setIsDataLoaded(true);
 
-      // 5. Static collections are set directly to avoid extra queries on navigation
+      // Static collections are set directly to avoid extra queries on navigation
       setSports([{ id: 'cricket', name: 'Cricket' }, { id: 'football', name: 'Football' }]);
       setCategories([]);
       setCountries([]);
       setNavigation([]);
 
     } catch (e) {
-      console.error("[FirestoreProvider] Critical error pre-fetching:", e);
+      console.error("[FirestoreProvider] Critical error pre-fetching, using fallback:", e);
+      setContent(FALLBACK_SPORTS_CONTENT);
+      setSections(FALLBACK_SECTIONS as any);
+      setSlider(FALLBACK_SLIDER_ITEMS as any);
+      setPlans(FALLBACK_PLANS);
+      setSiteConfig(FALLBACK_SITE_CONFIG);
     } finally {
       setLoading(false);
       console.log(`[FirestoreProvider] Pre-fetch complete. Duration: ${Date.now() - start}ms`);
@@ -166,6 +193,7 @@ export function FirestoreProvider({ children }: { children: React.ReactNode }) {
   const updatePlansState = (newPlans: SubscriptionPlan[]) => setPlans(newPlans);
   const updateSectionsState = (newSections: ContentSection[]) => setSections(newSections);
   const updateSliderState = (newSlides: SliderElement[]) => setSlider(newSlides);
+  const updateContentState = (newContent: SportsContent[]) => setContent(newContent);
 
   return (
     <FirestoreContext.Provider value={{
@@ -173,16 +201,18 @@ export function FirestoreProvider({ children }: { children: React.ReactNode }) {
       sections,
       slider,
       plans,
+      content,
       sports,
       categories,
       countries,
       navigation,
       loading,
-      refetchAll: fetchAll,
+      refetchAll: () => fetchAll(true),
       updateSiteConfigState,
       updatePlansState,
       updateSectionsState,
-      updateSliderState
+      updateSliderState,
+      updateContentState
     }}>
       {children}
     </FirestoreContext.Provider>

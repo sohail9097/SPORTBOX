@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../hooks/useAuth';
-import { db, handleFirestoreError, OperationType, getDocs, doc, updateDoc, collection, query, where, documentId, auth } from '../lib/firebase';
+import { db, handleFirestoreError, OperationType, doc, updateDoc, auth } from '../lib/firebase';
 import { motion, AnimatePresence } from 'motion/react';
 import { User, Phone, CheckCircle2, ShieldCheck, Mail, LogOut, ChevronRight, Loader2, Key, Settings, Clock, Crown, Play } from 'lucide-react';
 import { cn } from '../lib/utils';
@@ -9,10 +9,12 @@ import { SportsContent } from '../types';
 import ContentCard from '../components/ContentCard';
 import LoadingScreen from '../components/LoadingScreen';
 import { toast } from 'sonner';
+import { useFirestoreCache } from '../context/FirestoreContext';
 
 export default function Account() {
   const navigate = useNavigate();
   const { user, profile, isAdmin, loading: authLoading } = useAuth();
+  const { content: cachedContent, loading: cacheLoading } = useFirestoreCache();
   const [loading, setLoading] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
   const [mobileNumber, setMobileNumber] = useState(profile?.mobileNumber || '');
@@ -31,57 +33,36 @@ export default function Account() {
   }, [profile]);
 
   useEffect(() => {
-    const fetchWatchLater = async () => {
-      if (!profile?.watchLater || profile.watchLater.length === 0) {
-        setWatchLaterContent([]);
-        return;
-      }
+    if (!profile?.watchLater || profile.watchLater.length === 0) {
+      setWatchLaterContent([]);
+      return;
+    }
 
-      setLoadingWatchLater(true);
-      try {
-        const contentRef = collection(db, 'content');
-        const q = query(contentRef, where(documentId(), 'in', profile.watchLater.slice(0, 10)));
-        const snapshot = await getDocs(q, { component: 'Account', file: 'Account.tsx', reason: 'Fetch watch later videos associated with user profile' });
-        const fetchedContent = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as SportsContent));
-        setWatchLaterContent(fetchedContent);
-      } catch (error) {
-        console.error("Error fetching watch later:", error);
-      } finally {
-        setLoadingWatchLater(false);
-      }
-    };
-
-    fetchWatchLater();
-  }, [profile?.watchLater?.join(',')]);
+    setLoadingWatchLater(cacheLoading);
+    if (!cacheLoading) {
+      const ids = profile.watchLater.slice(0, 10);
+      const fetchedContent = cachedContent.filter(item => ids.includes(item.id));
+      setWatchLaterContent(fetchedContent);
+    }
+  }, [profile?.watchLater?.join(','), cachedContent, cacheLoading]);
 
   useEffect(() => {
-    const fetchRecent = async () => {
-      if (!profile?.recentlyWatched || profile.recentlyWatched.length === 0) {
-        setRecentContent([]);
-        return;
-      }
+    if (!profile?.recentlyWatched || profile.recentlyWatched.length === 0) {
+      setRecentContent([]);
+      return;
+    }
 
-      setLoadingRecent(true);
-      try {
-        const contentRef = collection(db, 'content');
-        // Get last 10 recently watched
-        const recentIds = [...profile.recentlyWatched].reverse().slice(0, 10);
-        const q = query(contentRef, where(documentId(), 'in', recentIds));
-        const snapshot = await getDocs(q, { component: 'Account', file: 'Account.tsx', reason: 'Fetch recently watched videos history for user dashboard' });
-        const fetchedContent = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as SportsContent));
-        
-        // Restore order based on recentIds
-        const orderedContent = recentIds.map(id => fetchedContent.find(c => c.id === id)).filter(Boolean) as SportsContent[];
-        setRecentContent(orderedContent);
-      } catch (error) {
-        console.error("Error fetching recent content:", error);
-      } finally {
-        setLoadingRecent(false);
-      }
-    };
-
-    fetchRecent();
-  }, [profile?.recentlyWatched?.join(',')]);
+    setLoadingRecent(cacheLoading);
+    if (!cacheLoading) {
+      // Get last 10 recently watched
+      const recentIds = [...profile.recentlyWatched].reverse().slice(0, 10);
+      const fetchedContent = cachedContent.filter(item => recentIds.includes(item.id));
+      
+      // Restore order based on recentIds
+      const orderedContent = recentIds.map(id => fetchedContent.find(c => c.id === id)).filter(Boolean) as SportsContent[];
+      setRecentContent(orderedContent);
+    }
+  }, [profile?.recentlyWatched?.join(','), cachedContent, cacheLoading]);
 
   const handleUpdateProfile = async () => {
     // Basic validation

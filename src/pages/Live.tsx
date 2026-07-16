@@ -1,20 +1,18 @@
-import { useEffect, useState } from 'react';
-import { db, handleFirestoreError, OperationType, getDocs, collection, query, where, limit } from '../lib/firebase';
+import { useEffect, useState, useMemo } from 'react';
 import { SportsContent } from '../types';
-import { FALLBACK_SPORTS_CONTENT } from '../lib/fallbackData';
 import ContentCard from '../components/ContentCard';
 import { motion, AnimatePresence } from 'motion/react';
 import { Radio, Play, Clock, Calendar, ChevronRight, Bell, BellOff, Volume2 } from 'lucide-react';
 import { cn, getVideoAutoThumbnail } from '../lib/utils';
 import { toast } from 'sonner';
 import { useAuth } from '../hooks/useAuth';
+import { useFirestoreCache } from '../context/FirestoreContext';
 
 export default function Live() {
   const { profile, isAdmin } = useAuth();
   const isSubscribed = isAdmin || (profile && profile.subscriptionTier !== 'free' && profile.subscriptionStatus === 'active');
 
-  const [content, setContent] = useState<SportsContent[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { content: cachedContent, loading } = useFirestoreCache();
   const [activeBannerIndex, setActiveBannerIndex] = useState(0);
   const [reminders, setReminders] = useState<{ [id: string]: boolean }>({});
 
@@ -31,31 +29,6 @@ export default function Live() {
         console.error(e);
       }
     }
-
-    const fetchLiveContentOnce = async () => {
-      setLoading(true);
-      try {
-        const q = query(
-          collection(db, 'content'),
-          where('type', '==', 'live'),
-          limit(100)
-        );
-        const snap = await getDocs(q, { component: 'Live', file: 'Live.tsx', reason: 'Fetch active and upcoming live video contents' });
-        const items = snap.docs
-          .map(d => ({ id: d.id, ...d.data() } as SportsContent))
-          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-        
-        setContent(items);
-      } catch (error) {
-        console.error('Error fetching live content:', error);
-        setContent([]);
-        handleFirestoreError(error, OperationType.GET, 'content');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchLiveContentOnce();
   }, []);
 
   const toggleReminder = (matchId: string, eventTitle: string) => {
@@ -76,18 +49,31 @@ export default function Live() {
     }
   };
 
-  const liveMatches = content.filter(item => item.status === 'live');
-  const upcomingMatches = content.filter(item => item.status === 'scheduled');
+  const content = useMemo(() => {
+    return cachedContent
+      .filter(item => item.type === 'live')
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }, [cachedContent]);
+
+  const liveMatches = useMemo(() => {
+    return content.filter(item => item.status === 'live');
+  }, [content]);
+
+  const upcomingMatches = useMemo(() => {
+    return content.filter(item => item.status === 'scheduled');
+  }, [content]);
 
   // Items to feature on the live banner
   // Prefer upcoming matches for the banner to create build-up/hype, as requested.
   // Fallback to currently live matches if there are no upcoming ones.
-  const bannerItems = upcomingMatches.length > 0 ? upcomingMatches : liveMatches;
+  const bannerItems = useMemo(() => {
+    return upcomingMatches.length > 0 ? upcomingMatches : liveMatches;
+  }, [upcomingMatches, liveMatches]);
 
   useEffect(() => {
     if (bannerItems.length > 0) {
       const match = bannerItems[activeBannerIndex];
-      setBannerMatchData(match);
+      setBannerMatchData(match || null);
       if (match) {
         const src = match.thumbnailUrl && match.thumbnailUrl.trim() !== ''
           ? match.thumbnailUrl
@@ -98,7 +84,7 @@ export default function Live() {
       setBannerMatchData(null);
       setBannerImageSrc('');
     }
-  }, [content, activeBannerIndex]);
+  }, [bannerItems, activeBannerIndex]);
 
   // Auto cycle banner items if there are multiple
   useEffect(() => {

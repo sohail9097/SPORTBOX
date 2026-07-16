@@ -1,23 +1,21 @@
 import { useEffect, useState, useMemo } from 'react';
-import { db, handleFirestoreError, OperationType, getDoc, getDocs, collection, query, orderBy, limit, where, doc, documentId } from '../lib/firebase';
-import { SportsContent, VideoPromoSettings, ContentSection } from '../types';
-import { FALLBACK_SPORTS_CONTENT, FALLBACK_PROMO } from '../lib/fallbackData';
+import { db, handleFirestoreError, OperationType, getDoc, doc } from '../lib/firebase';
+import { SportsContent, VideoPromoSettings } from '../types';
+import { FALLBACK_PROMO } from '../lib/fallbackData';
 import ContentCard from '../components/ContentCard';
 import DynamicSections from '../components/DynamicSections';
 import HeroSlider from '../components/HeroSlider';
 import LoadingScreen from '../components/LoadingScreen';
 import VideoPromoBanner from '../components/VideoPromoBanner';
-import { Play, TrendingUp, Trophy, ChevronRight, Bell, Activity, Dribbble, Target, Flag, Zap, Gamepad2, CircleDot, Disc } from 'lucide-react';
+import { Play, TrendingUp, ChevronRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { cn } from '../lib/utils';
 import { useFirestoreCache } from '../context/FirestoreContext';
 
 export default function Home() {
-  const { sections: cachedSections, loading: cacheLoading } = useFirestoreCache();
-  const [liveNow, setLiveNow] = useState<SportsContent[]>([]);
-  const [trending, setTrending] = useState<SportsContent[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { content, sections: cachedSections, loading: cacheLoading } = useFirestoreCache();
   const [videoPromo, setVideoPromo] = useState<VideoPromoSettings | null>(null);
+  const [promoLoading, setPromoLoading] = useState(true);
 
   const homeSections = useMemo(() => {
     return cachedSections
@@ -25,18 +23,41 @@ export default function Home() {
       .sort((a, b) => (a.order || 0) - (b.order || 0));
   }, [cachedSections]);
 
+  const liveNow = useMemo(() => {
+    return content
+      .filter(item => item.status === 'live')
+      .slice(0, 6);
+  }, [content]);
+
+  const trending = useMemo(() => {
+    const trendingSection = homeSections.find(s => s.title.toLowerCase().includes('trending'));
+    
+    if (trendingSection && trendingSection.contentIds && trendingSection.contentIds.length > 0) {
+      const targetIds = trendingSection.contentIds.slice(0, 10);
+      const results = content.filter(item => targetIds.includes(item.id));
+      const orderMap = new Map(targetIds.map((id, idx) => [id, idx]));
+      return results
+        .sort((a, b) => (orderMap.get(a.id) ?? 999) - (orderMap.get(b.id) ?? 999))
+        .slice(0, 6);
+    }
+    
+    // Fallback: sort by createdAt descending
+    return [...content]
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(0, 6);
+  }, [content, homeSections]);
+
+  // Generate featured content in-memory
+  const featured = useMemo(() => {
+    return content
+      .filter(item => (item.type as string) === 'featured' || item.isPremium)
+      .slice(0, 6);
+  }, [content]);
+
   useEffect(() => {
     let isMounted = true;
-    setLoading(true);
+    setPromoLoading(true);
 
-    // Safety timeout: stop loading after 2.5 seconds regardless of sync state
-    const timer = setTimeout(() => {
-      if (isMounted) {
-        setLoading(false);
-      }
-    }, 2500);
-
-    // Helper to load promo
     const fetchPromo = async () => {
       try {
         const snap = await getDoc(doc(db, 'settings', 'videoPromo'), { component: 'Home', file: 'Home.tsx', reason: 'Fetch homepage video promo configurations' });
@@ -51,129 +72,22 @@ export default function Home() {
         console.warn("[Home] Promo fetch offline:", err.message);
         setVideoPromo(FALLBACK_PROMO);
         handleFirestoreError(err, OperationType.GET, 'settings/videoPromo');
-      }
-    };
-
-    // Helper to load live content
-    const fetchLiveContent = async () => {
-      try {
-        const liveQuery = query(collection(db, 'content'), where('type', '==', 'live'), limit(20));
-        const snap = await getDocs(liveQuery, { component: 'Home', file: 'Home.tsx', reason: 'Fetch active live content cards' });
-        if (!isMounted) return;
-        // Filter status in-memory to avoid complex index requirements
-        const liveItems = snap.docs
-          .map(d => ({ id: d.id, ...d.data() } as SportsContent))
-          .filter(item => item.status === 'live')
-          .slice(0, 6);
-        
-        setLiveNow(liveItems);
-      } catch (err: any) {
-        if (!isMounted) return;
-        console.error("[Home] Live fetch error:", err);
-        setLiveNow([]);
-        handleFirestoreError(err, OperationType.GET, 'content');
-      }
-    };
-
-    // Helper to load sections and trending
-    const fetchSectionsAndTrending = async () => {
-      try {
-        if (cacheLoading) return;
-        if (!isMounted) return;
-
-        // Find a section that might be the "Trending" one from the cached sections
-        const trendingSection = homeSections.find(s => s.title.toLowerCase().includes('trending'));
-        
-        if (trendingSection && trendingSection.contentIds && trendingSection.contentIds.length > 0) {
-          try {
-            // Optimization: Batch fetch instead of multiple getDoc calls
-            const targetIds = trendingSection.contentIds.slice(0, 10);
-            const qContent = query(collection(db, 'content'), where(documentId(), 'in', targetIds));
-            const contentSnap = await getDocs(qContent, { component: 'Home', file: 'Home.tsx', reason: 'Fetch trending content list items' });
-            const results = contentSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as SportsContent));
-            
-            if (!isMounted) return;
-
-            // Maintain sequence
-            const orderMap = new Map(targetIds.map((id, idx) => [id, idx]));
-            results.sort((a, b) => (orderMap.get(a.id) ?? 999) - (orderMap.get(b.id) ?? 999));
-
-            if (results.length === 0) {
-              setTrending(FALLBACK_SPORTS_CONTENT.slice(0, 6));
-            } else {
-              setTrending(results);
-            }
-          } catch (e) {
-            if (!isMounted) return;
-            console.error("[Home] Error batch fetching manual trending, trying fallback:", e);
-            try {
-              const results = await Promise.all(
-                trendingSection.contentIds.slice(0, 10).map(id => getDoc(doc(db, 'content', id), { component: 'Home', file: 'Home.tsx', reason: 'Individual trending item fallback fetch' }).then(s => 
-                  s.exists() ? ({ ...s.data(), id: s.id } as SportsContent) : null
-                ))
-              );
-              if (!isMounted) return;
-              const filteredResults = results.filter((i): i is SportsContent => i !== null);
-              if (filteredResults.length === 0) {
-                setTrending(FALLBACK_SPORTS_CONTENT.slice(0, 6));
-              } else {
-                setTrending(filteredResults);
-              }
-            } catch (errFallback) {
-              if (!isMounted) return;
-              console.error("[Home] Fallback also failed:", errFallback);
-              setTrending(FALLBACK_SPORTS_CONTENT.slice(0, 6));
-            }
-          }
-        } else {
-          // Fallback: Just fetch recent content if no trending section identified
-          const fallbackQuery = query(collection(db, 'content'), limit(20));
-          try {
-            const s = await getDocs(fallbackQuery, { component: 'Home', file: 'Home.tsx', reason: 'Fetch default trending fallback items' });
-            if (!isMounted) return;
-            const items = s.docs
-              .map(d => ({ id: d.id, ...d.data() } as SportsContent))
-              .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-            
-            if (items.length === 0) {
-              setTrending(FALLBACK_SPORTS_CONTENT.slice(0, 6));
-            } else {
-              setTrending(items.slice(0, 6));
-            }
-          } catch (err) {
-            if (!isMounted) return;
-            setTrending(FALLBACK_SPORTS_CONTENT.slice(0, 6));
-            handleFirestoreError(err, OperationType.GET, 'content');
-          }
-        }
-      } catch (err: any) {
-        if (!isMounted) return;
-        console.error("[Home] Sections fetch error:", err);
-        setTrending(FALLBACK_SPORTS_CONTENT.slice(0, 6));
       } finally {
         if (isMounted) {
-          setLoading(false);
+          setPromoLoading(false);
         }
       }
     };
 
-    if (!cacheLoading) {
-      // Run fetches in parallel
-      Promise.all([fetchPromo(), fetchLiveContent(), fetchSectionsAndTrending()]).finally(() => {
-        if (isMounted) {
-          setLoading(false);
-        }
-      });
-    }
+    fetchPromo();
 
     return () => {
       isMounted = false;
-      clearTimeout(timer);
     };
-  }, [cacheLoading, homeSections]);
+  }, []);
 
-  // Use skeletons or partial loading instead of total block if possible
-  // Restore loading screen for initial load as requested
+  const loading = cacheLoading || promoLoading;
+
   if (loading && liveNow.length === 0) return <LoadingScreen />;
   
   return (

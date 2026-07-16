@@ -1,38 +1,16 @@
 import { useState, useEffect } from 'react';
-import { db, handleFirestoreError, OperationType, getDocs, collection, query, where, limit } from '../lib/firebase';
 import { SportsContent } from '../types';
-import { Search as SearchIcon, Play, Filter, X, Loader2 } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Search as SearchIcon, Filter, X, Loader2 } from 'lucide-react';
 import ContentCard from '../components/ContentCard';
 import LoadingScreen from '../components/LoadingScreen';
 import { cn } from '../lib/utils';
+import { useFirestoreCache } from '../context/FirestoreContext';
 
 export default function Search() {
+  const { content: allContent, loading } = useFirestoreCache();
   const [searchTerm, setSearchTerm] = useState('');
   const [results, setResults] = useState<SportsContent[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [allContent, setAllContent] = useState<SportsContent[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
-
-  // Load initial content for searching
-  useEffect(() => {
-    fetchAllContent();
-  }, []);
-
-  const fetchAllContent = async () => {
-    setLoading(true);
-    try {
-      const q = query(collection(db, 'content'), limit(100));
-      const snap = await getDocs(q, { component: 'Search', file: 'Search.tsx', reason: 'Pre-fetch content items for local full-text search index' });
-      const data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as SportsContent));
-      setAllContent(data);
-      setResults(data);
-    } catch (error) {
-      handleFirestoreError(error, OperationType.LIST, 'content');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   useEffect(() => {
     const filterResults = () => {

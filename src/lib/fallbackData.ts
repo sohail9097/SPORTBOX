@@ -16,22 +16,6 @@ const VIDEO_LINKS = {
 export const FALLBACK_SPORTS_CONTENT: SportsContent[] = [
   // Live Streams
   {
-    id: 'live_football_1',
-    title: 'La Liga Live: Real Madrid vs Barcelona',
-    description: 'Experience the El Clásico live with multi-cam angles, ultra HD stream, and live pitch-side audio. Watch the biggest football rivalry unfold in real-time.',
-    category: 'football',
-    type: 'live',
-    videoUrl: VIDEO_LINKS.football,
-    thumbnailUrl: 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?q=80&w=800',
-    isPremium: true,
-    viewCount: 14820,
-    likes: 2450,
-    createdAt: new Date().toISOString(),
-    status: 'live',
-    tags: ['El Clásico', 'Live', 'La Liga', 'LaLiga'],
-    scheduledTime: new Date().toISOString()
-  },
-  {
     id: 'live_cricket_1',
     title: 'World Championship Finals: India vs Australia',
     description: 'The ultimate cricket showdown of the season. Catch every over, boundary, and wicket live in spectacular HDR quality with expert English and Hindi commentary.',
@@ -302,19 +286,6 @@ export const FALLBACK_SLIDER_ITEMS: SliderElement[] = [
     page: 'home'
   },
   {
-    id: 'slide_2',
-    title: 'El Clásico: Real Madrid vs Barcelona',
-    description: 'The world stands still for the most intense rivalry. Subscribe now to access the premium 4K HDR live stream.',
-    imageUrl: 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?q=80&w=1600',
-    videoUrl: VIDEO_LINKS.football,
-    actionUrl: '/watch/live_football_1',
-    isLive: true,
-    order: 2,
-    isActive: true,
-    animationType: 'slide',
-    page: 'home'
-  },
-  {
     id: 'slide_3',
     title: 'Extreme Mountain Biking Downhill',
     description: 'Hold your breath as riders descend steep canyon trails. Uncut highlights and incredible POV camera action.',
@@ -322,7 +293,7 @@ export const FALLBACK_SLIDER_ITEMS: SliderElement[] = [
     videoUrl: VIDEO_LINKS.stunts,
     actionUrl: '/watch/stunts_highlights_1',
     isLive: false,
-    order: 3,
+    order: 2,
     isActive: true,
     animationType: 'fade',
     page: 'home'
@@ -334,7 +305,7 @@ export const FALLBACK_SECTIONS: ContentSection[] = [
     id: 'sec_live',
     title: 'Live Streams',
     page: 'home',
-    contentIds: ['live_football_1', 'live_cricket_1', 'live_kabaddi_1'],
+    contentIds: ['live_cricket_1', 'live_kabaddi_1'],
     type: 'featured',
     order: 1,
     isActive: true,

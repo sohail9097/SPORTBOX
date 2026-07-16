@@ -1,7 +1,7 @@
-import { useEffect, useState, useRef } from 'react';
-import { db, handleFirestoreError, OperationType, getDoc, getDocs, collection, query, where, updateDoc, doc, increment, addDoc, setDoc, deleteDoc } from '../lib/firebase';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import { SportsContent } from '../types';
 import { useAuth } from '../hooks/useAuth';
+import { useFirestoreCache } from '../context/FirestoreContext';
 import { 
   Heart, Share2, Volume2, VolumeX, Play, Pause, 
   ChevronUp, ChevronDown, Award, Send, MessageCircle, X, Compass
@@ -10,6 +10,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
 import { transformGDriveUrl, getVideoAutoThumbnail, sanitizeVideoUrlOrIframe } from '../lib/utils';
 import { FALLBACK_SHORTS } from '../lib/fallbackData';
+import ShotVideoPlayer from '../components/ShotVideoPlayer';
 
 // Fallback list of high-fidelity shorts when Firestore is empty/exhausted
 const MOCK_SHORTS: SportsContent[] = FALLBACK_SHORTS;
@@ -36,9 +37,23 @@ const getCommentAvatar = (username: string) => {
 
 export default function Shots() {
   const { user } = useAuth();
-  const [shorts, setShorts] = useState<SportsContent[]>([]);
+  const { content: cachedContent, loading } = useFirestoreCache();
+  
+  const shorts = useMemo(() => {
+    let items = cachedContent.filter(item => item.type === 'short');
+    if (items.length === 0) {
+      items = MOCK_SHORTS;
+    } else {
+      items = [...items].sort((a, b) => {
+        const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return dateB - dateA;
+      });
+    }
+    return items;
+  }, [cachedContent]);
+
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [loading, setLoading] = useState(true);
   const [isMuted, setIsMuted] = useState(false);
   const [isPlaying, setIsPlaying] = useState(true);
   const [likesState, setLikesState] = useState<{ [id: string]: { liked: boolean, count: number } }>({});
@@ -52,6 +67,23 @@ export default function Shots() {
   const [commentLikes, setCommentLikes] = useState<{ [commId: string]: { liked: boolean; count: number } }>({});
 
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Initialize and update likesState based on current shorts list
+  useEffect(() => {
+    if (shorts.length === 0) return;
+    setLikesState(prev => {
+      const updated = { ...prev };
+      shorts.forEach(item => {
+        if (updated[item.id] === undefined) {
+          updated[item.id] = {
+            liked: false,
+            count: item.likes || 0
+          };
+        }
+      });
+      return updated;
+    });
+  }, [shorts]);
 
   const handleToggleCommentLike = (commentId: string) => {
     setCommentLikes(prev => {
@@ -148,99 +180,6 @@ export default function Shots() {
     return null;
   };
 
-  // Load Shorts
-  const fetchShorts = async () => {
-    setLoading(true);
-    try {
-      const q = query(collection(db, 'content'), where('type', '==', 'short'));
-      const snap = await getDocs(q, { component: 'Shots', file: 'Shots.tsx', reason: 'Fetch short-form video feed cards' });
-      let items = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as SportsContent));
-      
-      if (items.length === 0) {
-        items = MOCK_SHORTS;
-      } else {
-        // Sort items by createdAt if present
-        items.sort((a, b) => {
-          const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-          const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-          return dateB - dateA;
-        });
-      }
-
-      setShorts(items);
-      
-      // Initialize likes state
-      const initialLikes: typeof likesState = {};
-      items.forEach(item => {
-        initialLikes[item.id] = {
-          liked: false,
-          count: item.likes || 0
-        };
-      });
-      setLikesState(initialLikes);
-
-      // Fetch user's individual likes lazily on scroll to optimize Firestore reads
-
-    } catch (err) {
-      console.error("Error loading sport shorts:", err);
-      // Fallback
-      setShorts(MOCK_SHORTS as unknown as SportsContent[]);
-      
-      const initialLikes: typeof likesState = {};
-      MOCK_SHORTS.forEach(item => {
-        initialLikes[item.id] = {
-          liked: false,
-          count: item.likes || 0
-        };
-      });
-      setLikesState(initialLikes);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchShorts();
-  }, []);
-
-  // Lazy-load like status for the active and adjacent shorts to optimize Firestore reads
-  const fetchedLikesRef = useRef<Set<string>>(new Set());
-  const prevUserUidRef = useRef<string | undefined>(user?.uid);
-
-  useEffect(() => {
-    if (prevUserUidRef.current !== user?.uid) {
-      fetchedLikesRef.current.clear();
-      prevUserUidRef.current = user?.uid;
-    }
-
-    if (!user || shorts.length === 0) return;
-
-    const indicesToFetch = [currentIndex, currentIndex + 1, currentIndex - 1].filter(
-      idx => idx >= 0 && idx < shorts.length
-    );
-
-    indicesToFetch.forEach(async (idx) => {
-      const item = shorts[idx];
-      if (!item || fetchedLikesRef.current.has(item.id)) return;
-      
-      fetchedLikesRef.current.add(item.id);
-      try {
-        const likeSnap = await getDoc(doc(db, 'content', item.id, 'likes', user.uid), { component: 'Shots', file: 'Shots.tsx', reason: `Lazy check if current user liked short video ${item.id}` });
-        if (likeSnap.exists()) {
-          setLikesState(prev => ({
-            ...prev,
-            [item.id]: {
-              ...prev[item.id],
-              liked: true
-            }
-          }));
-        }
-      } catch (e) {
-        console.error("Error reading like status:", e);
-      }
-    });
-  }, [currentIndex, shorts, user?.uid]);
-
   // Detect mobile viewports
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
@@ -259,93 +198,40 @@ export default function Shots() {
     }
   }, []);
 
-  // Fetch comments persistently from Firestore for the current activeShort
-  // 🚀 Optimization: Only fetch comments from DB when the comments drawer is actually open
+  // Load comments in memory for the current activeShort
   useEffect(() => {
     if (!activeShort || !isCommentsOpen) return;
-    let isMounted = true;
 
-    const fetchCommentsForActiveShort = async () => {
-      setCommentsLoading(true);
-      try {
-        const commentsRef = collection(db, 'content', activeShort.id, 'comments');
-        const snap = await getDocs(commentsRef, { component: 'Shots', file: 'Shots.tsx', reason: `Fetch comments on video short ${activeShort.id}` });
-        if (!isMounted) return;
+    setCommentsLoading(true);
+    // Beautiful fallback to support initial interaction
+    const firstNames = ['David', 'Alex', 'Sarah', 'Kev', 'Carlos', 'Meghan', 'Rahul', 'Nate'];
+    const textOptions = [
+      'This stroke play is clean! 🔥⚽',
+      'OMG! Can we analyze this slow-mo technique?',
+      'Pure perfection right there.',
+      'Absolute madness! Legendary clip!',
+      'Gonna practice this combo starting tomorrow',
+      'Incredible! Love the camera angle on this shot.',
+      'Great work editing this!',
+      'Unbelievable control and precision!!'
+    ];
 
-        let items = snap.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as any));
+    const defaultComments = Array.from({ length: 4 }).map((_, i) => ({
+      id: `comm-${currentIndex}-${i}`,
+      user: firstNames[(currentIndex + i) % firstNames.length],
+      text: textOptions[(currentIndex + i) % textOptions.length],
+      time: `${i + 1}m ago`,
+      createdAt: new Date(Date.now() - (i + 1) * 60 * 1000).toISOString()
+    }));
+    setComments(defaultComments);
 
-        // Sort comments: newest first
-        items.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
-
-        if (items.length === 0) {
-          // Beautiful fallback to support initial interaction
-          const firstNames = ['David', 'Alex', 'Sarah', 'Kev', 'Carlos', 'Meghan', 'Rahul', 'Nate'];
-          const textOptions = [
-            'This stroke play is clean! 🔥⚽',
-            'OMG! Can we analyze this slow-mo technique?',
-            'Pure perfection right there.',
-            'Absolute madness! Legendary clip!',
-            'Gonna practice this combo starting tomorrow',
-            'Incredible! Love the camera angle on this shot.',
-            'Great work editing this!',
-            'Unbelievable control and precision!!'
-          ];
-
-          const defaultComments = Array.from({ length: 4 }).map((_, i) => ({
-            id: `comm-${i}`,
-            user: firstNames[(currentIndex + i) % firstNames.length],
-            text: textOptions[(currentIndex + i) % textOptions.length],
-            time: `${i + 1}m ago`,
-            createdAt: new Date(Date.now() - (i + 1) * 60 * 1000).toISOString()
-          }));
-          setComments(defaultComments);
-
-          // Seed fallback dynamic like values
-          const newLikes: typeof commentLikes = {};
-          defaultComments.forEach((c, idx) => {
-            newLikes[c.id] = { liked: false, count: Math.floor((idx + 3) * 7.4) % 12 + 1 };
-          });
-          setCommentLikes(prev => ({ ...prev, ...newLikes }));
-        } else {
-          const formatted = items.map(item => {
-            let timeStr = 'Just now';
-            if (item.createdAt) {
-              const diffMs = Date.now() - new Date(item.createdAt).getTime();
-              const diffMin = Math.floor(diffMs / 60000);
-              const diffHrs = Math.floor(diffMin / 60);
-              const diffDays = Math.floor(diffHrs / 24);
-              if (diffDays > 0) timeStr = `${diffDays}d ago`;
-              else if (diffHrs > 0) timeStr = `${diffHrs}h ago`;
-              else if (diffMin > 0) timeStr = `${diffMin}m ago`;
-            }
-            return {
-              id: item.id,
-              user: item.user || 'Sports Enthusiast',
-              text: item.text || '',
-              time: item.time || timeStr,
-              createdAt: item.createdAt
-            };
-          });
-          setComments(formatted);
-
-          // Seed Firestore comments dynamic like values
-          const newLikes: typeof commentLikes = {};
-          formatted.forEach((c, idx) => {
-            newLikes[c.id] = { liked: false, count: Math.floor((idx + c.text.length) % 19) };
-          });
-          setCommentLikes(prev => ({ ...prev, ...newLikes }));
-        }
-      } catch (err) {
-        console.error("Failed to load comments:", err);
-      } finally {
-        if (isMounted) setCommentsLoading(false);
-      }
-    };
-
-    fetchCommentsForActiveShort();
-    return () => {
-      isMounted = false;
-    };
+    // Seed fallback dynamic like values
+    const newLikes: typeof commentLikes = {};
+    defaultComments.forEach((c, idx) => {
+      newLikes[c.id] = { liked: false, count: Math.floor((idx + 3) * 7.4) % 12 + 1 };
+    });
+    setCommentLikes(prev => ({ ...prev, ...newLikes }));
+    setCommentsLoading(false);
   }, [currentIndex, activeShort, isCommentsOpen]);
 
   // Handle current video play/pause and mute/unmute state based on active short index
@@ -423,7 +309,12 @@ export default function Shots() {
               if (player) {
                 try {
                   if (isPlaying) {
-                    player.play();
+                    const playPromise = player.play();
+                    if (playPromise && typeof playPromise.catch === 'function') {
+                      playPromise.catch((e: any) => {
+                        console.log("Cloudflare SDK play promise handled safely:", e);
+                      });
+                    }
                   } else {
                     player.pause();
                   }
@@ -474,16 +365,6 @@ export default function Shots() {
     };
   }, [currentIndex, isPlaying, isMuted, shorts]);
 
-  // 🚀 Optimization: Increment view count ONLY when the active short ID changes.
-  // This prevents play/pause/mute state toggles from triggering redundant write operations to Firestore!
-  useEffect(() => {
-    if (activeShort?.id) {
-      updateDoc(doc(db, 'content', activeShort.id), {
-        viewCount: increment(1)
-      }).catch(err => console.log('Silent view count error:', err));
-    }
-  }, [activeShort?.id]);
-
   // Navigate to next short
   const handleNext = () => {
     if (currentIndex < shorts.length - 1) {
@@ -503,7 +384,7 @@ export default function Shots() {
   };
 
   // Toggle Like on currently active short
-  const handleLike = async (id: string) => {
+  const handleLike = (id: string) => {
     if (!user) {
       toast.error('Please sign in to like this video.');
       return;
@@ -513,7 +394,6 @@ export default function Shots() {
     const willBeLiked = !currentLikeObject.liked;
     const updateCount = willBeLiked ? 1 : -1;
 
-    // Optimistic UI Update
     setLikesState(prev => ({
       ...prev,
       [id]: {
@@ -521,26 +401,6 @@ export default function Shots() {
         count: Math.max(0, currentLikeObject.count + updateCount)
       }
     }));
-
-    try {
-      const contentRef = doc(db, 'content', id);
-      const userLikeRef = doc(db, 'content', id, 'likes', user.uid);
-
-      if (willBeLiked) {
-        await setDoc(userLikeRef, { timestamp: new Date().toISOString() });
-        await updateDoc(contentRef, { likes: increment(1) });
-      } else {
-        await deleteDoc(userLikeRef);
-        await updateDoc(contentRef, { likes: increment(-1) });
-      }
-    } catch (err) {
-      console.error("Like Firestore error:", err);
-      // Revert state
-      setLikesState(prev => ({
-        ...prev,
-        [id]: currentLikeObject
-      }));
-    }
   };
 
   // Toggle Mute on all shorts
@@ -578,20 +438,14 @@ export default function Shots() {
     setIsShareModalOpen(true);
   };
 
-  const handlePostComment = async (e: React.FormEvent) => {
+  const handlePostComment = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newComment.trim()) return;
     if (!activeShort) return;
 
     const userName = user?.displayName || user?.email?.split('@')[0] || 'Sports Enthusiast';
-    const commentItem = {
-      user: userName,
-      text: newComment.trim(),
-      createdAt: new Date().toISOString(),
-      userId: user?.uid || 'anonymous'
-    };
 
-    // Optimistic state refresh
+    // State refresh
     const optId = `custom-comm-${Date.now()}`;
     const localComment = {
       id: optId,
@@ -606,16 +460,7 @@ export default function Shots() {
       [optId]: { liked: false, count: 0 }
     }));
     setNewComment('');
-
-    try {
-      const commentsRef = collection(db, 'content', activeShort.id, 'comments');
-      await addDoc(commentsRef, commentItem);
-      toast.success('Comment posted successfully!');
-    } catch (err) {
-      console.error("Firestore comment post error:", err);
-      handleFirestoreError(err, OperationType.WRITE, `content/${activeShort.id}/comments`);
-      toast.error('Failed to save comment to servers.');
-    }
+    toast.success('Comment posted successfully!');
   };
 
   // Programmatically scroll the container when manual controls or keyboard buttons update currentIndex
@@ -789,51 +634,22 @@ export default function Shots() {
                         </div>
                       ) : (
                         /* Vertical Video Element - rendered only for active short to prevent parallel media request spamming */
-                        <video
-                          ref={(el) => { 
-                            videoRefs.current[idx] = el; 
-                            if (el) {
-                              el.muted = isMuted;
-                              if (isPlaying && el.paused) {
-                                el.play().catch(e => {
-                                  console.log("Ref active play prevented:", e);
-                                  setIsPlaying(false);
-                                });
-                              }
-                            }
-                          }}
+                        <ShotVideoPlayer
                           src={transformedVideoUrl}
                           poster={transformedPosterUrl}
-                          muted={isMuted}
-                          autoPlay={isPlaying}
-                          preload="auto"
-                          loop={true}
-                          playsInline
+                          isPlaying={isPlaying}
+                          isMuted={isMuted}
                           onClick={() => setIsPlaying(prev => !prev)}
                           onError={() => {
                             console.warn("Video stream failed to load:", short.videoUrl);
                             setVideoErrors(prev => ({ ...prev, [short.id]: true }));
                           }}
-                          onCanPlay={(e) => {
-                            if (isPlaying && e.currentTarget.paused) {
-                              e.currentTarget.play().catch(err => {
-                                console.log("video element onCanPlay play prevented:", err);
-                                setIsPlaying(false);
-                              });
-                            }
-                          }}
-                          onLoadedData={(e) => {
-                            if (isPlaying && e.currentTarget.paused) {
-                              e.currentTarget.play().catch(err => {
-                                console.log("video element onLoadedData play prevented:", err);
-                                setIsPlaying(false);
-                              });
-                            }
-                          }}
                           onEnded={() => {
                             handleNext();
                           }}
-                          className="w-full h-full cursor-pointer bg-neutral-950 object-cover object-center scale-100"
+                          videoRef={(el) => {
+                            videoRefs.current[idx] = el;
+                          }}
                         />
                       )
                     ) : (

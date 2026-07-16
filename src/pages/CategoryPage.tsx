@@ -1,15 +1,13 @@
-import { useEffect, useState } from 'react';
+import { useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { db, handleFirestoreError, OperationType, getDocs, collection, query, where, orderBy, limit } from '../lib/firebase';
 import { SportsContent, Category } from '../types';
-import { FALLBACK_SPORTS_CONTENT } from '../lib/fallbackData';
 import ContentCard from '../components/ContentCard';
 import DynamicSections from '../components/DynamicSections';
 import HeroSlider from '../components/HeroSlider';
-import LoadingScreen from '../components/LoadingScreen';
 import { motion } from 'motion/react';
-import { Trophy, Activity, Play, ChevronRight, Dribbble, Target, CircleDot, Flag, Zap, Gamepad2, Disc } from 'lucide-react';
+import { Trophy, Activity, Play, ChevronRight } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { useFirestoreCache } from '../context/FirestoreContext';
 
 const CategoryLabelMap: Record<string, { label: string, color: string, bg: string }> = {
   football: { label: 'FB', color: 'text-[#00ff88]', bg: 'bg-[#00ff88]/10 border-[#00ff88]/20' },
@@ -25,59 +23,17 @@ const CategoryLabelMap: Record<string, { label: string, color: string, bg: strin
 
 export default function CategoryPage() {
   const { category } = useParams<{ category: string }>();
-  const [content, setContent] = useState<SportsContent[]>([]);
-  const [liveNow, setLiveNow] = useState<SportsContent[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { content: cachedContent, loading } = useFirestoreCache();
 
-  useEffect(() => {
-    if (!category) return;
-    
-    let isMounted = true;
-    setLoading(true);
+  const content = useMemo(() => {
+    if (!category) return [];
+    const items = cachedContent.filter(item => item.category === category);
+    return [...items].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }, [cachedContent, category]);
 
-    const fetchCategoryData = async () => {
-      try {
-        // 1. Fetch All Category Assets (Unified Query to avoid duplicate fetching)
-        const allQuery = query(
-          collection(db, 'content'),
-          where('category', '==', category),
-          limit(100)
-        );
-        const snap = await getDocs(allQuery, { component: 'CategoryPage', file: 'CategoryPage.tsx', reason: 'Fetch all category assets' });
-        if (!isMounted) return;
-
-        const items = snap.docs
-          .map(d => ({ id: d.id, ...d.data() } as SportsContent))
-          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-        
-        if (items.length === 0) {
-          const fallbackItems = FALLBACK_SPORTS_CONTENT.filter(item => item.category === category);
-          setContent(fallbackItems);
-          setLiveNow(fallbackItems.filter(item => item.status === 'live').slice(0, 4));
-        } else {
-          setContent(items);
-          setLiveNow(items.filter(item => item.status === 'live').slice(0, 4));
-        }
-      } catch (err: any) {
-        if (!isMounted) return;
-        console.error("All category sync error:", err);
-        const fallbackItems = FALLBACK_SPORTS_CONTENT.filter(item => item.category === category);
-        setContent(fallbackItems);
-        setLiveNow(fallbackItems.filter(item => item.status === 'live').slice(0, 4));
-        handleFirestoreError(err, OperationType.GET, 'content');
-      } finally {
-        if (isMounted) {
-          setLoading(false);
-        }
-      }
-    };
-
-    fetchCategoryData();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [category]);
+  const liveNow = useMemo(() => {
+    return content.filter(item => item.status === 'live').slice(0, 4);
+  }, [content]);
 
   const categoryKey = category?.toLowerCase() || '';
   const categoryName = category ? category.charAt(0).toUpperCase() + category.slice(1) : 'Sports';

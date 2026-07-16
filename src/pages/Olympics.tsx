@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { db, handleFirestoreError, OperationType, getDocs, collection, query, where, addDoc, deleteDoc, doc, updateDoc, setDoc } from '../lib/firebase';
 import { SportsContent } from '../types';
 import { FALLBACK_SPORTS_CONTENT } from '../lib/fallbackData';
@@ -10,6 +10,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
 import { useAuth } from '../hooks/useAuth';
+import { useFirestoreCache } from '../context/FirestoreContext';
 
 // Type definitions for custom added videos
 interface CustomOlympicVideo {
@@ -1019,9 +1020,19 @@ export default function Olympics() {
   const { isAdmin } = useAuth();
   const [activeTab, setActiveTab] = useState<'medals' | 'overview' | 'arena' | 'trivia'>('medals');
   
+  const { content: cachedContent } = useFirestoreCache();
+  
   // Custom added and Firestore pooled Olympic videos
   const [customVideos, setCustomVideos] = useState<CustomOlympicVideo[]>([]);
-  const [firestoreVideos, setFirestoreVideos] = useState<SportsContent[]>([]);
+  
+  const firestoreVideos = useMemo(() => {
+    const list = cachedContent.filter(item => item.category === 'olympics');
+    if (list.length === 0) {
+      return FALLBACK_SPORTS_CONTENT.filter(item => item.category === 'olympics');
+    }
+    return list;
+  }, [cachedContent]);
+
   const [selectedVideo, setSelectedVideo] = useState<any>(null);
   
   // Custom video creator input state
@@ -1125,30 +1136,7 @@ export default function Olympics() {
 
     const fetchOlympicsData = async () => {
       try {
-        // 1. Fetch Content Video collection under category 'olympics'
-        const qContent = query(collection(db, 'content'), where('category', '==', 'olympics'));
-        const contentSnapshot = await getDocs(qContent, { component: 'Olympics', file: 'Olympics.tsx', reason: 'Fetch active olympic video content assets' });
-        if (!isMounted) return;
-
-        const list = contentSnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        } as SportsContent));
-        
-        if (list.length === 0) {
-          setFirestoreVideos(FALLBACK_SPORTS_CONTENT.filter(item => item.category === 'olympics'));
-        } else {
-          setFirestoreVideos(list);
-        }
-      } catch (err: any) {
-        if (!isMounted) return;
-        console.warn("Firestore Olympic category query disabled or offline:", err);
-        setFirestoreVideos(FALLBACK_SPORTS_CONTENT.filter(item => item.category === 'olympics'));
-        handleFirestoreError(err, OperationType.GET, 'content');
-      }
-
-      try {
-        // 2. Fetch olympic_medalists collection
+        // Fetch olympic_medalists collection
         const qMedalists = query(collection(db, 'olympic_medalists'));
         const medalistsSnapshot = await getDocs(qMedalists, { component: 'Olympics', file: 'Olympics.tsx', reason: 'Fetch national olympic medalist roster statistics' });
         if (!isMounted) return;

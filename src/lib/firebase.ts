@@ -5,6 +5,7 @@ import {
   getFirestore, 
   initializeFirestore, 
   persistentLocalCache,
+  persistentMultipleTabManager,
   getDoc as firestoreGetDoc,
   getDocs as firestoreGetDocs,
   setDoc as firestoreSetDoc,
@@ -32,7 +33,9 @@ try {
   console.log(`[Firebase] Initializing Firestore for Project: ${firebaseConfig.projectId}, Database ID: ${dbId || '(default)'}`);
   
   dbInstance = initializeFirestore(app, {
-    localCache: persistentLocalCache({})
+    localCache: persistentLocalCache({
+      tabManager: persistentMultipleTabManager()
+    })
   }, dbId);
 } catch (e) {
   console.error("[Firebase] Failed to initialize Firestore with persistent cache:", e);

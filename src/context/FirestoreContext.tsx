@@ -22,6 +22,46 @@ interface FirestoreContextType {
 
 const FirestoreContext = createContext<FirestoreContextType | undefined>(undefined);
 
+const FALLBACK_PLANS: SubscriptionPlan[] = [
+  {
+    id: 'free',
+    name: 'Free Starter Pass',
+    price: 0,
+    description: 'Get a taste of high-quality sports events with our basic tier.',
+    features: [
+      'Access to select free live streams',
+      'High Definition streaming quality',
+      'Watch on mobile, tablet or web'
+    ],
+    icon: 'Zap',
+    popular: false,
+    order: 1,
+    color: 'from-gray-500 to-gray-700'
+  },
+  {
+    id: 'premium',
+    name: 'Premium Season Pass',
+    price: 499,
+    description: 'Full un-throttled access to every match, tournament, and full replays.',
+    features: [
+      'Access to all premium live streams',
+      'Ultra HD (4K) streaming quality',
+      'Ad-free uninterrupted entertainment',
+      'Exclusive full match replays & highlights',
+      'Multi-view camera support'
+    ],
+    icon: 'Crown',
+    popular: true,
+    order: 2,
+    color: 'from-yellow-500 to-amber-600',
+    offer: {
+      isActive: true,
+      percentage: 20,
+      label: 'Save 20%'
+    }
+  }
+];
+
 export function FirestoreProvider({ children }: { children: React.ReactNode }) {
   const [siteConfig, setSiteConfig] = useState<SiteConfig>(FALLBACK_SITE_CONFIG);
   const [sections, setSections] = useState<ContentSection[]>([]);
@@ -32,10 +72,17 @@ export function FirestoreProvider({ children }: { children: React.ReactNode }) {
   const [countries, setCountries] = useState<any[]>([]);
   const [navigation, setNavigation] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isDataLoaded, setIsDataLoaded] = useState(false);
 
   const hasFetchedRef = useRef(false);
 
   const fetchAll = async () => {
+    // Preventive guard clause: If already loaded, completely short-circuit to block redundant network reads
+    if (isDataLoaded) {
+      console.log("[FirestoreProvider] fetchAll call short-circuited. Data is locked and loaded.");
+      return;
+    }
+
     setLoading(true);
     const start = Date.now();
     console.log("[FirestoreProvider] Starting optimized pre-fetch...");
@@ -81,12 +128,19 @@ export function FirestoreProvider({ children }: { children: React.ReactNode }) {
 
         // 4. Subscription Plans
         getDocs(query(collection(db, 'subscription_plans'), orderBy('order', 'asc'))).then(snap => {
-          setPlans(snap.docs.map(d => ({ id: d.id, ...d.data() } as SubscriptionPlan)));
+          if (snap.empty) {
+            setPlans(FALLBACK_PLANS);
+          } else {
+            setPlans(snap.docs.map(d => ({ id: d.id, ...d.data() } as SubscriptionPlan)));
+          }
         }).catch(err => {
-          console.warn("[FirestoreProvider] Error pre-fetching subscription plans:", err);
-          setPlans([]);
+          console.warn("[FirestoreProvider] Error pre-fetching subscription plans, using fallback:", err);
+          setPlans(FALLBACK_PLANS);
         })
       ]);
+
+      // Flip the flag to true only after a successful Promise.all resolution
+      setIsDataLoaded(true);
 
       // 5. Static collections are set directly to avoid extra queries on navigation
       setSports([{ id: 'cricket', name: 'Cricket' }, { id: 'football', name: 'Football' }]);

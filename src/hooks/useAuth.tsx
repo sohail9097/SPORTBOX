@@ -57,9 +57,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const prevUser = currentUserRef.current;
       const prevProfile = currentProfileRef.current;
 
-      // 🚀 optimization: Prevent redundant profile fetches on focus, storage sync, or visibility changes
-      if (currentUser?.uid === prevUser?.uid && prevProfile) {
-        console.log("[AuthSync] User is already synchronized and profile is loaded. Skipping redundant initialization.");
+      // 🚀 optimization: Prevent redundant profile fetches or state updates on focus, storage sync, or visibility changes
+      if (currentUser?.uid === prevUser?.uid && (prevProfile || !currentUser)) {
+        console.log("[AuthSync] User is already synchronized and profile state is current. Skipping redundant initialization.");
         return;
       }
       

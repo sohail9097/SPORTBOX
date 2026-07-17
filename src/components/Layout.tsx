@@ -19,41 +19,12 @@ import BrandLogo from './BrandLogo';
 export default function Layout({ children }: { children: ReactNode }) {
   const { user, isAdmin, profile } = useAuth();
   const { theme, toggleTheme } = useTheme();
-  const { siteConfig } = useFirestoreCache();
+  const { siteConfig, liveStats } = useFirestoreCache();
   const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [liveCount, setLiveCount] = useState(0);
   const location = useLocation();
 
-  useEffect(() => {
-    let isMounted = true;
-    
-    // Highly optimized single-document fetch of a single metadata doc to absolutely prevent scanning the 'content' collection
-    getDoc(doc(db, 'settings', 'liveStats'), { 
-      component: 'Layout', 
-      file: 'Layout.tsx', 
-      reason: 'Fetch cached global live spectator statistics' 
-    })
-      .then((snapshot) => {
-        if (!isMounted) return;
-        if (snapshot.exists()) {
-          const data = snapshot.data();
-          setLiveCount(data.totalViews || data.liveCount || 52160);
-        } else {
-          // Fall back gracefully to a realistic active spectator volume
-          setLiveCount(52160);
-        }
-      })
-      .catch((error) => {
-        if (!isMounted) return;
-        console.warn("[Layout] Live stats doc fetch error, using robust fallback:", error);
-        setLiveCount(52160); // Robust fallback active spectator volume
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+  const liveCount = liveStats?.totalViews || liveStats?.liveCount || 52160;
 
   const navLinks = [
     { name: 'Live', path: '/live', icon: Play },

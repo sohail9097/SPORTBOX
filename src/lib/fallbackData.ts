@@ -401,3 +401,8 @@ export const FALLBACK_SITE_CONFIG: SiteConfig = {
   founderImageUrl: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop',
   logoUrl: ''
 };
+
+export const FALLBACK_LIVE_STATS = {
+  totalViews: 52160,
+  liveCount: 52160
+};

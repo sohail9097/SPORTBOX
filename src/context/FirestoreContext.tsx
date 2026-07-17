@@ -1,11 +1,12 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { db, getDoc, getDocs, doc, collection, query, orderBy } from '../lib/firebase';
 import { SiteConfig, ContentSection, SliderElement, SubscriptionPlan, SportsContent, VideoPromoSettings } from '../types';
-import { FALLBACK_SITE_CONFIG, FALLBACK_SECTIONS, FALLBACK_SLIDER_ITEMS, FALLBACK_SPORTS_CONTENT, FALLBACK_PROMO } from '../lib/fallbackData';
+import { FALLBACK_SITE_CONFIG, FALLBACK_SECTIONS, FALLBACK_SLIDER_ITEMS, FALLBACK_SPORTS_CONTENT, FALLBACK_PROMO, FALLBACK_LIVE_STATS } from '../lib/fallbackData';
 
 interface FirestoreContextType {
   siteConfig: SiteConfig;
   videoPromo: VideoPromoSettings;
+  liveStats: { totalViews?: number; liveCount?: number };
   sections: ContentSection[];
   slider: SliderElement[];
   plans: SubscriptionPlan[];
@@ -18,6 +19,7 @@ interface FirestoreContextType {
   refetchAll: () => Promise<void>;
   updateSiteConfigState: (config: SiteConfig) => void;
   updateVideoPromoState: (promo: VideoPromoSettings) => void;
+  updateLiveStatsState: (stats: { totalViews?: number; liveCount?: number }) => void;
   updatePlansState: (plans: SubscriptionPlan[]) => void;
   updateSectionsState: (sections: ContentSection[]) => void;
   updateSliderState: (slides: SliderElement[]) => void;
@@ -69,6 +71,7 @@ const FALLBACK_PLANS: SubscriptionPlan[] = [
 export function FirestoreProvider({ children }: { children: React.ReactNode }) {
   const [siteConfig, setSiteConfig] = useState<SiteConfig>(FALLBACK_SITE_CONFIG);
   const [videoPromo, setVideoPromo] = useState<VideoPromoSettings>(FALLBACK_PROMO);
+  const [liveStats, setLiveStats] = useState<{ totalViews?: number; liveCount?: number }>(FALLBACK_LIVE_STATS);
   const [sections, setSections] = useState<ContentSection[]>([]);
   const [slider, setSlider] = useState<SliderElement[]>([]);
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
@@ -100,14 +103,16 @@ export function FirestoreProvider({ children }: { children: React.ReactNode }) {
         sliderSnapResult,
         plansSnapResult,
         siteConfigResult,
-        videoPromoResult
+        videoPromoResult,
+        liveStatsResult
       ] = await Promise.allSettled([
         getDocs(collection(db, 'content')),
         getDocs(collection(db, 'sections')),
         getDocs(collection(db, 'slider')),
         getDocs(collection(db, 'subscription_plans')),
         getDoc(doc(db, 'settings', 'siteConfig')),
-        getDoc(doc(db, 'settings', 'videoPromo'))
+        getDoc(doc(db, 'settings', 'videoPromo')),
+        getDoc(doc(db, 'settings', 'liveStats'))
       ]);
 
       // 1. Content
@@ -176,6 +181,16 @@ export function FirestoreProvider({ children }: { children: React.ReactNode }) {
         setVideoPromo(FALLBACK_PROMO);
       }
 
+      // 7. Live Stats
+      if (liveStatsResult.status === 'fulfilled' && liveStatsResult.value.exists()) {
+        setLiveStats(liveStatsResult.value.data() as { totalViews?: number; liveCount?: number });
+      } else {
+        if (liveStatsResult.status === 'rejected') {
+          console.warn("[FirestoreProvider] LiveStats query failed, using fallbacks:", liveStatsResult.reason);
+        }
+        setLiveStats(FALLBACK_LIVE_STATS);
+      }
+
       // Flip the flag to true only after successful resolution
       setIsDataLoaded(true);
 
@@ -193,6 +208,7 @@ export function FirestoreProvider({ children }: { children: React.ReactNode }) {
       setPlans(FALLBACK_PLANS);
       setSiteConfig(FALLBACK_SITE_CONFIG);
       setVideoPromo(FALLBACK_PROMO);
+      setLiveStats(FALLBACK_LIVE_STATS);
     } finally {
       setLoading(false);
       console.log(`[FirestoreProvider] Pre-fetch complete. Duration: ${Date.now() - start}ms`);
@@ -207,6 +223,7 @@ export function FirestoreProvider({ children }: { children: React.ReactNode }) {
 
   const updateSiteConfigState = (config: SiteConfig) => setSiteConfig(config);
   const updateVideoPromoState = (promo: VideoPromoSettings) => setVideoPromo(promo);
+  const updateLiveStatsState = (stats: { totalViews?: number; liveCount?: number }) => setLiveStats(stats);
   const updatePlansState = (newPlans: SubscriptionPlan[]) => setPlans(newPlans);
   const updateSectionsState = (newSections: ContentSection[]) => setSections(newSections);
   const updateSliderState = (newSlides: SliderElement[]) => setSlider(newSlides);
@@ -216,6 +233,7 @@ export function FirestoreProvider({ children }: { children: React.ReactNode }) {
     <FirestoreContext.Provider value={{
       siteConfig,
       videoPromo,
+      liveStats,
       sections,
       slider,
       plans,
@@ -228,6 +246,7 @@ export function FirestoreProvider({ children }: { children: React.ReactNode }) {
       refetchAll: () => fetchAll(true),
       updateSiteConfigState,
       updateVideoPromoState,
+      updateLiveStatsState,
       updatePlansState,
       updateSectionsState,
       updateSliderState,

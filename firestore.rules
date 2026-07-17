@@ -15,48 +15,40 @@ service cloud.firestore {
     }
     
     function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
-
     // Users: owners/admins can read/write their own info
     match /users/{userId} {
       allow read, write: if isOwner(userId) || isAdmin();
     }
-
     // Blogs: everyone can read, only admin can write
     match /blogs/{blogId} {
       allow read: if true;
       allow write: if isAdmin();
     }
-
     // Settings: site configurations (videoPromo, siteConfig, playerConfig) - read for all, write for admin
     match /settings/{settingId} {
       allow read: if true;
       allow write: if isAdmin();
     }
-
     // Subscription Plans: read for all, write for admin
     match /subscription_plans/{planId} {
       allow read: if true;
       allow write: if isAdmin();
     }
-
     // Slider: read for all, write for admin
     match /slider/{slideId} {
       allow read: if true;
       allow write: if isAdmin();
     }
-
     // Sections: read for all, write for admin
     match /sections/{sectionId} {
       allow read: if true;
       allow write: if isAdmin();
     }
-
     // Subscriptions: read for all, write for admin
     match /subscriptions/{subId} {
       allow read: if true;
       allow write: if isAdmin();
     }
-
     // Library and Library Folders: read/write for Admin only
     match /library/{libId} {
       allow read, write: if isAdmin();
@@ -64,20 +56,18 @@ service cloud.firestore {
     match /library_folders/{folderId} {
       allow read, write: if isAdmin();
     }
-
     // Olympic Medalists: everyone can read, only admin can write
     match /olympic_medalists/{medalistId} {
       allow read: if true;
       allow write: if isAdmin();
     }
-
-    // Content/Videos/Streams: everyone can read, only admin can write (except dynamic increments of viewCount or likes on update)
+    // Content/Videos/Streams: everyone can read, only admin can write (except dynamic increments of viewCount, likes, or liveViewerCount on update)
     match /content/{contentId} {
       allow read: if true;
       allow create, delete: if isAdmin();
       allow update: if isAdmin() || (
-        // Allow anyone to update viewCount, uniqueViewsCount, or likes
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['viewCount', 'likes', 'uniqueViewsCount'])
+        // Allow anyone to update viewCount, uniqueViewsCount, likes, or liveViewerCount (real-time live spectator presence)
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['viewCount', 'likes', 'uniqueViewsCount', 'liveViewerCount'])
       );
       
       // Unique views subcollection: guest/anonymous read/write
@@ -90,12 +80,10 @@ service cloud.firestore {
         allow read: if true;
         allow write: if isSignedIn();
       }
-
       // Spectators subcollection: guest/anonymous read/write for real-time presence
       match /spectators/{spectatorId} {
         allow read, write: if true;
       }
-
       // Likes subcollection: anyone can verify/write their own likes under their uid
       match /likes/{userId} {
         allow read: if true;

@@ -105,25 +105,19 @@ function LiveControlCard({
     }
     setIsRefreshing(true);
     try {
-      const spectatorsCol = collection(db, 'content', item.id, 'spectators');
-      const snapshot = await getDocs(spectatorsCol, { 
+      const docRef = doc(db, 'content', item.id);
+      const snapshot = await getDoc(docRef, { 
         component: 'AdminLiveControl', 
         file: 'Admin.tsx', 
-        reason: 'Manual admin fetch of active spectator count' 
+        reason: 'Manual admin fetch of active spectator count',
+        bypassCache: true
       });
-      const now = Date.now();
-      let count = 0;
-      snapshot.docs.forEach(snapDoc => {
-        const data = snapDoc.data();
-        if (data.lastActive) {
-          const lastActiveTime = new Date(data.lastActive).getTime();
-          // Relaxed 60 seconds active window
-          if (now - lastActiveTime < 60000) {
-            count++;
-          }
-        }
-      });
-      setCurrentActive(count);
+      if (snapshot.exists()) {
+        const data = snapshot.data();
+        setCurrentActive(data.liveViewerCount || 0);
+      } else {
+        setCurrentActive(0);
+      }
     } catch (err) {
       console.error("Error monitoring active viewers:", err);
     } finally {

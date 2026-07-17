@@ -2,7 +2,8 @@ import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { Play, Activity, Trophy, Bell, ShieldCheck, Mail, Lock, User as UserIcon, Phone, ArrowLeft, Loader2 } from 'lucide-react';
-import { auth, db, handleFirestoreError, OperationType, getDoc, doc, setDoc } from '../lib/firebase';
+import { auth, db, handleFirestoreError, OperationType, doc, setDoc } from '../lib/firebase';
+import { useFirestoreCache } from '../context/FirestoreContext';
 import ReCAPTCHA from 'react-google-recaptcha';
 import { 
   GoogleAuthProvider,
@@ -34,30 +35,9 @@ export default function Login() {
   const [fullName, setFullName] = useState('');
   const [mobileNumber, setMobileNumber] = useState('');
 
-  const [siteConfig, setSiteConfig] = useState<SiteConfig>({
-    logoUrl: ''
-  });
+  const { siteConfig } = useFirestoreCache();
 
   const RECAPTCHA_SITE_KEY = "6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI";
-
-  useEffect(() => {
-    let isMounted = true;
-    getDoc(doc(db, 'settings', 'siteConfig'), { component: 'Login', file: 'Login.tsx', reason: 'Fetch brand logo and site settings' })
-      .then((snap) => {
-        if (isMounted && snap.exists()) {
-          setSiteConfig(snap.data() as SiteConfig);
-        }
-      })
-      .catch((err) => {
-        if (isMounted) {
-          console.warn("[Login] Config fetch offline:", err.message);
-          handleFirestoreError(err, OperationType.GET, 'settings/siteConfig');
-        }
-      });
-    return () => {
-      isMounted = false;
-    };
-  }, [navigate]);
 
   const handleRecaptchaChange = (token: string | null) => {
     setIsBotVerified(!!token);

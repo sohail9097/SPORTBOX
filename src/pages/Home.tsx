@@ -1,7 +1,5 @@
-import { useEffect, useState, useMemo } from 'react';
-import { db, handleFirestoreError, OperationType, getDoc, doc } from '../lib/firebase';
-import { SportsContent, VideoPromoSettings } from '../types';
-import { FALLBACK_PROMO } from '../lib/fallbackData';
+import { useMemo } from 'react';
+import { SportsContent } from '../types';
 import ContentCard from '../components/ContentCard';
 import DynamicSections from '../components/DynamicSections';
 import HeroSlider from '../components/HeroSlider';
@@ -13,9 +11,7 @@ import { cn } from '../lib/utils';
 import { useFirestoreCache } from '../context/FirestoreContext';
 
 export default function Home() {
-  const { content, sections: cachedSections, loading: cacheLoading } = useFirestoreCache();
-  const [videoPromo, setVideoPromo] = useState<VideoPromoSettings | null>(null);
-  const [promoLoading, setPromoLoading] = useState(true);
+  const { content, sections: cachedSections, videoPromo, loading } = useFirestoreCache();
 
   const homeSections = useMemo(() => {
     return cachedSections
@@ -53,40 +49,6 @@ export default function Home() {
       .filter(item => (item.type as string) === 'featured' || item.isPremium)
       .slice(0, 6);
   }, [content]);
-
-  useEffect(() => {
-    let isMounted = true;
-    setPromoLoading(true);
-
-    const fetchPromo = async () => {
-      try {
-        const snap = await getDoc(doc(db, 'settings', 'videoPromo'), { component: 'Home', file: 'Home.tsx', reason: 'Fetch homepage video promo configurations' });
-        if (!isMounted) return;
-        if (snap.exists()) {
-          setVideoPromo(snap.data() as VideoPromoSettings);
-        } else {
-          setVideoPromo(FALLBACK_PROMO);
-        }
-      } catch (err: any) {
-        if (!isMounted) return;
-        console.warn("[Home] Promo fetch offline:", err.message);
-        setVideoPromo(FALLBACK_PROMO);
-        handleFirestoreError(err, OperationType.GET, 'settings/videoPromo');
-      } finally {
-        if (isMounted) {
-          setPromoLoading(false);
-        }
-      }
-    };
-
-    fetchPromo();
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
-
-  const loading = cacheLoading || promoLoading;
 
   if (loading && liveNow.length === 0) return <LoadingScreen />;
   

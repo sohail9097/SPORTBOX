@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { db, handleFirestoreError, OperationType, getDoc, doc, updateDoc, increment, arrayUnion, arrayRemove, collection, getDocs, setDoc, deleteDoc } from '../lib/firebase';
+import { db, handleFirestoreError, OperationType, getDoc, doc, updateDoc, increment, arrayUnion, arrayRemove, collection, getDocs, setDoc, deleteDoc, query, orderBy, limit } from '../lib/firebase';
 import { SportsContent } from '../types';
 import { FALLBACK_SPORTS_CONTENT } from '../lib/fallbackData';
 import { useAuth } from '../hooks/useAuth';
@@ -25,6 +25,7 @@ export default function Watch() {
   const [isWatchLater, setIsWatchLater] = useState(false);
   const nativeVideoRef = useRef<HTMLVideoElement | null>(null);
   const uniqueViewTrackedRef = useRef<string | null>(null);
+  const viewCountTrackedRef = useRef<string | null>(null);
 
   const [hasLiked, setHasLiked] = useState(false);
   const [spectatorsCount, setSpectatorsCount] = useState<number>(0);
@@ -34,11 +35,15 @@ export default function Watch() {
   useEffect(() => {
     if (!id) return;
 
+    // Guard against StrictMode's dev-only double-invoke creating two sessions for one mount
+    let isActive = true;
+
     // Generate a unique session identifier for this watcher
     const sessionId = 'session_' + Math.random().toString(36).substring(2, 11) + '_' + Date.now();
     const spectatorRef = doc(db, 'content', id, 'spectators', sessionId);
 
     const updatePresence = async () => {
+      if (!isActive) return;
       try {
         const viewerName = profile?.displayName || user?.displayName || `Guest Fan #${sessionId.slice(-4)}`;
         await setDoc(spectatorRef, {
@@ -53,10 +58,17 @@ export default function Watch() {
 
     const fetchSpectators = async () => {
       try {
-        const spectatorsCol = collection(db, 'content', id, 'spectators');
-        const snapshot = await getDocs(spectatorsCol, { component: 'Watch', file: 'Watch.tsx', reason: 'Fetch active live stream live spectator presence' });
+        // FIX: cap reads with limit() + orderBy so a growing/stale collection
+        // can never balloon this read into hundreds/thousands of docs.
+        const spectatorsQuery = query(
+          collection(db, 'content', id, 'spectators'),
+          orderBy('lastActive', 'desc'),
+          limit(50)
+        );
+        const snapshot = await getDocs(spectatorsQuery, { component: 'Watch', file: 'Watch.tsx', reason: 'Fetch active live stream live spectator presence' });
         const now = Date.now();
         const activeList: { id: string; uid: string | null; name: string }[] = [];
+        const staleDocIds: string[] = [];
 
         snapshot.docs.forEach(snapDoc => {
           const data = snapDoc.data();
@@ -69,16 +81,29 @@ export default function Watch() {
                 uid: data.uid || null,
                 name: data.name || 'Anonymous Guest'
               });
+            } else if (snapDoc.id !== sessionId) {
+              // FIX: this doc is stale (viewer closed the tab without beforeunload firing).
+              // Nothing server-side ever deletes these, so the collection grows forever
+              // and every future getDocs() on this video reads more and more junk docs.
+              // Self-clean opportunistically here, capped, so it stays cheap.
+              staleDocIds.push(snapDoc.id);
             }
           }
         });
 
+        if (!isActive) return;
         setSpectatorsList(activeList);
         setSpectatorsCount(activeList.length || Math.floor(Math.random() * 80) + 120);
+
+        // Prune at most 5 stale docs per fetch to keep this self-cleaning cheap
+        // (avoids a write storm while still shrinking the collection over time).
+        staleDocIds.slice(0, 5).forEach(staleId => {
+          deleteDoc(doc(db, 'content', id, 'spectators', staleId)).catch(() => {});
+        });
       } catch (err) {
         console.error("[Presence] Error loading spectators:", err);
         // Fallback: set a professional randomized spectator count if database is exhausted or offline
-        setSpectatorsCount(Math.floor(Math.random() * 80) + 120);
+        if (isActive) setSpectatorsCount(Math.floor(Math.random() * 80) + 120);
       }
     };
 
@@ -105,10 +130,19 @@ export default function Watch() {
       deleteDoc(spectatorRef).catch(() => {});
     };
 
+    // FIX: 'beforeunload' alone is unreliable on mobile browsers and tab kills.
+    // 'pagehide' fires far more consistently on close/navigate-away (and on mobile),
+    // so the spectator doc actually gets deleted instead of piling up forever.
+    // (We deliberately do NOT hook 'visibilitychange' here — that fires on every
+    // ordinary tab switch too, which would kill a real viewer's heartbeat just for
+    // tabbing away briefly.)
     window.addEventListener('beforeunload', cleanupPresence);
+    window.addEventListener('pagehide', cleanupPresence);
 
     return () => {
+      isActive = false;
       window.removeEventListener('beforeunload', cleanupPresence);
+      window.removeEventListener('pagehide', cleanupPresence);
       cleanupPresence();
     };
   }, [id, user?.uid, profile?.displayName]);
@@ -177,7 +211,15 @@ export default function Watch() {
         setSections(grouped);
 
         // Increment standard view count if not a live stream or actively broadcasting!
-        if (cachedItem.type !== 'live' && cachedItem.status !== 'live') {
+        // FIX: guarded with a ref so this only fires ONCE per video id per session,
+        // instead of every time this effect re-runs (e.g. cachedContent array identity
+        // changing after an unrelated admin edit, or React StrictMode's dev double-invoke).
+        if (
+          cachedItem.type !== 'live' &&
+          cachedItem.status !== 'live' &&
+          viewCountTrackedRef.current !== id
+        ) {
+          viewCountTrackedRef.current = id;
           updateDoc(doc(db, 'content', id), {
             viewCount: increment(1)
           }).catch(err => console.error('Failed to update views', err));

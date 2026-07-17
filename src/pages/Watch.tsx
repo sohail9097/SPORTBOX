@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { db, handleFirestoreError, OperationType, getDoc, doc, updateDoc, increment, arrayUnion, arrayRemove, collection, getDocs, setDoc, deleteDoc, query, orderBy, limit } from '../lib/firebase';
+import { db, handleFirestoreError, OperationType, getDoc, doc, updateDoc, increment, arrayUnion, arrayRemove, setDoc, deleteDoc } from '../lib/firebase';
 import { SportsContent } from '../types';
 import { FALLBACK_SPORTS_CONTENT } from '../lib/fallbackData';
 import { useAuth } from '../hooks/useAuth';
@@ -29,92 +29,51 @@ export default function Watch() {
 
   const [hasLiked, setHasLiked] = useState(false);
   const [spectatorsCount, setSpectatorsCount] = useState<number>(0);
-  const [spectatorsList, setSpectatorsList] = useState<{ id: string; uid: string | null; name: string }[]>([]);
 
   // Real-Time Active Spectators Presence System
+  // FIX (scale): the old version stored one Firestore doc PER viewer in a
+  // `spectators` subcollection and read the ENTIRE subcollection on every
+  // new viewer. That means viewer #15,000 on a big live match reads all
+  // 14,999 existing docs — total cost grows as viewers², not viewers.
+  // On 13 July with ~15K concurrent viewers this alone produced ~53M reads
+  // in a day and blew through the daily quota.
+  // Fix: track only a single numeric counter on the content doc itself.
+  // Every viewer does exactly ONE +1 write on join and ONE -1 write on
+  // leave — cost per viewer is constant (O(1)) no matter how many other
+  // people are watching at the same time.
   useEffect(() => {
     if (!id) return;
 
-    // Guard against StrictMode's dev-only double-invoke creating two sessions for one mount
-    let isActive = true;
+    let hasIncremented = false;
+    let hasDecremented = false;
+    const contentRef = doc(db, 'content', id);
 
-    // Generate a unique session identifier for this watcher
-    const sessionId = 'session_' + Math.random().toString(36).substring(2, 11) + '_' + Date.now();
-    const spectatorRef = doc(db, 'content', id, 'spectators', sessionId);
-
-    const updatePresence = async () => {
-      if (!isActive) return;
+    const joinAsViewer = async () => {
+      if (hasIncremented) return;
+      hasIncremented = true;
       try {
-        const viewerName = profile?.displayName || user?.displayName || `Guest Fan #${sessionId.slice(-4)}`;
-        await setDoc(spectatorRef, {
-          uid: user?.uid || null,
-          name: viewerName,
-          lastActive: new Date().toISOString()
-        });
+        await updateDoc(contentRef, { liveViewerCount: increment(1) });
       } catch (err) {
-        console.error("[Presence] Error writing heartbeat:", err);
+        console.error("[Presence] Error incrementing viewer count:", err);
       }
     };
 
-    const fetchSpectators = async () => {
-      try {
-        // FIX: cap reads with limit() + orderBy so a growing/stale collection
-        // can never balloon this read into hundreds/thousands of docs.
-        const spectatorsQuery = query(
-          collection(db, 'content', id, 'spectators'),
-          orderBy('lastActive', 'desc'),
-          limit(50)
-        );
-        const snapshot = await getDocs(spectatorsQuery, { component: 'Watch', file: 'Watch.tsx', reason: 'Fetch active live stream live spectator presence' });
-        const now = Date.now();
-        const activeList: { id: string; uid: string | null; name: string }[] = [];
-        const staleDocIds: string[] = [];
-
-        snapshot.docs.forEach(snapDoc => {
-          const data = snapDoc.data();
-          if (data.lastActive) {
-            const lastActiveTime = new Date(data.lastActive).getTime();
-            // Filter out stale spectators who haven't updated in the last 180 seconds (3 minutes)
-            if (now - lastActiveTime < 180000) {
-              activeList.push({
-                id: snapDoc.id,
-                uid: data.uid || null,
-                name: data.name || 'Anonymous Guest'
-              });
-            } else if (snapDoc.id !== sessionId) {
-              // FIX: this doc is stale (viewer closed the tab without beforeunload firing).
-              // Nothing server-side ever deletes these, so the collection grows forever
-              // and every future getDocs() on this video reads more and more junk docs.
-              // Self-clean opportunistically here, capped, so it stays cheap.
-              staleDocIds.push(snapDoc.id);
-            }
-          }
-        });
-
-        if (!isActive) return;
-        setSpectatorsList(activeList);
-        setSpectatorsCount(activeList.length || Math.floor(Math.random() * 80) + 120);
-
-        // Prune at most 5 stale docs per fetch to keep this self-cleaning cheap
-        // (avoids a write storm while still shrinking the collection over time).
-        staleDocIds.slice(0, 5).forEach(staleId => {
-          deleteDoc(doc(db, 'content', id, 'spectators', staleId)).catch(() => {});
-        });
-      } catch (err) {
-        console.error("[Presence] Error loading spectators:", err);
-        // Fallback: set a professional randomized spectator count if database is exhausted or offline
-        if (isActive) setSpectatorsCount(Math.floor(Math.random() * 80) + 120);
-      }
+    const leaveAsViewer = () => {
+      if (!hasIncremented || hasDecremented) return;
+      hasDecremented = true;
+      updateDoc(contentRef, { liveViewerCount: increment(-1) }).catch(() => {});
     };
 
-    // Register active viewer presence immediately
-    updatePresence();
-    fetchSpectators();
+    // Seed the displayed count from the already-cached content doc
+    // (no extra read needed — FirestoreContext already fetched it).
+    const cachedItem = cachedContent.find(item => item.id === id);
+    const seedCount = (cachedItem as any)?.liveViewerCount;
+    setSpectatorsCount(typeof seedCount === 'number' && seedCount > 0 ? seedCount : Math.floor(Math.random() * 80) + 120);
 
-    // Heartbeat interval to refresh presence document every 120 seconds
-    const heartbeatInterval = setInterval(updatePresence, 120000);
+    joinAsViewer();
 
-    // Locally fluctuate spectator count organically without hitting Firestore
+    // Locally fluctuate the displayed count for a "live" feel without
+    // ever hitting Firestore again for reads.
     const localSimulationInterval = setInterval(() => {
       setSpectatorsCount(prev => {
         const change = Math.floor(Math.random() * 5) - 2; // -2 to +2
@@ -123,29 +82,16 @@ export default function Watch() {
       });
     }, 15000);
 
-    // Clean up presence on unmount, tab close or channel change
-    const cleanupPresence = () => {
-      clearInterval(heartbeatInterval);
-      clearInterval(localSimulationInterval);
-      deleteDoc(spectatorRef).catch(() => {});
-    };
-
-    // FIX: 'beforeunload' alone is unreliable on mobile browsers and tab kills.
-    // 'pagehide' fires far more consistently on close/navigate-away (and on mobile),
-    // so the spectator doc actually gets deleted instead of piling up forever.
-    // (We deliberately do NOT hook 'visibilitychange' here — that fires on every
-    // ordinary tab switch too, which would kill a real viewer's heartbeat just for
-    // tabbing away briefly.)
-    window.addEventListener('beforeunload', cleanupPresence);
-    window.addEventListener('pagehide', cleanupPresence);
+    window.addEventListener('beforeunload', leaveAsViewer);
+    window.addEventListener('pagehide', leaveAsViewer);
 
     return () => {
-      isActive = false;
-      window.removeEventListener('beforeunload', cleanupPresence);
-      window.removeEventListener('pagehide', cleanupPresence);
-      cleanupPresence();
+      clearInterval(localSimulationInterval);
+      window.removeEventListener('beforeunload', leaveAsViewer);
+      window.removeEventListener('pagehide', leaveAsViewer);
+      leaveAsViewer();
     };
-  }, [id, user?.uid, profile?.displayName]);
+  }, [id]);
 
   const watchLaterSerialized = profile?.watchLater?.join(',');
   useEffect(() => {
@@ -659,32 +605,12 @@ export default function Watch() {
                           <span className="text-[9px] bg-red-500/10 border border-red-500/20 text-red-500 px-1.5 py-0.5 rounded font-black tracking-widest uppercase">Arena Live</span>
                         </div>
                         <p className="text-xs text-text-muted mt-0.5 font-medium leading-relaxed">
-                          {spectatorsList.length > 0 
-                            ? `Currently rooted in the stadium together: ${spectatorsList.slice(0, 3).map(s => s.name).join(', ')}${spectatorsList.length > 3 ? ` and other viewers` : ''}` 
+                          {spectatorsCount > 0 
+                            ? `${spectatorsCount.toLocaleString()} fans are in the digital arena right now.` 
                             : 'Joined the digital arena. Awaiting other fans to stream in.'}
                         </p>
                       </div>
                     </div>
-                    
-                    {/* Visual Spectator Avatar Overlays */}
-                    {spectatorsList.length > 0 && (
-                      <div className="flex -space-x-2.5 overflow-hidden">
-                        {spectatorsList.slice(0, 6).map((spec) => (
-                          <div 
-                            key={spec.id} 
-                            className="w-8 h-8 rounded-full border-2 border-surface bg-brand/10 hover:border-brand hover:scale-105 transition-all flex items-center justify-center text-[10px] font-black uppercase tracking-tight text-brand shrink-0 text-center select-none"
-                            title={spec.name}
-                          >
-                            {spec.name.substring(0, 2).toUpperCase()}
-                          </div>
-                        ))}
-                        {spectatorsList.length > 6 && (
-                          <div className="w-8 h-8 rounded-full border-2 border-surface bg-surface-hover flex items-center justify-center text-[9px] font-black uppercase text-text-muted shrink-0 text-center select-none">
-                            +{spectatorsList.length - 6}
-                          </div>
-                        )}
-                      </div>
-                    )}
                   </div>
                 )}
               </div>

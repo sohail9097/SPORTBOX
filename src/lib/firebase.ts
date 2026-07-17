@@ -1,4 +1,5 @@
 import { initializeApp } from 'firebase/app';
+import { useEffect, useRef } from 'react';
 import { getAnalytics, isSupported } from 'firebase/analytics';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect } from 'firebase/auth';
 import { 
@@ -72,63 +73,123 @@ export {
 const getDocCache = new Map<string, { snapshot: DocumentSnapshot<any>; timestamp: number }>();
 const getDocsCache = new Map<string, { snapshot: QuerySnapshot<any>; timestamp: number }>();
 
+const inFlightGetDoc = new Map<string, Promise<DocumentSnapshot<any>>>();
+const inFlightGetDocs = new Map<string, Promise<QuerySnapshot<any>>>();
+
 // Increased Cache TTL to 5 minutes (300,000 ms) to aggressively reduce repetitive reads
 const DEFAULT_TTL = 300000;
+
+function extractPathFromFirestoreRef(ref: any): string {
+  if (!ref) return 'unknown';
+  
+  // 1. If it has a direct path property (CollectionReference, DocumentReference)
+  if (typeof ref.path === 'string') return ref.path;
+  if (ref.path && typeof ref.path.toString === 'function') {
+    const pathStr = ref.path.toString();
+    if (pathStr && pathStr !== '[object Object]') return pathStr;
+  }
+  
+  // 2. Check standard V9/V10 internal properties
+  const q = ref._query || ref.query || ref;
+  if (q) {
+    if (q.path && typeof q.path.toString === 'function') {
+      const pathStr = q.path.toString();
+      if (pathStr && pathStr !== '[object Object]') return pathStr;
+    }
+  }
+
+  // 3. Traverse ref properties to find any CollectionReference or path-like object
+  try {
+    for (const key of Object.keys(ref)) {
+      const val = ref[key];
+      if (val && typeof val === 'object') {
+        // If nested object has path
+        if (typeof val.path === 'string' && val.path) {
+          return val.path;
+        }
+        if (val.path && typeof val.path.toString === 'function') {
+          const p = val.path.toString();
+          if (p && p !== '[object Object]') return p;
+        }
+        // If nested object is _query
+        if (val._query && val._query.path && typeof val._query.path.toString === 'function') {
+          return val._query.path.toString();
+        }
+        if (val.query && val.query.path && typeof val.query.path.toString === 'function') {
+          return val.query.path.toString();
+        }
+      }
+    }
+  } catch (e) {
+    // Ignore traversal errors
+  }
+  
+  return 'unknown-path';
+}
 
 function stringifyQuery(q: any): string {
   if (!q) return '';
   try {
-    if (typeof q.path === 'string') {
-      return q.path;
-    }
-    if (q._query) {
-      const parts: string[] = [];
-      if (q._query.path) {
-        parts.push(q._query.path.toString());
-      }
-      if (q._query.filters) {
-        parts.push(JSON.stringify(q._query.filters.map((f: any) => ({
-          field: f.field?.toString(),
-          op: f.op,
-          val: f.value?._value?.toString() || f.value?.toString()
+    const path = extractPathFromFirestoreRef(q);
+    const queryObj = q._query || q.query;
+    
+    const parts: string[] = [path];
+    
+    if (queryObj) {
+      const filters = queryObj.filters || queryObj.filters_;
+      if (filters && Array.isArray(filters)) {
+        parts.push(JSON.stringify(filters.map((f: any) => ({
+          field: (f.field || f.field_ || f.property)?.toString() || '',
+          op: f.op || f.op_ || '',
+          val: f.value?._value?.toString() || f.value?.toString() || f.val?.toString() || ''
         }))));
       }
-      if (q._query.limit) {
-        parts.push(`limit:${q._query.limit}`);
+      const limit = queryObj.limit || queryObj.limit_;
+      if (limit !== undefined && limit !== null) {
+        parts.push(`limit:${limit}`);
       }
-      if (q._query.explicitOrderBy) {
-        parts.push(JSON.stringify(q._query.explicitOrderBy.map((o: any) => ({
-          field: o.field?.toString(),
-          dir: o.dir
+      const orderBy = queryObj.explicitOrderBy || queryObj.orderBy || queryObj.explicitOrderBy_;
+      if (orderBy && Array.isArray(orderBy)) {
+        parts.push(JSON.stringify(orderBy.map((o: any) => ({
+          field: (o.field || o.field_ || o.property)?.toString() || '',
+          dir: o.dir || o.direction || ''
         }))));
       }
-      return parts.join('|');
     }
-    return q.converter ? 'converted-query' : 'standard-query';
+    
+    return parts.join('|');
   } catch (e) {
     return 'fallback-query-key';
   }
 }
 
 // Smart Invalidation: Only clear the specific changed document cache. 
-// Never delete global layout or section data when a user updates their session/profile!
+// Never delete unrelated global layout or section data when a user updates their session/profile!
 export function invalidateCache(docPath?: string) {
   if (docPath) {
     getDocCache.delete(docPath);
     
-    // If a user profile/session writes data, only invalidate user-related queries
-    if (docPath.startsWith('users/')) {
+    // Extract the primary collection name (e.g., "users" from "users/123", or "blogs" from "blogs/456")
+    const parts = docPath.split('/');
+    const collectionName = parts[0];
+    
+    if (collectionName) {
       for (const key of getDocsCache.keys()) {
-        if (key.includes('users')) {
+        if (key.includes(collectionName)) {
           getDocsCache.delete(key);
         }
       }
     }
-    console.log(`[Cache Invalidation] Smart cleared cached doc for path: ${docPath}`);
+    console.log(`[Cache Invalidation] Smart cleared cached doc and related collection queries for: ${docPath}`);
   }
 }
 
 // --- DETAILED AUDIT INSTRUMENTATION & COUNTERS ---
+export const APP_START_TIME = typeof window !== 'undefined' ? ((window as any).__app_start_time || Date.now()) : Date.now();
+if (typeof window !== 'undefined' && !(window as any).__app_start_time) {
+  (window as any).__app_start_time = APP_START_TIME;
+}
+
 if (typeof window !== 'undefined') {
   (window as any).__firestore_counters = (window as any).__firestore_counters || {
     getDoc: 0,
@@ -142,6 +203,37 @@ if (typeof window !== 'undefined') {
     realWrites: 0,
     byRoute: {}
   };
+  (window as any).__firestore_reads_log = (window as any).__firestore_reads_log || [];
+  (window as any).__firestore_active_listeners = (window as any).__firestore_active_listeners || {};
+  (window as any).__firestore_listeners_history = (window as any).__firestore_listeners_history || [];
+  (window as any).__firestore_renders = (window as any).__firestore_renders || {};
+  
+  // Monkeypatch routing history to record route transitions for navigation timeline tracking
+  if (!(window as any).__firestore_route_patched) {
+    (window as any).__firestore_route_patched = true;
+    (window as any).__firestore_navigation_count = 0;
+    
+    const handleRouteTransition = (type: string) => {
+      (window as any).__firestore_navigation_count++;
+      console.log(`[Firestore Profiler] Route Transition [${type}] #${(window as any).__firestore_navigation_count} to: ${window.location.pathname}`);
+    };
+    
+    window.addEventListener('popstate', () => handleRouteTransition('POPSTATE'));
+    
+    const originalPush = window.history.pushState;
+    window.history.pushState = function (...args: any[]) {
+      const res = originalPush.apply(this, args);
+      handleRouteTransition('PUSHSTATE');
+      return res;
+    };
+    
+    const originalReplace = window.history.replaceState;
+    window.history.replaceState = function (...args: any[]) {
+      const res = originalReplace.apply(this, args);
+      handleRouteTransition('REPLACESTATE');
+      return res;
+    };
+  }
 }
 
 function getCallerDetails() {
@@ -156,7 +248,7 @@ function getCallerDetails() {
     const line = lines[i].trim();
     if (!line) continue;
     fullStack.push(line);
-    // Skip frames that belong to the wrapper itself
+    // Skip frames that belong to the wrapper itself or tracing functions
     if (!callerFrame && 
         !line.includes('firebase.ts') && 
         !line.includes('getCallerDetails') && 
@@ -175,6 +267,7 @@ function getCallerDetails() {
   let functionName = 'Anonymous';
   
   if (callerFrame) {
+    // Regex matches common stack line forms e.g. "at componentName (http://.../src/pages/Watch.tsx?t=123:45:6)"
     const matchWithFunc = callerFrame.match(/at\s+([^\s(]+)\s+\(([^)]+)\)/);
     if (matchWithFunc) {
       functionName = matchWithFunc[1];
@@ -205,10 +298,7 @@ function getCallerDetails() {
 }
 
 function getPath(ref: any): string {
-  if (!ref) return 'unknown';
-  if (typeof ref.path === 'string') return ref.path;
-  if (ref._query && ref._query.path) return ref._query.path.toString();
-  return stringifyQuery(ref);
+  return extractPathFromFirestoreRef(ref);
 }
 
 function incrementCounter(
@@ -319,13 +409,94 @@ export async function deleteDoc(ref: any) {
   return firestoreDeleteDoc(ref);
 }
 
+let listenerSeq = 0;
 export function onSnapshot(ref: any, ...args: any[]) {
+  const listenerId = `listener_${++listenerSeq}`;
   const caller = getCallerDetails();
   const path = getPath(ref);
+  const startTime = Date.now();
+  const startMs = startTime - APP_START_TIME;
+  
   incrementCounter('onSnapshot', true);
   logOperation('onSnapshot', path, false, true, caller);
   
-  return (firestoreOnSnapshot as any)(ref, ...args);
+  // Extract and intercept the listener callback
+  const originalCallback = typeof args[0] === 'function' ? args[0] : args[1];
+  const callbackIndex = typeof args[0] === 'function' ? 0 : 1;
+  
+  const listenerInfo = {
+    id: listenerId,
+    path,
+    created: new Date().toISOString(),
+    createdMs: startMs,
+    caller,
+    route: typeof window !== 'undefined' ? window.location.pathname : '',
+    active: true,
+    snapshotsCount: 0,
+    destroyed: null as string | null,
+    destroyedMs: null as number | null,
+    lifetime: null as number | null,
+  };
+  
+  if (typeof window !== 'undefined') {
+    (window as any).__firestore_active_listeners[listenerId] = listenerInfo;
+    (window as any).__firestore_listeners_history.push(listenerInfo);
+  }
+  
+  const wrappedCallback = (snapshot: any, error?: any) => {
+    const elapsed = Date.now() - startTime;
+    listenerInfo.snapshotsCount++;
+    
+    // Log each snapshot trigger as a Firestore read event
+    const docCount = snapshot ? (snapshot.docs ? snapshot.docs.length : (snapshot.exists && snapshot.exists() ? 1 : 0)) : 0;
+    const isCache = snapshot?.metadata?.fromCache ?? false;
+    
+    const readLog = {
+      id: `read_onSnapshot_${listenerId}_snap_${listenerInfo.snapshotsCount}`,
+      timestamp: new Date().toISOString(),
+      msSinceStartup: Date.now() - APP_START_TIME,
+      api: 'onSnapshot_snapshot',
+      path,
+      isListener: true,
+      listenerId,
+      isCacheHit: isCache,
+      route: typeof window !== 'undefined' ? window.location.pathname : '',
+      url: typeof window !== 'undefined' ? window.location.href : '',
+      caller,
+      uid: auth.currentUser?.uid || null,
+      duration: elapsed,
+      docCount,
+      stack: caller.stack
+    };
+    
+    if (typeof window !== 'undefined') {
+      (window as any).__firestore_reads_log.push(readLog);
+    }
+    
+    if (originalCallback) {
+      originalCallback(snapshot, error);
+    }
+  };
+  
+  const newArgs = [...args];
+  newArgs[callbackIndex] = wrappedCallback;
+  
+  const unsub = (firestoreOnSnapshot as any)(ref, ...newArgs);
+  
+  return () => {
+    const destroyTime = Date.now();
+    listenerInfo.active = false;
+    listenerInfo.destroyed = new Date().toISOString();
+    listenerInfo.destroyedMs = destroyTime - APP_START_TIME;
+    listenerInfo.lifetime = destroyTime - startTime;
+    
+    if (typeof window !== 'undefined') {
+      delete (window as any).__firestore_active_listeners[listenerId];
+    }
+    
+    console.log(`[Firestore Profiler] Unsubscribed listener ${listenerId} on path ${path}. Lifetime: ${listenerInfo.lifetime}ms`);
+    unsub();
+  };
 }
 
 interface CacheOptions {
@@ -336,7 +507,7 @@ interface CacheOptions {
   bypassCache?: boolean;
 }
 
-// Caching getDoc wrapper
+// Caching getDoc wrapper with promise-level simultaneous request deduplication
 export async function getDoc(
   docRef: DocumentReference<any>,
   options?: CacheOptions
@@ -345,26 +516,72 @@ export async function getDoc(
   const maxAge = options?.maxAge ?? DEFAULT_TTL;
   const bypass = options?.bypassCache ?? false;
   const caller = getCallerDetails();
+  const startTime = Date.now();
+  const startMs = startTime - APP_START_TIME;
 
   incrementCounter('getDoc', false);
 
+  let cachedSnapshot: any = null;
   if (!bypass) {
     const cached = getDocCache.get(path);
     if (cached && Date.now() - cached.timestamp < maxAge) {
-      logOperation('getDoc', path, true, false, caller);
-      return cached.snapshot;
+      cachedSnapshot = cached.snapshot;
     }
   }
 
-  incrementCounter('getDoc', true);
-  logOperation('getDoc', path, false, true, caller);
+  let isCacheHit = !!cachedSnapshot;
+  
+  let snapshot: DocumentSnapshot<any>;
+  if (isCacheHit) {
+    snapshot = cachedSnapshot;
+  } else {
+    // Check if there is an in-flight promise for this exact path
+    let inFlight = inFlightGetDoc.get(path);
+    if (!inFlight) {
+      incrementCounter('getDoc', true);
+      inFlight = firestoreGetDoc(docRef).then((snap) => {
+        getDocCache.set(path, { snapshot: snap, timestamp: Date.now() });
+        inFlightGetDoc.delete(path);
+        return snap;
+      }).catch((err) => {
+        inFlightGetDoc.delete(path);
+        throw err;
+      });
+      inFlightGetDoc.set(path, inFlight);
+    } else {
+      console.log(`[Firestore Profiler] Reusing in-flight getDoc for path: ${path}`);
+      isCacheHit = true;
+    }
+    snapshot = await inFlight;
+  }
 
-  const snapshot = await firestoreGetDoc(docRef);
-  getDocCache.set(path, { snapshot, timestamp: Date.now() });
+  const elapsed = Date.now() - startTime;
+  
+  const readLog = {
+    id: `read_getDoc_${Math.random().toString(36).substring(2, 11)}`,
+    timestamp: new Date().toISOString(),
+    msSinceStartup: startMs,
+    api: 'getDoc',
+    path,
+    isListener: false,
+    isCacheHit,
+    route: typeof window !== 'undefined' ? window.location.pathname : '',
+    url: typeof window !== 'undefined' ? window.location.href : '',
+    caller,
+    uid: auth.currentUser?.uid || null,
+    duration: elapsed,
+    docCount: snapshot?.exists() ? 1 : 0,
+    stack: caller.stack
+  };
+
+  if (typeof window !== 'undefined') {
+    (window as any).__firestore_reads_log.push(readLog);
+  }
+
   return snapshot;
 }
 
-// Caching getDocs wrapper
+// Caching getDocs wrapper with promise-level simultaneous request deduplication
 export async function getDocs(
   q: Query<any>,
   options?: CacheOptions
@@ -374,22 +591,68 @@ export async function getDocs(
   const maxAge = options?.maxAge ?? DEFAULT_TTL;
   const bypass = options?.bypassCache ?? false;
   const caller = getCallerDetails();
+  const startTime = Date.now();
+  const startMs = startTime - APP_START_TIME;
 
   incrementCounter('getDocs', false);
 
+  let cachedSnapshot: any = null;
   if (!bypass) {
     const cached = getDocsCache.get(key);
     if (cached && Date.now() - cached.timestamp < maxAge) {
-      logOperation('getDocs', path, true, false, caller);
-      return cached.snapshot;
+      cachedSnapshot = cached.snapshot;
     }
   }
 
-  incrementCounter('getDocs', true);
-  logOperation('getDocs', path, false, true, caller);
+  let isCacheHit = !!cachedSnapshot;
+  
+  let snapshot: QuerySnapshot<any>;
+  if (isCacheHit) {
+    snapshot = cachedSnapshot;
+  } else {
+    // Check if there is an in-flight promise for this exact query key
+    let inFlight = inFlightGetDocs.get(key);
+    if (!inFlight) {
+      incrementCounter('getDocs', true);
+      inFlight = firestoreGetDocs(q).then((snap) => {
+        getDocsCache.set(key, { snapshot: snap, timestamp: Date.now() });
+        inFlightGetDocs.delete(key);
+        return snap;
+      }).catch((err) => {
+        inFlightGetDocs.delete(key);
+        throw err;
+      });
+      inFlightGetDocs.set(key, inFlight);
+    } else {
+      console.log(`[Firestore Profiler] Reusing in-flight getDocs for key: ${key}`);
+      isCacheHit = true;
+    }
+    snapshot = await inFlight;
+  }
 
-  const snapshot = await firestoreGetDocs(q);
-  getDocsCache.set(key, { snapshot, timestamp: Date.now() });
+  const elapsed = Date.now() - startTime;
+
+  const readLog = {
+    id: `read_getDocs_${Math.random().toString(36).substring(2, 11)}`,
+    timestamp: new Date().toISOString(),
+    msSinceStartup: startMs,
+    api: 'getDocs',
+    path,
+    isListener: false,
+    isCacheHit,
+    route: typeof window !== 'undefined' ? window.location.pathname : '',
+    url: typeof window !== 'undefined' ? window.location.href : '',
+    caller,
+    uid: auth.currentUser?.uid || null,
+    duration: elapsed,
+    docCount: snapshot?.size || 0,
+    stack: caller.stack
+  };
+
+  if (typeof window !== 'undefined') {
+    (window as any).__firestore_reads_log.push(readLog);
+  }
+
   return snapshot;
 }
 
@@ -443,3 +706,48 @@ export function isDbOffline() { return false; }
 export async function forceGoOnline() { return true; }
 export async function clearOfflineCache() { return true; }
 export async function withTimeout<T>(promise: Promise<T>): Promise<T> { return promise; }
+
+export function useRenderProfiler(componentName: string, props?: any) {
+  const renderCountRef = useRef(0);
+  renderCountRef.current++;
+  
+  const prevPropsRef = useRef<any>(props);
+  
+  useEffect(() => {
+    const timestamp = new Date().toISOString();
+    const elapsed = Date.now() - APP_START_TIME;
+    
+    if (typeof window !== 'undefined') {
+      const renders = (window as any).__firestore_renders = (window as any).__firestore_renders || {};
+      const componentRenders = renders[componentName] || {
+        count: 0,
+        history: []
+      };
+      
+      componentRenders.count = renderCountRef.current;
+      
+      const propChanges: string[] = [];
+      if (props && prevPropsRef.current) {
+        for (const key of Object.keys({ ...props, ...prevPropsRef.current })) {
+          if (props[key] !== prevPropsRef.current[key]) {
+            propChanges.push(key);
+          }
+        }
+      }
+      
+      componentRenders.history.push({
+        renderNumber: renderCountRef.current,
+        timestamp,
+        msSinceStartup: elapsed,
+        changedProps: propChanges,
+        route: window.location.pathname
+      });
+      
+      renders[componentName] = componentRenders;
+      
+      console.log(`[Render Profiler] "${componentName}" render #${renderCountRef.current} (elapsed: ${elapsed}ms). Changes: ${propChanges.length ? propChanges.join(', ') : 'none/initial'}`);
+    }
+    
+    prevPropsRef.current = props;
+  });
+}

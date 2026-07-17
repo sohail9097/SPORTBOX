@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { db, handleFirestoreError, OperationType, getDoc, doc, updateDoc, increment, arrayUnion, arrayRemove, setDoc, deleteDoc } from '../lib/firebase';
+import { db, handleFirestoreError, OperationType, getDoc, doc, updateDoc, increment, arrayUnion, arrayRemove, setDoc, deleteDoc, useRenderProfiler } from '../lib/firebase';
 import { SportsContent } from '../types';
 import { FALLBACK_SPORTS_CONTENT } from '../lib/fallbackData';
 import { useAuth } from '../hooks/useAuth';
@@ -16,6 +16,7 @@ import LoadingScreen from '../components/LoadingScreen';
 
 export default function Watch() {
   const { id } = useParams<{ id: string }>();
+  useRenderProfiler('Watch', { id });
   const { profile, isAdmin, loading: authLoading, user } = useAuth();
   const { content: cachedContent, loading: cacheLoading } = useFirestoreCache();
   const [content, setContent] = useState<SportsContent | null>(null);

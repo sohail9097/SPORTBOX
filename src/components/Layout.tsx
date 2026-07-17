@@ -13,10 +13,13 @@ import { cn } from '../lib/utils';
 import { SiteConfig } from '../types';
 import { FALLBACK_SITE_CONFIG } from '../lib/fallbackData';
 import { useFirestoreCache } from '../context/FirestoreContext';
+import { useRenderProfiler } from '../lib/firebase';
+import FirestoreProfilerPanel from './FirestoreProfilerPanel';
 
 import BrandLogo from './BrandLogo';
 
 export default function Layout({ children }: { children: ReactNode }) {
+  useRenderProfiler('Layout');
   const { user, isAdmin, profile } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const { siteConfig, liveStats } = useFirestoreCache();
@@ -333,6 +336,7 @@ export default function Layout({ children }: { children: ReactNode }) {
         </div>
       </footer>
       )}
+      <FirestoreProfilerPanel />
     </div>
   );
 }

@@ -21,6 +21,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const currentUserRef = useRef<User | null>(null);
   const currentProfileRef = useRef<any | null>(null);
+  const profileFetchInProgressRef = useRef<string | null>(null);
 
   // Keep refs in sync with state
   useEffect(() => {
@@ -66,6 +67,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(currentUser);
 
       if (currentUser) {
+        if (profileFetchInProgressRef.current === currentUser.uid) {
+          console.log("[AuthSync] Profile fetch already in progress for uid:", currentUser.uid);
+          return;
+        }
+        profileFetchInProgressRef.current = currentUser.uid;
+
         const userDocRef = doc(db, 'users', currentUser.uid);
         
         const authTimeout = setTimeout(() => {
@@ -78,6 +85,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         getDoc(userDocRef, { component: 'AuthProvider', file: 'useAuth.tsx', reason: 'Fetch user profile doc on auth state change' })
           .then((docSnap) => {
             clearTimeout(authTimeout);
+            profileFetchInProgressRef.current = null;
             if (isCleanedUp) return;
             if (docSnap.exists()) {
               setProfile(docSnap.data());
@@ -88,6 +96,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           })
           .catch((error) => {
             clearTimeout(authTimeout);
+            profileFetchInProgressRef.current = null;
             if (isCleanedUp) return;
             console.error("[AuthSync] Firestore profile fetch error:", error);
             setLoading(false);

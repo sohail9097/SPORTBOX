@@ -9,8 +9,10 @@ import { Play, TrendingUp, ChevronRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { cn } from '../lib/utils';
 import { useFirestoreCache } from '../context/FirestoreContext';
+import { useRenderProfiler } from '../lib/firebase';
 
 export default function Home() {
+  useRenderProfiler('Home');
   const { content, sections: cachedSections, videoPromo, loading } = useFirestoreCache();
 
   const homeSections = useMemo(() => {

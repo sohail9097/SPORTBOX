@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { db, handleFirestoreError, OperationType, auth, isDbOffline, forceGoOnline, clearOfflineCache, withTimeout, getDoc, getDocs, collection, addDoc, deleteDoc, doc, updateDoc, query, orderBy, setDoc, onSnapshot } from '../lib/firebase';
+import { db, handleFirestoreError, OperationType, auth, isDbOffline, forceGoOnline, clearOfflineCache, withTimeout, getDoc, getDocs, collection, addDoc, deleteDoc, doc, updateDoc, query, orderBy, setDoc, onSnapshot, useRenderProfiler } from '../lib/firebase';
 import { SportsContent, Category, ContentType, ContentSection, SliderElement, VideoPromoSettings, SiteConfig, SubscriptionPlan, BlogPost } from '../types';
 import { Plus, Trash2, Edit2, Play, LayoutDashboard, Film, Users, Settings, Save, X, Eye, Radio, Crown, Layers, MoveUp, MoveDown, CheckSquare, Square, Image as ImageIcon, Upload, Library, ShieldCheck, ShieldAlert, Zap, Percent, Trophy, ChevronRight, Activity, Heart, Dribbble, CircleDot, Target, Disc, Flag, Gamepad2, Folder, ChevronLeft, BookOpen, Scissors, Waves, Flame, Compass, Award, Sparkles, Wand2, Clock, BarChart2, RefreshCw } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -218,6 +218,7 @@ export default function Admin() {
   const [dbIsOffline, setDbIsOffline] = useState(isDbOffline());
   const [isSyncing, setIsSyncing] = useState(false);
   const [activeTab, setActiveTab] = useState<'analytics' | 'dashboard' | 'content' | 'live' | 'sections' | 'categories' | 'slider' | 'users' | 'settings' | 'media' | 'plans' | 'trending' | 'likes' | 'domain_setup' | 'shots' | 'blogs' | 'olympics'>('analytics');
+  useRenderProfiler('Admin', { activeTab });
 
   // Olympic Medalists state for Admin
   const [adminMedalists, setAdminMedalists] = useState<IndianMedalist[]>(INDIAN_MEDALISTS);
@@ -594,13 +595,6 @@ export default function Admin() {
         .then(data => console.log("[Admin API Health]", data))
         .catch(err => console.warn("[Admin API Health Error]", err.message));
 
-      fetchContent();
-      fetchSections();
-      fetchSlider();
-      fetchSubscribers();
-      fetchMediaItems();
-      fetchFolders();
-      
       // Use onSnapshot for live settings updates
       const unsubConfig = onSnapshot(doc(db, 'settings', 'siteConfig'), (snap) => {
         if (snap.exists()) setSiteConfig(snap.data() as SiteConfig);
@@ -660,6 +654,31 @@ export default function Admin() {
       };
     }
   }, [isAdmin]);
+
+  // Optimized Lazy Data Fetchers by Active Tab
+  useEffect(() => {
+    if (isAdmin && ['analytics', 'dashboard', 'content', 'live', 'trending', 'likes', 'shots', 'olympics'].includes(activeTab)) {
+      fetchContent();
+    }
+  }, [isAdmin, activeTab]);
+
+  useEffect(() => {
+    if (isAdmin && ['sections', 'categories'].includes(activeTab)) {
+      fetchSections();
+    }
+  }, [isAdmin, activeTab]);
+
+  useEffect(() => {
+    if (isAdmin && activeTab === 'slider') {
+      fetchSlider();
+    }
+  }, [isAdmin, activeTab]);
+
+  useEffect(() => {
+    if (isAdmin && activeTab === 'users') {
+      fetchSubscribers();
+    }
+  }, [isAdmin, activeTab]);
 
   useEffect(() => {
     if (isAdmin && activeTab === 'blogs') {
@@ -916,6 +935,7 @@ export default function Admin() {
   useEffect(() => {
     if (activeTab === 'media') {
       fetchMediaItems();
+      fetchFolders();
     }
   }, [currentFolder, activeTab]);
 

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { db, handleFirestoreError, OperationType, getDocs, collection, query, orderBy, doc, setDoc, updateDoc, increment } from '../lib/firebase';
+import { db, handleFirestoreError, OperationType, getDocs, collection, query, orderBy, doc, setDoc, updateDoc, increment, useRenderProfiler } from '../lib/firebase';
 import { useAuth } from '../hooks/useAuth';
 import { BlogPost } from '../types';
 import { 
@@ -25,6 +25,7 @@ const SUGGESTED_IMAGES = [
 ];
 
 export default function Blogs() {
+  useRenderProfiler('Blogs');
   const { user, isAdmin } = useAuth();
   const [blogs, setBlogs] = useState<BlogPost[]>([]);
   const [filteredBlogs, setFilteredBlogs] = useState<BlogPost[]>([]);

@@ -2,6 +2,7 @@ import { useEffect, useState, useRef, useMemo } from 'react';
 import { SportsContent } from '../types';
 import { useAuth } from '../hooks/useAuth';
 import { useFirestoreCache } from '../context/FirestoreContext';
+import { useRenderProfiler } from '../lib/firebase';
 import { 
   Heart, Share2, Volume2, VolumeX, Play, Pause, 
   ChevronUp, ChevronDown, Award, Send, MessageCircle, X, Compass
@@ -36,6 +37,7 @@ const getCommentAvatar = (username: string) => {
 };
 
 export default function Shots() {
+  useRenderProfiler('Shots');
   const { user } = useAuth();
   const { content: cachedContent, loading } = useFirestoreCache();
   

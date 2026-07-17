@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { db, handleFirestoreError, OperationType, getDocs, collection, query, where, addDoc, deleteDoc, doc, updateDoc, setDoc } from '../lib/firebase';
+import { db, handleFirestoreError, OperationType, getDocs, collection, query, where, addDoc, deleteDoc, doc, updateDoc, setDoc, useRenderProfiler } from '../lib/firebase';
 import { SportsContent } from '../types';
 import { FALLBACK_SPORTS_CONTENT } from '../lib/fallbackData';
 import { 
@@ -1019,6 +1019,7 @@ const TRIVIA_QUESTIONS = [
 export default function Olympics() {
   const { isAdmin } = useAuth();
   const [activeTab, setActiveTab] = useState<'medals' | 'overview' | 'arena' | 'trivia'>('medals');
+  useRenderProfiler('Olympics', { activeTab });
   
   const { content: cachedContent } = useFirestoreCache();
   

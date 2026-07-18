@@ -25,14 +25,19 @@ import { toast } from 'sonner';
 
 const app = initializeApp(firebaseConfig);
 
-// Improved database initialization with local persistent cache
+// ==========================================
+// OPTIMIZATION #3: FIRESTORE OFFLINE PERSISTENCE
+// Enable built-in offline persistence using persistentLocalCache and persistentMultipleTabManager
+// (modern modular Firestore SDK) so repeat visits are served from IndexedDB cache.
+// Handles multi-tab scenarios and unsupported browsers gracefully by falling back.
+// ==========================================
 let dbInstance;
 try {
   const dbId = firebaseConfig.firestoreDatabaseId && firebaseConfig.firestoreDatabaseId !== '(default)' 
     ? firebaseConfig.firestoreDatabaseId 
     : undefined;
   
-  console.log(`[Firebase] Initializing Firestore for Project: ${firebaseConfig.projectId}, Database ID: ${dbId || '(default)'}`);
+  console.log(`[Firebase] Initializing Firestore with Offline Persistence for Project: ${firebaseConfig.projectId}, Database ID: ${dbId || '(default)'}`);
   
   dbInstance = initializeFirestore(app, {
     localCache: persistentLocalCache({
@@ -40,7 +45,7 @@ try {
     })
   }, dbId);
 } catch (e) {
-  console.error("[Firebase] Failed to initialize Firestore with persistent cache:", e);
+  console.warn("[Firebase] Failed to initialize Firestore with persistent offline cache. Falling back gracefully:", e);
   dbInstance = getFirestore(app);
 }
 

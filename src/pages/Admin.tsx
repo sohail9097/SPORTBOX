@@ -579,6 +579,65 @@ export default function Admin() {
     }
   }, [isAdmin, authLoading, navigate]);
 
+  const fetchSettings = async () => {
+    try {
+      const [siteConfigSnap, videoPromoSnap] = await Promise.all([
+        getDoc(doc(db, 'settings', 'siteConfig'), { component: 'Admin', file: 'Admin.tsx', reason: 'Load general site settings' }),
+        getDoc(doc(db, 'settings', 'videoPromo'), { component: 'Admin', file: 'Admin.tsx', reason: 'Load video promo settings' })
+      ]);
+
+      if (siteConfigSnap.exists()) {
+        setSiteConfig(siteConfigSnap.data() as SiteConfig);
+      }
+      if (videoPromoSnap.exists()) {
+        setVideoPromo(prev => ({ ...prev, ...videoPromoSnap.data() }));
+      }
+    } catch (err: any) {
+      console.warn("[Admin] Settings fetch failed:", err.message);
+    }
+  };
+
+  const fetchPlans = async () => {
+    try {
+      const q = query(collection(db, 'subscription_plans'), orderBy('order', 'asc'));
+      const snap = await getDocs(q, { component: 'Admin', file: 'Admin.tsx', reason: 'Load subscription pricing plans' });
+      if (!snap.empty) {
+        setSubscriptionPlans(snap.docs.map(d => ({ id: d.id, ...(d.data() as any) } as SubscriptionPlan)));
+      } else {
+        setSubscriptionPlans([]);
+      }
+    } catch (err: any) {
+      console.warn("[Admin] Plans fetch failed:", err.message);
+      handleFirestoreError(err, OperationType.GET, 'subscription_plans');
+    }
+  };
+
+  const fetchMedalists = async () => {
+    try {
+      const snap = await getDocs(collection(db, 'olympic_medalists'), { component: 'Admin', file: 'Admin.tsx', reason: 'Load Olympic athlete roster' });
+      if (!snap.empty) {
+        const list = snap.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as IndianMedalist));
+        
+        const existingIds = new Set(list.map(m => m.id));
+        const missingDefaults = INDIAN_MEDALISTS.filter(m => !existingIds.has(m.id));
+        const mergedList = [...list, ...missingDefaults];
+
+        const orderMap = new Map(INDIAN_MEDALISTS.map((m, idx) => [m.id, idx]));
+        mergedList.sort((a, b) => {
+          const indexA = orderMap.get(a.id) ?? 999;
+          const indexB = orderMap.get(b.id) ?? 999;
+          return indexA - indexB;
+        });
+        setAdminMedalists(mergedList);
+      } else {
+        setAdminMedalists(INDIAN_MEDALISTS);
+      }
+    } catch (err: any) {
+      console.warn("[Admin] Medalists fetch failed:", err.message);
+      handleFirestoreError(err, OperationType.GET, 'olympic_medalists');
+    }
+  };
+
   useEffect(() => {
     if (isAdmin) {
       // Admin API Health Check
@@ -594,64 +653,6 @@ export default function Admin() {
         })
         .then(data => console.log("[Admin API Health]", data))
         .catch(err => console.warn("[Admin API Health Error]", err.message));
-
-      // Use onSnapshot for live settings updates
-      const unsubConfig = onSnapshot(doc(db, 'settings', 'siteConfig'), (snap) => {
-        if (snap.exists()) setSiteConfig(snap.data() as SiteConfig);
-      }, (err) => {
-        console.warn("[Admin] Config sync offline:", err.message);
-        handleFirestoreError(err, OperationType.GET, 'settings/siteConfig');
-      });
-
-      const unsubPromo = onSnapshot(doc(db, 'settings', 'videoPromo'), (snap) => {
-        if (snap.exists()) setVideoPromo(prev => ({ ...prev, ...snap.data() }));
-      }, (err) => {
-        console.warn("[Admin] Promo sync offline:", err.message);
-        handleFirestoreError(err, OperationType.GET, 'settings/videoPromo');
-      });
-
-      const unsubPlans = onSnapshot(query(collection(db, 'subscription_plans'), orderBy('order', 'asc')), (snap) => {
-        if (!snap.empty) {
-          setSubscriptionPlans(snap.docs.map(d => ({ id: d.id, ...(d.data() as any) } as SubscriptionPlan)));
-        } else if (isAdmin) {
-          // If empty, suggest initializing
-          console.warn("[Admin] No subscription plans found. Use 'Initialize' if this is a new setup.");
-        }
-      }, (err) => {
-        console.warn("[Admin] Plans sync offline:", err.message);
-        handleFirestoreError(err, OperationType.GET, 'subscription_plans');
-      });
-
-      const unsubMedalists = onSnapshot(collection(db, 'olympic_medalists'), (snap) => {
-        if (!snap.empty) {
-          const list = snap.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as IndianMedalist));
-          
-          // Merge any statically defined medalists that are not yet in Firestore (ensures instant availability)
-          const existingIds = new Set(list.map(m => m.id));
-          const missingDefaults = INDIAN_MEDALISTS.filter(m => !existingIds.has(m.id));
-          const mergedList = [...list, ...missingDefaults];
-
-          const orderMap = new Map(INDIAN_MEDALISTS.map((m, idx) => [m.id, idx]));
-          mergedList.sort((a, b) => {
-            const indexA = orderMap.get(a.id) ?? 999;
-            const indexB = orderMap.get(b.id) ?? 999;
-            return indexA - indexB;
-          });
-          setAdminMedalists(mergedList);
-        } else {
-          setAdminMedalists(INDIAN_MEDALISTS);
-        }
-      }, (err) => {
-        console.warn("[Admin] Medalists sync offline:", err.message);
-        handleFirestoreError(err, OperationType.GET, 'olympic_medalists');
-      });
-
-      return () => {
-        unsubConfig();
-        unsubPromo();
-        unsubPlans();
-        unsubMedalists();
-      };
     }
   }, [isAdmin]);
 
@@ -659,6 +660,24 @@ export default function Admin() {
   useEffect(() => {
     if (isAdmin && ['analytics', 'dashboard', 'content', 'live', 'trending', 'likes', 'shots', 'olympics'].includes(activeTab)) {
       fetchContent();
+    }
+  }, [isAdmin, activeTab]);
+
+  useEffect(() => {
+    if (isAdmin && activeTab === 'settings') {
+      fetchSettings();
+    }
+  }, [isAdmin, activeTab]);
+
+  useEffect(() => {
+    if (isAdmin && activeTab === 'plans') {
+      fetchPlans();
+    }
+  }, [isAdmin, activeTab]);
+
+  useEffect(() => {
+    if (isAdmin && activeTab === 'olympics') {
+      fetchMedalists();
     }
   }, [isAdmin, activeTab]);
 
@@ -1604,6 +1623,7 @@ export default function Admin() {
       };
 
       await setDoc(docRef, finalPlan);
+      await fetchPlans();
       
       setIsAddingPlan(false);
       setEditingPlanId(null);
@@ -1621,6 +1641,7 @@ export default function Admin() {
     if (!confirm('Are you sure you want to delete this plan?')) return;
     try {
       await deleteDoc(doc(db, 'subscription_plans', id));
+      await fetchPlans();
       toast.success("Plan deleted successfully!");
     } catch (error) {
       toast.error("Failed to delete plan.");
@@ -3784,6 +3805,7 @@ export default function Admin() {
 
                           try {
                             await setDoc(doc(db, 'olympic_medalists', targetMedalist.id), targetMedalist);
+                            await fetchMedalists();
                             toast.success(editingMedalist ? "Medalist profile saved successfully inside database!" : "New medalist profile added to database!");
                             setIsAddingMedalist(false);
                             setEditingMedalist(null);
@@ -4178,6 +4200,7 @@ export default function Admin() {
 
                         try {
                           await setDoc(doc(db, 'olympic_medalists', targetMedalist.id), targetMedalist);
+                          await fetchMedalists();
                           toast.success(editingMedalist ? "Challenger profile saved successfully inside database!" : "New challenger profile added to database!");
                           setIsAddingMedalist(false);
                           setEditingMedalist(null);
@@ -4313,6 +4336,7 @@ export default function Admin() {
                                       if (window.confirm(`Are you sure you want to delete the medalist profile for "${athlete.name}"?`)) {
                                         try {
                                           await deleteDoc(doc(db, 'olympic_medalists', athlete.id));
+                                          await fetchMedalists();
                                           toast.success(`Removed medalist from database: ${athlete.name}`);
                                         } catch (err) {
                                           console.error(err);

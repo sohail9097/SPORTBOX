@@ -336,7 +336,7 @@ export default function Layout({ children }: { children: ReactNode }) {
         </div>
       </footer>
       )}
-      <FirestoreProfilerPanel />
+      {user && (user.email?.toLowerCase() === 'sohailgaji9097@gmail.com' || user.email?.toLowerCase() === 'tavish@dreamcatchers.tv') && <FirestoreProfilerPanel />}
     </div>
   );
 }

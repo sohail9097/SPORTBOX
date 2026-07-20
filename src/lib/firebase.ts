@@ -84,6 +84,9 @@ const inFlightGetDocs = new Map<string, Promise<QuerySnapshot<any>>>();
 // Increased Cache TTL to 5 minutes (300,000 ms) to aggressively reduce repetitive reads
 const DEFAULT_TTL = 300000;
 
+// Track total real reads in the current browser/server session for safety limits
+let sessionNetworkReads = 0;
+
 function extractPathFromFirestoreRef(ref: any): string {
   if (!ref) return 'unknown';
   
@@ -431,9 +434,20 @@ export async function deleteDoc(ref: any) {
 
 let listenerSeq = 0;
 export function onSnapshot(ref: any, ...args: any[]) {
+  const path = getPath(ref);
+  const currentRealReads = (typeof window !== 'undefined' && (window as any).__firestore_counters?.realReads) || sessionNetworkReads;
+  if (currentRealReads >= 50) {
+    console.error(`[Firestore Safety Block] BLOCKED onSnapshot registration on path: ${path} (Session real reads: ${currentRealReads})`);
+    return () => {
+      console.log(`[Firestore Safety Block] Mock unsubscribed for blocked onSnapshot on path: ${path}`);
+    };
+  }
+
   const listenerId = `listener_${++listenerSeq}`;
   const caller = getCallerDetails();
-  const path = getPath(ref);
+  console.log(`%c[onSnapshot INVOCATION] Called on path: "${path}" by function "${caller.functionName}" in ${caller.fileName}.`, 'color: #ff9900; font-weight: bold; font-size: 11px;');
+  console.log('Caller Stack:', caller.stack);
+  console.trace(`[onSnapshot trace for path: ${path}]`);
   const startTime = Date.now();
   const startMs = startTime - APP_START_TIME;
   
@@ -601,10 +615,19 @@ export async function getDoc(
   if (isCacheHit) {
     snapshot = cachedSnapshot;
   } else {
+    // Check safety limit before contacting the server
+    const currentRealReads = (typeof window !== 'undefined' && (window as any).__firestore_counters?.realReads) || sessionNetworkReads;
+    if (currentRealReads >= 50) {
+      const errMsg = `[Firestore Safety Block] Session real read limit (50) exceeded! Blocked getDoc on: ${path} (Session real reads: ${currentRealReads})`;
+      console.error(errMsg);
+      throw new Error(errMsg);
+    }
+
     // Check if there is an in-flight promise for this exact path to prevent parallel stampedes
     let inFlight = inFlightGetDoc.get(path);
     if (!inFlight) {
       incrementCounter('getDoc', true);
+      sessionNetworkReads++;
       inFlight = firestoreGetDoc(docRef).then((snap) => {
         // Store in memory cache
         getDocCache.set(path, { snapshot: snap, timestamp: Date.now() });
@@ -618,7 +641,9 @@ export async function getDoc(
               data: snap.exists() ? snap.data() : null,
               timestamp: Date.now()
             };
-            localStorage.setItem(`sportsbox_doc_cache_${path}`, JSON.stringify(serializedData));
+            const cacheKey = `sportsbox_doc_cache_${path}`;
+            localStorage.setItem(cacheKey, JSON.stringify(serializedData));
+            console.log('CACHE WRITE:', cacheKey, 'size:', JSON.stringify(serializedData).length);
           }
         } catch (err) {
           console.warn(`[Firestore Cache] Error writing getDoc to localStorage [${path}]:`, err);
@@ -748,10 +773,19 @@ export async function getDocs(
   if (isCacheHit) {
     snapshot = cachedSnapshot;
   } else {
+    // Check safety limit before contacting the server
+    const currentRealReads = (typeof window !== 'undefined' && (window as any).__firestore_counters?.realReads) || sessionNetworkReads;
+    if (currentRealReads >= 50) {
+      const errMsg = `[Firestore Safety Block] Session real read limit (50) exceeded! Blocked getDocs on collection: ${collectionName} (Session real reads: ${currentRealReads})`;
+      console.error(errMsg);
+      throw new Error(errMsg);
+    }
+
     // Check if there is an in-flight promise for this exact query key to prevent parallel stampedes
     let inFlight = inFlightGetDocs.get(key);
     if (!inFlight) {
       incrementCounter('getDocs', true);
+      sessionNetworkReads++;
       inFlight = firestoreGetDocs(q).then((snap) => {
         // Store in memory cache
         getDocsCache.set(key, { snapshot: snap, timestamp: Date.now() });
@@ -769,7 +803,9 @@ export async function getDocs(
               size: snap.size,
               timestamp: Date.now()
             };
-            localStorage.setItem(`sportsbox_query_cache_${key}`, JSON.stringify(serializedData));
+            const cacheKeyName = `sportsbox_query_cache_${key}`;
+            localStorage.setItem(cacheKeyName, JSON.stringify(serializedData));
+            console.log('CACHE WRITE:', cacheKeyName, 'size:', JSON.stringify(serializedData).length);
           }
         } catch (err) {
           console.warn(`[Firestore Cache] Error writing getDocs to localStorage [${path}]:`, err);

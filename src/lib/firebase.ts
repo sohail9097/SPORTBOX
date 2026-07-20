@@ -173,6 +173,9 @@ function stringifyQuery(q: any): string {
 export function invalidateCache(docPath?: string) {
   if (docPath) {
     getDocCache.delete(docPath);
+    try {
+      localStorage.removeItem(`sportsbox_doc_cache_${docPath}`);
+    } catch (_) {}
     
     // Extract the primary collection name (e.g., "users" from "users/123", or "blogs" from "blogs/456")
     const parts = docPath.split('/');
@@ -184,6 +187,18 @@ export function invalidateCache(docPath?: string) {
           getDocsCache.delete(key);
         }
       }
+
+      // Invalidate query caches in localStorage
+      try {
+        const keysToRemove: string[] = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && key.startsWith('sportsbox_query_cache_') && key.includes(collectionName)) {
+            keysToRemove.push(key);
+          }
+        }
+        keysToRemove.forEach(k => localStorage.removeItem(k));
+      } catch (_) {}
     }
     console.log(`[Cache Invalidation] Smart cleared cached doc and related collection queries for: ${docPath}`);
   }
@@ -518,6 +533,7 @@ export async function getDoc(
   options?: CacheOptions
 ): Promise<DocumentSnapshot<any>> {
   const path = docRef.path;
+  const collectionName = path.split('/')[0] || 'unknown';
   const maxAge = options?.maxAge ?? DEFAULT_TTL;
   const bypass = options?.bypassCache ?? false;
   const caller = getCallerDetails();
@@ -527,11 +543,56 @@ export async function getDoc(
   incrementCounter('getDoc', false);
 
   let cachedSnapshot: any = null;
+  let cacheReason = '';
+
   if (!bypass) {
+    // 1. Check in-memory Map first
     const cached = getDocCache.get(path);
     if (cached && Date.now() - cached.timestamp < maxAge) {
       cachedSnapshot = cached.snapshot;
+      cacheReason = 'Served from in-memory cache';
+      console.log(`CACHE CHECK for ${collectionName} [${path}]: HIT - reason: ${cacheReason}`);
+    } else {
+      // 2. Check persistent localStorage cache
+      try {
+        const localCachedStr = typeof window !== 'undefined' ? localStorage.getItem(`sportsbox_doc_cache_${path}`) : null;
+        if (localCachedStr) {
+          const localCached = JSON.parse(localCachedStr);
+          const age = Date.now() - (localCached?.timestamp || 0);
+          if (localCached && age < maxAge) {
+            // Reconstruct a functional mock DocumentSnapshot
+            const mockSnap = {
+              exists: () => localCached.exists,
+              data: () => localCached.data,
+              id: localCached.id,
+              ref: docRef,
+              metadata: { fromCache: true }
+            } as any;
+            
+            // Populate in-memory cache to speed up subsequent reads in the same session
+            getDocCache.set(path, { snapshot: mockSnap, timestamp: localCached.timestamp });
+            cachedSnapshot = mockSnap;
+            cacheReason = 'Served from persistent local storage cache';
+            console.log(`CACHE CHECK for ${collectionName} [${path}]: HIT - reason: ${cacheReason}`);
+          } else if (localCached) {
+            cacheReason = `Persistent cache expired (${Math.round(age / 1000)}s old, max ${Math.round(maxAge / 1000)}s)`;
+            console.log(`CACHE CHECK for ${collectionName} [${path}]: MISS - reason: ${cacheReason}`);
+          } else {
+            cacheReason = 'Persistent cache corrupted';
+            console.log(`CACHE CHECK for ${collectionName} [${path}]: MISS - reason: ${cacheReason}`);
+          }
+        } else {
+          cacheReason = 'No cached entry found in local storage or memory';
+          console.log(`CACHE CHECK for ${collectionName} [${path}]: MISS - reason: ${cacheReason}`);
+        }
+      } catch (err) {
+        cacheReason = `Error reading localStorage: ${(err as Error).message}`;
+        console.log(`CACHE CHECK for ${collectionName} [${path}]: MISS - reason: ${cacheReason}`);
+      }
     }
+  } else {
+    cacheReason = 'Explicit cache bypass';
+    console.log(`CACHE CHECK for ${collectionName} [${path}]: BYPASS - reason: ${cacheReason}`);
   }
 
   let isCacheHit = !!cachedSnapshot;
@@ -540,12 +601,29 @@ export async function getDoc(
   if (isCacheHit) {
     snapshot = cachedSnapshot;
   } else {
-    // Check if there is an in-flight promise for this exact path
+    // Check if there is an in-flight promise for this exact path to prevent parallel stampedes
     let inFlight = inFlightGetDoc.get(path);
     if (!inFlight) {
       incrementCounter('getDoc', true);
       inFlight = firestoreGetDoc(docRef).then((snap) => {
+        // Store in memory cache
         getDocCache.set(path, { snapshot: snap, timestamp: Date.now() });
+        
+        // Store in localStorage (if it exists)
+        try {
+          if (typeof window !== 'undefined') {
+            const serializedData = {
+              id: snap.id,
+              exists: snap.exists(),
+              data: snap.exists() ? snap.data() : null,
+              timestamp: Date.now()
+            };
+            localStorage.setItem(`sportsbox_doc_cache_${path}`, JSON.stringify(serializedData));
+          }
+        } catch (err) {
+          console.warn(`[Firestore Cache] Error writing getDoc to localStorage [${path}]:`, err);
+        }
+
         inFlightGetDoc.delete(path);
         return snap;
       }).catch((err) => {
@@ -593,6 +671,7 @@ export async function getDocs(
 ): Promise<QuerySnapshot<any>> {
   const key = stringifyQuery(q);
   const path = getPath(q);
+  const collectionName = path || 'unknown';
   const maxAge = options?.maxAge ?? DEFAULT_TTL;
   const bypass = options?.bypassCache ?? false;
   const caller = getCallerDetails();
@@ -602,11 +681,65 @@ export async function getDocs(
   incrementCounter('getDocs', false);
 
   let cachedSnapshot: any = null;
+  let cacheReason = '';
+
   if (!bypass) {
+    // 1. Check in-memory Map first
     const cached = getDocsCache.get(key);
     if (cached && Date.now() - cached.timestamp < maxAge) {
       cachedSnapshot = cached.snapshot;
+      cacheReason = 'Served from in-memory cache';
+      console.log(`CACHE CHECK for ${collectionName}: HIT - reason: ${cacheReason}`);
+    } else {
+      // 2. Check persistent localStorage cache
+      try {
+        const localCachedStr = typeof window !== 'undefined' ? localStorage.getItem(`sportsbox_query_cache_${key}`) : null;
+        if (localCachedStr) {
+          const localCached = JSON.parse(localCachedStr);
+          const age = Date.now() - (localCached?.timestamp || 0);
+          if (localCached && age < maxAge) {
+            // Reconstruct functional mock DocumentSnapshots
+            const mockDocs = (localCached.docs || []).map((d: any) => ({
+              id: d.id,
+              exists: () => true,
+              data: () => d.data,
+              ref: { path: `${path}/${d.id}` } as any,
+              metadata: { fromCache: true }
+            }));
+            
+            // Reconstruct a functional mock QuerySnapshot
+            const mockSnap = {
+              empty: localCached.empty,
+              size: localCached.size,
+              docs: mockDocs,
+              metadata: { fromCache: true },
+              forEach: (callback: any) => mockDocs.forEach(callback)
+            } as any;
+            
+            // Populate in-memory cache to speed up subsequent reads in the same session
+            getDocsCache.set(key, { snapshot: mockSnap, timestamp: localCached.timestamp });
+            cachedSnapshot = mockSnap;
+            cacheReason = 'Served from persistent local storage cache';
+            console.log(`CACHE CHECK for ${collectionName}: HIT - reason: ${cacheReason}`);
+          } else if (localCached) {
+            cacheReason = `Persistent cache expired (${Math.round(age / 1000)}s old, max ${Math.round(maxAge / 1000)}s)`;
+            console.log(`CACHE CHECK for ${collectionName}: MISS - reason: ${cacheReason}`);
+          } else {
+            cacheReason = 'Persistent cache corrupted';
+            console.log(`CACHE CHECK for ${collectionName}: MISS - reason: ${cacheReason}`);
+          }
+        } else {
+          cacheReason = 'No cached entry found in local storage or memory';
+          console.log(`CACHE CHECK for ${collectionName}: MISS - reason: ${cacheReason}`);
+        }
+      } catch (err) {
+        cacheReason = `Error reading localStorage: ${(err as Error).message}`;
+        console.log(`CACHE CHECK for ${collectionName}: MISS - reason: ${cacheReason}`);
+      }
     }
+  } else {
+    cacheReason = 'Explicit cache bypass';
+    console.log(`CACHE CHECK for ${collectionName}: BYPASS - reason: ${cacheReason}`);
   }
 
   let isCacheHit = !!cachedSnapshot;
@@ -615,12 +748,33 @@ export async function getDocs(
   if (isCacheHit) {
     snapshot = cachedSnapshot;
   } else {
-    // Check if there is an in-flight promise for this exact query key
+    // Check if there is an in-flight promise for this exact query key to prevent parallel stampedes
     let inFlight = inFlightGetDocs.get(key);
     if (!inFlight) {
       incrementCounter('getDocs', true);
       inFlight = firestoreGetDocs(q).then((snap) => {
+        // Store in memory cache
         getDocsCache.set(key, { snapshot: snap, timestamp: Date.now() });
+        
+        // Store in localStorage
+        try {
+          if (typeof window !== 'undefined') {
+            const serializedDocs = snap.docs.map(d => ({
+              id: d.id,
+              data: d.data()
+            }));
+            const serializedData = {
+              docs: serializedDocs,
+              empty: snap.empty,
+              size: snap.size,
+              timestamp: Date.now()
+            };
+            localStorage.setItem(`sportsbox_query_cache_${key}`, JSON.stringify(serializedData));
+          }
+        } catch (err) {
+          console.warn(`[Firestore Cache] Error writing getDocs to localStorage [${path}]:`, err);
+        }
+
         inFlightGetDocs.delete(key);
         return snap;
       }).catch((err) => {

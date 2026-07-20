@@ -17,6 +17,7 @@ interface FirestoreContextType {
   countries: any[];
   navigation: any[];
   loading: boolean;
+  isDataLoaded: boolean;
   refetchAll: () => Promise<void>;
   updateSiteConfigState: (config: SiteConfig) => void;
   updateVideoPromoState: (promo: VideoPromoSettings) => void;
@@ -148,6 +149,7 @@ export function FirestoreProvider({ children }: { children: React.ReactNode }) {
   const [navigation, setNavigation] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDataLoaded, setIsDataLoaded] = useState(false);
+  const [isConfigLoaded, setIsConfigLoaded] = useState(false);
 
   const hasFetchedRef = useRef(false);
   const fetchAllPromiseRef = useRef<Promise<void> | null>(null);
@@ -344,6 +346,7 @@ export function FirestoreProvider({ children }: { children: React.ReactNode }) {
 
         // Flip the loaded flag to true
         setIsDataLoaded(true);
+        setIsConfigLoaded(true);
 
         // Static helper lists
         setSports([{ id: 'cricket', name: 'Cricket' }, { id: 'football', name: 'Football' }]);
@@ -383,11 +386,86 @@ export function FirestoreProvider({ children }: { children: React.ReactNode }) {
     return promise;
   };
 
+  const fetchConfigOnly = async (force = false) => {
+    // Optimization #2 & #4: Serves from cache immediately (SWR Pattern)
+    const cached = loadCache();
+    const hasValidCache = isCacheValid(cached);
+
+    if (isConfigLoaded && !force && hasValidCache) {
+      console.log("[FirestoreProvider] fetchConfigOnly call short-circuited. Config is valid.");
+      return;
+    }
+
+    if (cached && !isConfigLoaded) {
+      console.log("[FirestoreProvider] Instantly populating Site Config from local cache.");
+      setSiteConfig(cached.siteConfig);
+      setLiveStats(cached.liveStats);
+      setVideoPromo(cached.videoPromo || FALLBACK_PROMO);
+      setIsConfigLoaded(true);
+      setLoading(false);
+
+      if (hasValidCache && !force) {
+        return;
+      }
+    }
+
+    setLoading(true);
+    try {
+      console.log("[FirestoreProvider] Fetching minimal layout config only...");
+      const [siteConfigResult, liveStatsResult] = await Promise.allSettled([
+        getDoc(doc(db, 'settings', 'siteConfig')),
+        getDoc(doc(db, 'settings', 'liveStats'))
+      ]);
+
+      let freshSiteConfig = siteConfig ? siteConfig : FALLBACK_SITE_CONFIG;
+      let freshLiveStats = liveStats ? liveStats : FALLBACK_LIVE_STATS;
+
+      if (siteConfigResult.status === 'fulfilled' && siteConfigResult.value.exists()) {
+        freshSiteConfig = siteConfigResult.value.data() as SiteConfig;
+        setSiteConfig(freshSiteConfig);
+      }
+      if (liveStatsResult.status === 'fulfilled' && liveStatsResult.value.exists()) {
+        freshLiveStats = liveStatsResult.value.data() as { totalViews?: number; liveCount?: number };
+        setLiveStats(freshLiveStats);
+      }
+
+      setIsConfigLoaded(true);
+
+      const existingCache = cached || {
+        siteConfig: FALLBACK_SITE_CONFIG,
+        videoPromo: FALLBACK_PROMO,
+        liveStats: FALLBACK_LIVE_STATS,
+        sections: [],
+        slider: [],
+        plans: [],
+        content: []
+      };
+
+      saveCache({
+        ...existingCache,
+        siteConfig: freshSiteConfig,
+        liveStats: freshLiveStats
+      });
+    } catch (err) {
+      console.error("[FirestoreProvider] Error fetching config only:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     // Optimization #4: Avoid redundant execution on re-mounts
     if (hasFetchedRef.current) return;
     hasFetchedRef.current = true;
-    fetchAll();
+
+    const isWatchPage = window.location.pathname.startsWith('/watch/');
+    if (isWatchPage) {
+      console.log("[FirestoreProvider] Initial mount on Watch page. Loading config only.");
+      fetchConfigOnly();
+    } else {
+      console.log("[FirestoreProvider] Initial mount on standard page. Loading full fetchAll.");
+      fetchAll();
+    }
   }, []);
 
   const updateSiteConfigState = (config: SiteConfig) => setSiteConfig(config);
@@ -412,6 +490,7 @@ export function FirestoreProvider({ children }: { children: React.ReactNode }) {
       countries,
       navigation,
       loading,
+      isDataLoaded,
       refetchAll: () => fetchAll(true),
       updateSiteConfigState,
       updateVideoPromoState,
@@ -431,5 +510,14 @@ export function useFirestoreCache() {
   if (context === undefined) {
     throw new Error('useFirestoreCache must be used within a FirestoreProvider');
   }
+
+  useEffect(() => {
+    const isWatchPage = window.location.pathname.startsWith('/watch/');
+    if (!isWatchPage && !context.isDataLoaded && !context.loading) {
+      console.log("[useFirestoreCache] Non-watch page requires full data. Triggering fetchAll...");
+      context.refetchAll();
+    }
+  }, [context.isDataLoaded, context.loading, context.refetchAll]);
+
   return context;
 }

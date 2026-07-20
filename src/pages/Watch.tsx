@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { db, handleFirestoreError, OperationType, getDoc, doc, updateDoc, increment, arrayUnion, arrayRemove, setDoc, deleteDoc, useRenderProfiler } from '../lib/firebase';
+import { db, handleFirestoreError, OperationType, getDoc, doc, updateDoc, increment, arrayUnion, arrayRemove, setDoc, deleteDoc, useRenderProfiler, getDocs, collection, query, where, limit } from '../lib/firebase';
 import { SportsContent } from '../types';
 import { FALLBACK_SPORTS_CONTENT } from '../lib/fallbackData';
 import { useAuth } from '../hooks/useAuth';
@@ -68,7 +68,7 @@ export default function Watch() {
   const { id } = useParams<{ id: string }>();
   useRenderProfiler('Watch', { id });
   const { profile, isAdmin, loading: authLoading, user } = useAuth();
-  const { content: cachedContent, loading: cacheLoading } = useFirestoreCache();
+  const { content: cachedContent } = useFirestoreCache();
   const [content, setContent] = useState<SportsContent | null>(null);
   const [sections, setSections] = useState<{ [key: string]: SportsContent[] }>({});
   const [loading, setLoading] = useState(true);
@@ -215,9 +215,6 @@ export default function Watch() {
         setSections(grouped);
 
         // Increment standard view count if not a live stream or actively broadcasting!
-        // FIX: guarded with a ref and session/sessionStorage tracking so this only fires ONCE per video id per session,
-        // instead of every time this effect re-runs (e.g. cachedContent array identity
-        // changing after an unrelated admin edit, or React StrictMode's dev double-invoke).
         if (
           cachedItem.type !== 'live' &&
           cachedItem.status !== 'live' &&
@@ -230,27 +227,87 @@ export default function Watch() {
             viewCount: increment(1)
           }).catch(err => console.error('Failed to update views', err));
         }
-      } else if (!cacheLoading) {
-        // Document doesn't exist in DB - load from fallback
-        const fallbackItem = FALLBACK_SPORTS_CONTENT.find(item => item.id === id);
-        if (fallbackItem) {
-          setContent(fallbackItem);
-          
-          const related = FALLBACK_SPORTS_CONTENT
-            .filter(item => item.category === fallbackItem.category && item.id !== id);
-          
-          const grouped: { [key: string]: SportsContent[] } = {};
-          related.forEach(item => {
-            const tag = item.tags?.[0] || 'More Feed';
-            if (!grouped[tag]) grouped[tag] = [];
-            grouped[tag].push(item);
+      } else {
+        // Optimization: Lightweight targeted fetch specifically for the watch page
+        setLoading(true);
+        const docRef = doc(db, 'content', id);
+        getDoc(docRef, { component: 'Watch', file: 'Watch.tsx', reason: 'Fetch single video by ID on direct landing' })
+          .then(async (docSnap) => {
+            if (docSnap.exists()) {
+              const videoData = { id: docSnap.id, ...docSnap.data() } as SportsContent;
+              setContent(videoData);
+
+              // Increment standard view count
+              if (
+                videoData.type !== 'live' &&
+                videoData.status !== 'live' &&
+                viewCountTrackedRef.current !== id &&
+                !isStandardViewTracked(id)
+              ) {
+                viewCountTrackedRef.current = id;
+                markStandardViewTracked(id);
+                updateDoc(docRef, {
+                  viewCount: increment(1)
+                }).catch(err => console.error('Failed to update views', err));
+              }
+
+              // Fetch related content of same category only (capped with limit(10) to avoid pulling full db)
+              try {
+                const relatedQuery = query(
+                  collection(db, 'content'),
+                  where('category', '==', videoData.category),
+                  limit(10)
+                );
+                const relatedSnap = await getDocs(relatedQuery);
+                const relatedItems = relatedSnap.docs
+                  .map(d => ({ id: d.id, ...d.data() } as SportsContent))
+                  .filter(item => item.id !== id);
+
+                const grouped: { [key: string]: SportsContent[] } = {};
+                relatedItems.forEach(item => {
+                  const tag = item.tags?.[0] || 'More Feed';
+                  if (!grouped[tag]) grouped[tag] = [];
+                  grouped[tag].push(item);
+                });
+                setSections(grouped);
+              } catch (err) {
+                console.warn("[Watch] Error fetching related content:", err);
+              }
+            } else {
+              // Try fallback data
+              const fallbackItem = FALLBACK_SPORTS_CONTENT.find(item => item.id === id);
+              if (fallbackItem) {
+                setContent(fallbackItem);
+                
+                const related = FALLBACK_SPORTS_CONTENT
+                  .filter(item => item.category === fallbackItem.category && item.id !== id);
+                
+                const grouped: { [key: string]: SportsContent[] } = {};
+                related.forEach(item => {
+                  const tag = item.tags?.[0] || 'More Feed';
+                  if (!grouped[tag]) grouped[tag] = [];
+                  grouped[tag].push(item);
+                });
+                setSections(grouped);
+              } else {
+                setContent(null);
+              }
+            }
+          })
+          .catch((err) => {
+            console.error("[Watch] Error fetching single video doc:", err);
+            // Fallback to static item if network is offline / denied
+            const fallbackItem = FALLBACK_SPORTS_CONTENT.find(item => item.id === id);
+            if (fallbackItem) {
+              setContent(fallbackItem);
+            }
+          })
+          .finally(() => {
+            setLoading(false);
           });
-          setSections(grouped);
-        }
-        setLoading(false);
       }
     }
-  }, [id, cachedContent, cacheLoading]);
+  }, [id, cachedContent]);
 
   // Unique Live View Count Tracker (1 unique count per user, even if they refresh / watch 10 times)
   useEffect(() => {

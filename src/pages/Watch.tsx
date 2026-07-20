@@ -14,6 +14,56 @@ import { useFirestoreCache } from '../context/FirestoreContext';
 
 import LoadingScreen from '../components/LoadingScreen';
 
+// Session-level persistent track to prevent repeated updates in the same browser session (even across component remounts)
+const sessionViewedVideos = new Set<string>();
+const sessionUniqueLiveViewedVideos = new Set<string>();
+
+const isStandardViewTracked = (videoId: string): boolean => {
+  if (sessionViewedVideos.has(videoId)) return true;
+  try {
+    const tracked = sessionStorage.getItem(`sportsbox_view_tracked_${videoId}`);
+    if (tracked === 'true') {
+      sessionViewedVideos.add(videoId);
+      return true;
+    }
+  } catch (e) {
+    // Fail-safe for environments with disabled sessionStorage
+  }
+  return false;
+};
+
+const markStandardViewTracked = (videoId: string) => {
+  sessionViewedVideos.add(videoId);
+  try {
+    sessionStorage.setItem(`sportsbox_view_tracked_${videoId}`, 'true');
+  } catch (e) {
+    // Fail-safe
+  }
+};
+
+const isUniqueLiveViewTracked = (videoId: string): boolean => {
+  if (sessionUniqueLiveViewedVideos.has(videoId)) return true;
+  try {
+    const tracked = sessionStorage.getItem(`sportsbox_unique_live_tracked_${videoId}`);
+    if (tracked === 'true') {
+      sessionUniqueLiveViewedVideos.add(videoId);
+      return true;
+    }
+  } catch (e) {
+    // Fail-safe
+  }
+  return false;
+};
+
+const markUniqueLiveViewTracked = (videoId: string) => {
+  sessionUniqueLiveViewedVideos.add(videoId);
+  try {
+    sessionStorage.setItem(`sportsbox_unique_live_tracked_${videoId}`, 'true');
+  } catch (e) {
+    // Fail-safe
+  }
+};
+
 export default function Watch() {
   const { id } = useParams<{ id: string }>();
   useRenderProfiler('Watch', { id });
@@ -42,8 +92,16 @@ export default function Watch() {
   // Every viewer does exactly ONE +1 write on join and ONE -1 write on
   // leave — cost per viewer is constant (O(1)) no matter how many other
   // people are watching at the same time.
+  // FIX (duplicate writes): Guarded with content state loaded and status validation
+  // so we ONLY run presence tracking on actual live content. This prevents standard videos
+  // from performing liveViewerCount writes and eliminates double-writes on mount.
   useEffect(() => {
-    if (!id) return;
+    if (!id || !content) return;
+
+    // Only track presence for active live streams!
+    if (content.status !== 'live' && content.type !== 'live') {
+      return;
+    }
 
     let hasIncremented = false;
     let hasDecremented = false;
@@ -67,8 +125,7 @@ export default function Watch() {
 
     // Seed the displayed count from the already-cached content doc
     // (no extra read needed — FirestoreContext already fetched it).
-    const cachedItem = cachedContent.find(item => item.id === id);
-    const seedCount = (cachedItem as any)?.liveViewerCount;
+    const seedCount = (content as any)?.liveViewerCount;
     setSpectatorsCount(typeof seedCount === 'number' && seedCount > 0 ? seedCount : Math.floor(Math.random() * 80) + 120);
 
     joinAsViewer();
@@ -92,7 +149,7 @@ export default function Watch() {
       window.removeEventListener('pagehide', leaveAsViewer);
       leaveAsViewer();
     };
-  }, [id]);
+  }, [id, content?.id, content?.status, content?.type]);
 
   const watchLaterSerialized = profile?.watchLater?.join(',');
   useEffect(() => {
@@ -158,15 +215,17 @@ export default function Watch() {
         setSections(grouped);
 
         // Increment standard view count if not a live stream or actively broadcasting!
-        // FIX: guarded with a ref so this only fires ONCE per video id per session,
+        // FIX: guarded with a ref and session/sessionStorage tracking so this only fires ONCE per video id per session,
         // instead of every time this effect re-runs (e.g. cachedContent array identity
         // changing after an unrelated admin edit, or React StrictMode's dev double-invoke).
         if (
           cachedItem.type !== 'live' &&
           cachedItem.status !== 'live' &&
-          viewCountTrackedRef.current !== id
+          viewCountTrackedRef.current !== id &&
+          !isStandardViewTracked(id)
         ) {
           viewCountTrackedRef.current = id;
+          markStandardViewTracked(id);
           updateDoc(doc(db, 'content', id), {
             viewCount: increment(1)
           }).catch(err => console.error('Failed to update views', err));
@@ -200,6 +259,11 @@ export default function Watch() {
       return;
     }
 
+    if (isUniqueLiveViewTracked(id)) {
+      console.log("[UniqueView] Unique live view already tracked in this session. Skipping.");
+      return;
+    }
+
     const trackUniqueView = async () => {
       let viewerId = user?.uid;
       if (!viewerId) {
@@ -223,15 +287,18 @@ export default function Watch() {
 
       if (trackedVideos.includes(id)) {
         console.log("[UniqueView] Already tracked locally in this browser. Skipping Firestore check completely!");
+        markUniqueLiveViewTracked(id);
         return;
       }
 
       const sessionKey = `${id}_${viewerId}`;
       if (uniqueViewTrackedRef.current === sessionKey) {
         console.log("[UniqueView] Dynamic key already tracked for session:", sessionKey);
+        markUniqueLiveViewTracked(id);
         return;
       }
       uniqueViewTrackedRef.current = sessionKey;
+      markUniqueLiveViewTracked(id);
 
       console.log("[UniqueView] Resolving unique live registration for viewer ID:", viewerId);
 
@@ -243,6 +310,7 @@ export default function Watch() {
       } catch (err) {
         console.error("[UniqueView] Error getting unique view:", err);
         uniqueViewTrackedRef.current = null;
+        // Do not unmark unique live view tracked on failure to avoid looping queries under connection error
         handleFirestoreError(err, OperationType.GET, `content/${id}/unique_views/${viewerId}`);
         return;
       }
@@ -270,7 +338,6 @@ export default function Watch() {
           });
         } catch (err) {
           console.error("[UniqueView] Error setting unique view doc:", err);
-          uniqueViewTrackedRef.current = null;
           handleFirestoreError(err, OperationType.WRITE, `content/${id}/unique_views/${viewerId}`);
           return;
         }
@@ -281,7 +348,6 @@ export default function Watch() {
           });
         } catch (err) {
           console.error("[UniqueView] Error incrementing unique views count:", err);
-          uniqueViewTrackedRef.current = null;
           handleFirestoreError(err, OperationType.UPDATE, `content/${id}`);
           return;
         }

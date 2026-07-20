@@ -93,9 +93,7 @@ let inMemoryCache: CacheData | null = null;
 function loadCache(): CacheData | null {
   if (inMemoryCache) {
     // Optimization #5: DEV LOGGING
-    if (import.meta.env.DEV) {
-      console.log("[Firestore Cache] Served successfully from in-memory cache (Same Session).");
-    }
+    console.log("[Firestore Cache] Served successfully from in-memory cache (Same Session).");
     return inMemoryCache;
   }
 
@@ -105,9 +103,7 @@ function loadCache(): CacheData | null {
       const parsed = JSON.parse(serialized);
       if (parsed && typeof parsed === 'object' && parsed.timestamp) {
         inMemoryCache = parsed as CacheData;
-        if (import.meta.env.DEV) {
-          console.log("[Firestore Cache] Served successfully from localStorage cache (Page Refresh).");
-        }
+        console.log("[Firestore Cache] Served successfully from localStorage cache (Page Refresh).");
         return inMemoryCache;
       }
     }
@@ -126,9 +122,7 @@ function saveCache(data: Omit<CacheData, 'timestamp'>) {
   inMemoryCache = cacheWithTime;
   try {
     localStorage.setItem(CACHE_KEY, JSON.stringify(cacheWithTime));
-    if (import.meta.env.DEV) {
-      console.log("[Firestore Cache] Cache successfully saved locally.");
-    }
+    console.log("[Firestore Cache] Cache successfully saved locally.");
   } catch (err) {
     console.warn("[Firestore Cache] Error saving cache to localStorage:", err);
   }
@@ -174,17 +168,13 @@ export function FirestoreProvider({ children }: { children: React.ReactNode }) {
     // If data is already in state and cache is still valid, completely short-circuit to avoid any DB calls.
     // ==========================================
     if (isDataLoaded && !force && hasValidCache) {
-      if (import.meta.env.DEV) {
-        console.log("[FirestoreProvider] fetchAll call short-circuited. App has valid cached data.");
-      }
+      console.log("[FirestoreProvider] fetchAll call short-circuited. App has valid cached data.");
       return;
     }
 
     // If cache is present (even if expired/stale), load it immediately to keep UI instantaneous
     if (cached && !isDataLoaded) {
-      if (import.meta.env.DEV) {
-        console.log("[FirestoreProvider] Instantly populating UI from local cache (Stale-While-Revalidate).");
-      }
+      console.log("[FirestoreProvider] Instantly populating UI from local cache (Stale-While-Revalidate).");
       setSiteConfig(cached.siteConfig);
       setVideoPromo(cached.videoPromo);
       setLiveStats(cached.liveStats);
@@ -204,9 +194,7 @@ export function FirestoreProvider({ children }: { children: React.ReactNode }) {
 
       // If the cache is valid and not forced, we do not need to fetch from Firestore again
       if (hasValidCache && !force) {
-        if (import.meta.env.DEV) {
-          console.log("[FirestoreProvider] Cache is valid and fresh. Short-circuiting network request.");
-        }
+        console.log("[FirestoreProvider] Cache is valid and fresh. Short-circuiting network request.");
         return;
       }
     }
@@ -214,12 +202,10 @@ export function FirestoreProvider({ children }: { children: React.ReactNode }) {
     setLoading(true);
     const start = Date.now();
     
-    if (import.meta.env.DEV) {
-      if (cached && !hasValidCache) {
-        console.log("[FirestoreProvider] Cache is expired. Revalidating in background from Firestore...");
-      } else {
-        console.log("[FirestoreProvider] Starting fresh Firestore collection network fetch...");
-      }
+    if (cached && !hasValidCache) {
+      console.log("[FirestoreProvider] Cache is expired. Revalidating in background from Firestore...");
+    } else {
+      console.log("[FirestoreProvider] Starting fresh Firestore collection network fetch...");
     }
 
     const promise = (async () => {
@@ -259,17 +245,13 @@ export function FirestoreProvider({ children }: { children: React.ReactNode }) {
         let freshLiveStats: { totalViews?: number; liveCount?: number } = FALLBACK_LIVE_STATS;
 
         // Optimization #5: DEV LOGGING
-        if (import.meta.env.DEV) {
-          console.log("[FirestoreProvider] Received responses from Firestore server / offline IndexedDB cache.");
-        }
+        console.log("[FirestoreProvider] Received responses from Firestore server / offline IndexedDB cache.");
 
         // 1. Content
         if (contentSnapResult.status === 'fulfilled' && !contentSnapResult.value.empty) {
           freshContent = contentSnapResult.value.docs.map(d => ({ id: d.id, ...d.data() } as SportsContent));
           setContent(freshContent);
-          if (import.meta.env.DEV) {
-            console.log(`[FirestoreProvider] Optimization #1 - Loaded ${freshContent.length} content items (Capped at 100).`);
-          }
+          console.log(`[FirestoreProvider] Optimization #1 - Loaded ${freshContent.length} content items (Capped at 100).`);
         } else {
           if (contentSnapResult.status === 'rejected') {
             console.warn("[FirestoreProvider] Content query failed, using fallbacks:", contentSnapResult.reason);
@@ -282,9 +264,7 @@ export function FirestoreProvider({ children }: { children: React.ReactNode }) {
           freshSections = sectionsSnapResult.value.docs.map(d => ({ id: d.id, ...d.data() } as ContentSection));
           freshSections.sort((a, b) => (a.order || 0) - (b.order || 0));
           setSections(freshSections);
-          if (import.meta.env.DEV) {
-            console.log(`[FirestoreProvider] Optimization #1 - Loaded ${freshSections.length} sections (Capped at 20).`);
-          }
+          console.log(`[FirestoreProvider] Optimization #1 - Loaded ${freshSections.length} sections (Capped at 20).`);
         } else {
           if (sectionsSnapResult.status === 'rejected') {
             console.warn("[FirestoreProvider] Sections query failed, using fallbacks:", sectionsSnapResult.reason);
@@ -297,9 +277,7 @@ export function FirestoreProvider({ children }: { children: React.ReactNode }) {
           freshSlider = sliderSnapResult.value.docs.map(d => ({ id: d.id, ...d.data() } as SliderElement));
           freshSlider.sort((a, b) => (a.order || 0) - (b.order || 0));
           setSlider(freshSlider);
-          if (import.meta.env.DEV) {
-            console.log(`[FirestoreProvider] Optimization #1 - Loaded ${freshSlider.length} slides (Capped at 10).`);
-          }
+          console.log(`[FirestoreProvider] Optimization #1 - Loaded ${freshSlider.length} slides (Capped at 10).`);
         } else {
           if (sliderSnapResult.status === 'rejected') {
             console.warn("[FirestoreProvider] Slider query failed, using fallbacks:", sliderSnapResult.reason);
@@ -312,9 +290,7 @@ export function FirestoreProvider({ children }: { children: React.ReactNode }) {
           freshPlans = plansSnapResult.value.docs.map(d => ({ id: d.id, ...d.data() } as SubscriptionPlan));
           freshPlans.sort((a, b) => (a.order || 0) - (b.order || 0));
           setPlans(freshPlans);
-          if (import.meta.env.DEV) {
-            console.log(`[FirestoreProvider] Optimization #1 - Loaded ${freshPlans.length} subscription plans (Capped at 10).`);
-          }
+          console.log(`[FirestoreProvider] Optimization #1 - Loaded ${freshPlans.length} subscription plans (Capped at 10).`);
         } else {
           if (plansSnapResult.status === 'rejected') {
             console.warn("[FirestoreProvider] Plans query failed, using fallbacks:", plansSnapResult.reason);
@@ -399,9 +375,7 @@ export function FirestoreProvider({ children }: { children: React.ReactNode }) {
       } finally {
         setLoading(false);
         fetchAllPromiseRef.current = null;
-        if (import.meta.env.DEV) {
-          console.log(`[FirestoreProvider] Pre-fetch finalized. Net time: ${Date.now() - start}ms`);
-        }
+        console.log(`[FirestoreProvider] Pre-fetch finalized. Net time: ${Date.now() - start}ms`);
       }
     })();
 

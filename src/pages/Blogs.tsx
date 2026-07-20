@@ -51,6 +51,7 @@ export default function Blogs() {
     setLoading(true);
     const q = query(collection(db, 'blogs'));
     
+    console.log('[UNLIMITED FETCH]', 'blogs', new Date().toISOString());
     getDocs(q, { component: 'Blogs', file: 'Blogs.tsx', reason: 'Fetch articles and blogs for reading dashboard' })
       .then((snapshot) => {
         if (!isMounted) return;

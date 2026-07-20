@@ -230,6 +230,8 @@ if (typeof window !== 'undefined') {
   (window as any).__firestore_active_listeners = (window as any).__firestore_active_listeners || {};
   (window as any).__firestore_listeners_history = (window as any).__firestore_listeners_history || [];
   (window as any).__firestore_renders = (window as any).__firestore_renders || {};
+  (window as any).__onSnapshotLog = (window as any).__onSnapshotLog || [];
+  (window as any).__firestoreCallLog = (window as any).__firestoreCallLog || [];
   
   // Monkeypatch routing history to record route transitions for navigation timeline tracking
   if (!(window as any).__firestore_route_patched) {
@@ -448,6 +450,21 @@ export function onSnapshot(ref: any, ...args: any[]) {
   console.log(`%c[onSnapshot INVOCATION] Called on path: "${path}" by function "${caller.functionName}" in ${caller.fileName}.`, 'color: #ff9900; font-weight: bold; font-size: 11px;');
   console.log('Caller Stack:', caller.stack);
   console.trace(`[onSnapshot trace for path: ${path}]`);
+
+  if (typeof window !== 'undefined') {
+    (window as any).__onSnapshotLog.push({
+      id: listenerId,
+      timestamp: new Date().toISOString(),
+      msSinceStartup: Date.now() - APP_START_TIME,
+      path,
+      caller,
+      stack: caller.stack,
+      route: window.location.pathname,
+      url: window.location.href,
+      argsCount: args.length
+    });
+  }
+
   const startTime = Date.now();
   const startMs = startTime - APP_START_TIME;
   
@@ -531,6 +548,17 @@ export function onSnapshot(ref: any, ...args: any[]) {
     console.log(`[Firestore Profiler] Unsubscribed listener ${listenerId} on path ${path}. Lifetime: ${listenerInfo.lifetime}ms`);
     unsub();
   };
+}
+
+function detectTrigger(stack: string): 'mount' | 'interval' | 'unknown' {
+  const lowercaseStack = stack.toLowerCase();
+  if (lowercaseStack.includes('setinterval') || lowercaseStack.includes('settimeout') || lowercaseStack.includes('tick') || lowercaseStack.includes('poll')) {
+    return 'interval';
+  }
+  if (lowercaseStack.includes('useeffect') || lowercaseStack.includes('componentdidmount') || lowercaseStack.includes('onmount')) {
+    return 'mount';
+  }
+  return 'unknown';
 }
 
 interface CacheOptions {
@@ -684,6 +712,18 @@ export async function getDoc(
 
   if (typeof window !== 'undefined') {
     (window as any).__firestore_reads_log.push(readLog);
+    (window as any).__firestoreCallLog.push({
+      type: 'getDoc',
+      path,
+      timestamp: readLog.timestamp,
+      msSinceStartup: startMs,
+      trigger: detectTrigger(caller.stack),
+      isCacheHit,
+      caller,
+      stack: caller.stack,
+      route: readLog.route,
+      url: readLog.url
+    });
   }
 
   return snapshot;
@@ -846,6 +886,18 @@ export async function getDocs(
 
   if (typeof window !== 'undefined') {
     (window as any).__firestore_reads_log.push(readLog);
+    (window as any).__firestoreCallLog.push({
+      type: 'getDocs',
+      path: path || key,
+      timestamp: readLog.timestamp,
+      msSinceStartup: startMs,
+      trigger: detectTrigger(caller.stack),
+      isCacheHit,
+      caller,
+      stack: caller.stack,
+      route: readLog.route,
+      url: readLog.url
+    });
   }
 
   return snapshot;

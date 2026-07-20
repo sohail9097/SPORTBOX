@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { db, handleFirestoreError, OperationType, auth, isDbOffline, forceGoOnline, clearOfflineCache, withTimeout, getDoc, getDocs, collection, addDoc, deleteDoc, doc, updateDoc, query, orderBy, setDoc, onSnapshot, useRenderProfiler } from '../lib/firebase';
+import { db, handleFirestoreError, OperationType, auth, isDbOffline, forceGoOnline, clearOfflineCache, withTimeout, getDoc, getDocs, collection, addDoc, deleteDoc, doc, updateDoc, query, orderBy, limit, setDoc, onSnapshot, useRenderProfiler } from '../lib/firebase';
 import { SportsContent, Category, ContentType, ContentSection, SliderElement, VideoPromoSettings, SiteConfig, SubscriptionPlan, BlogPost } from '../types';
 import { Plus, Trash2, Edit2, Play, LayoutDashboard, Film, Users, Settings, Save, X, Eye, Radio, Crown, Layers, MoveUp, MoveDown, CheckSquare, Square, Image as ImageIcon, Upload, Library, ShieldCheck, ShieldAlert, Zap, Percent, Trophy, ChevronRight, Activity, Heart, Dribbble, CircleDot, Target, Disc, Flag, Gamepad2, Folder, ChevronLeft, BookOpen, Scissors, Waves, Flame, Compass, Award, Sparkles, Wand2, Clock, BarChart2, RefreshCw } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -373,32 +373,28 @@ export default function Admin() {
   const [isUpdatingPremium, setIsUpdatingPremium] = useState(false);
 
   const makeAllContentPremium = async () => {
-    if (!confirm("This will find all existing content in your database library and convert them to PREMIUM. Are you sure you want to proceed?")) return;
+    if (!confirm("This will find all loaded content in your library and convert them to PREMIUM. Are you sure you want to proceed?")) return;
     setIsUpdatingPremium(true);
-    const tId = toast.loading("Converting all library content to Premium status...");
+    const tId = toast.loading("Converting loaded library content to Premium status...");
     try {
-      const q = query(collection(db, 'content'));
-      const querySnapshot = await getDocs(q);
-      const docs = querySnapshot.docs;
-      
-      if (docs.length === 0) {
-        toast.success("No content found in the database to convert.", { id: tId });
+      if (content.length === 0) {
+        toast.success("No content loaded in the dashboard to convert.", { id: tId });
         return;
       }
 
       let updatedCount = 0;
-      await Promise.all(docs.map(async (docSnap) => {
+      await Promise.all(content.map(async (item) => {
         try {
-          const docRef = doc(db, 'content', docSnap.id);
+          const docRef = doc(db, 'content', item.id);
           await updateDoc(docRef, { isPremium: true });
           updatedCount++;
         } catch (err) {
-          console.error("Failed to update doc:", docSnap.id, err);
+          console.error("Failed to update doc:", item.id, err);
         }
       }));
 
       toast.success(`Successfully converted ${updatedCount} content item(s) to Premium!`, { id: tId });
-      await fetchContent();
+      setContent(prev => prev.map(item => ({ ...item, isPremium: true })));
     } catch (err: any) {
       console.error(err);
       toast.error("Failed to convert library to premium: " + err.message, { id: tId });
@@ -614,6 +610,7 @@ export default function Admin() {
 
   const fetchMedalists = async () => {
     try {
+      console.log('[UNLIMITED FETCH]', 'olympic_medalists', new Date().toISOString());
       const snap = await getDocs(collection(db, 'olympic_medalists'), { component: 'Admin', file: 'Admin.tsx', reason: 'Load Olympic athlete roster' });
       if (!snap.empty) {
         const list = snap.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as IndianMedalist));
@@ -706,19 +703,16 @@ export default function Admin() {
   }, [isAdmin, activeTab]);
 
   const resetAllViews = async () => {
-    if (!confirm("Are you sure you want to reset all impressions to zero? This will clear all view data from every media item in the database.")) return;
+    if (!confirm("Are you sure you want to reset all impressions to zero? This will clear all view data from loaded media items in the database.")) return;
     
     setIsResetting(true);
     try {
-      const q = query(collection(db, 'content'));
-      const querySnapshot = await getDocs(q);
-      
-      const promises = querySnapshot.docs.map(docSnap => 
-        updateDoc(doc(db, 'content', docSnap.id), { viewCount: 0 })
+      const promises = content.map(item => 
+        updateDoc(doc(db, 'content', item.id), { viewCount: 0 })
       );
       
       await Promise.all(promises);
-      await fetchContent();
+      setContent(prev => prev.map(item => ({ ...item, viewCount: 0 })));
       toast.success("All impressions have been reset to zero successfully!");
     } catch (error) {
       console.error(error);
@@ -879,6 +873,7 @@ export default function Admin() {
   const loadAllLibraryVideos = async () => {
     setLoadingVideos(true);
     try {
+      console.log('[UNLIMITED FETCH]', 'library', new Date().toISOString());
       const q = query(collection(db, 'library'), orderBy('createdAt', 'desc'));
       const snap = await getDocs(q);
       const items = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -897,6 +892,7 @@ export default function Admin() {
 
   const fetchMediaItems = async () => {
     try {
+      console.log('[UNLIMITED FETCH]', 'library', new Date().toISOString());
       const q = query(
         collection(db, 'library'), 
         orderBy('createdAt', 'desc')
@@ -917,6 +913,7 @@ export default function Admin() {
 
   const fetchFolders = async () => {
     try {
+      console.log('[UNLIMITED FETCH]', 'library_folders', new Date().toISOString());
       const q = query(collection(db, 'library_folders'), orderBy('createdAt', 'asc'));
       const snap = await getDocs(q);
       const folderList = snap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -1229,7 +1226,8 @@ export default function Admin() {
   const fetchContent = async () => {
     setLoading(true);
     try {
-      const q = query(collection(db, 'content'));
+      console.log('[SAFE LIMIT FETCH]', 'content', new Date().toISOString());
+      const q = query(collection(db, 'content'), limit(100));
       const querySnapshot = await getDocs(q);
       const items = querySnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as SportsContent));
       // Sort in-memory to prevent missing index errors and missing field exclusions
@@ -1249,6 +1247,7 @@ export default function Admin() {
   const fetchBlogs = async () => {
     setBlogsLoading(true);
     try {
+      console.log('[UNLIMITED FETCH]', 'blogs', new Date().toISOString());
       const q = query(collection(db, 'blogs'));
       const snap = await getDocs(q);
       const items = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as BlogPost));
@@ -1413,6 +1412,7 @@ export default function Admin() {
 
   const fetchSections = async () => {
     try {
+      console.log('[UNLIMITED FETCH]', 'sections', new Date().toISOString());
       const q = query(collection(db, 'sections'), orderBy('order', 'asc'));
       const querySnapshot = await getDocs(q);
       const items = querySnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as ContentSection));
@@ -1424,6 +1424,7 @@ export default function Admin() {
 
   const fetchSlider = async () => {
     try {
+      console.log('[UNLIMITED FETCH]', 'slider', new Date().toISOString());
       const q = query(collection(db, 'slider'), orderBy('order', 'asc'));
       const querySnapshot = await getDocs(q);
       const items = querySnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as SliderElement));
@@ -1444,6 +1445,8 @@ export default function Admin() {
       if (editingId) {
         const docRef = doc(db, 'content', editingId);
         await updateDoc(docRef, finalForm);
+        const updatedItem = { ...finalForm, id: editingId } as SportsContent;
+        setContent(prev => prev.map(item => item.id === editingId ? updatedItem : item));
       } else {
         const payload = {
           ...finalForm,
@@ -1451,12 +1454,21 @@ export default function Admin() {
           viewCount: 0,
           uniqueViewsCount: 0
         };
-        await addDoc(collection(db, 'content'), payload);
+        const docRef = await addDoc(collection(db, 'content'), payload);
+        const newItem = { ...payload, id: docRef.id } as SportsContent;
+        setContent(prev => {
+          const newList = [newItem, ...prev];
+          newList.sort((a, b) => {
+            const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+            const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+            return dateB - dateA;
+          });
+          return newList;
+        });
     }
     toast.success("Content saved successfully!");
     // setIsAdding(false); // USER REQUEST: Keep modal open for next content
     setEditingId(null);
-    fetchContent();
     // Reset form for next entry
     setForm({ 
       title: '', 
@@ -1922,7 +1934,7 @@ export default function Admin() {
                       const url = "https://drive.google.com/file/d/1JcLejOC3-fSHWhGThh5xUISMrJAFdMdH/view?usp=drive_link";
                       const transformed = transformGDriveUrl(url, 'video');
                       try {
-                        await addDoc(collection(db, 'content'), {
+                        const payload = {
                           title: 'test1234',
                           description: 'User requested test video from Google Drive.',
                           category: 'football',
@@ -1934,9 +1946,11 @@ export default function Admin() {
                           createdAt: new Date().toISOString(),
                           viewCount: 0,
                           uniqueViewsCount: 0
-                        });
+                        };
+                        const docRef = await addDoc(collection(db, 'content'), payload);
                         toast.success("Video 'test1234' added successfully to Football!");
-                        fetchContent();
+                        const newItem = { ...payload, id: docRef.id } as SportsContent;
+                        setContent(prev => [newItem, ...prev]);
                       } catch (err) {
                         toast.error("Error adding video. Check console.");
                       }
@@ -2437,7 +2451,7 @@ export default function Admin() {
                         try {
                           const docRef = doc(db, 'content', streamItem.id);
                           await updateDoc(docRef, { status: 'ended' });
-                          await fetchContent();
+                          setContent(prev => prev.map(item => item.id === streamItem.id ? { ...item, status: 'ended' } : item));
                           toast.success("Stream ended successfully.");
                         } catch (err) {
                           console.error(err);
@@ -2455,7 +2469,7 @@ export default function Admin() {
                             updates.uniqueViewsCount = 0;
                           }
                           await updateDoc(docRef, updates);
-                          await fetchContent();
+                          setContent(prev => prev.map(item => item.id === streamItem.id ? { ...item, ...updates } : item));
                           toast.success("Stream is now LIVE!");
                         } catch (err) {
                           console.error(err);
@@ -3113,20 +3127,18 @@ export default function Admin() {
                     if (window.confirm('Are you sure you want to reset ALL likes and liker data for all content? This cannot be undone.')) {
                       setLikesLoading(true);
                       try {
-                        const contentSnap = await getDocs(collection(db, 'content'));
-                        for (const contentDoc of contentSnap.docs) {
+                        for (const contentItem of content) {
                           // Reset counter
-                          await updateDoc(doc(db, 'content', contentDoc.id), { likes: 0 });
+                          await updateDoc(doc(db, 'content', contentItem.id), { likes: 0 });
                           
                           // Optional: Clear subcollection (Note: This only deletes the first 500 to stay safe)
-                          const likesSnap = await getDocs(collection(db, 'content', contentDoc.id, 'likes'));
+                          const likesSnap = await getDocs(collection(db, 'content', contentItem.id, 'likes'));
                           for (const likeDoc of likesSnap.docs) {
-                            await deleteDoc(doc(db, 'content', contentDoc.id, 'likes', likeDoc.id));
+                            await deleteDoc(doc(db, 'content', contentItem.id, 'likes', likeDoc.id));
                           }
                         }
-                        // Refresh content list to show 0 likes
-                        const updatedContentSnap = await getDocs(collection(db, 'content'));
-                        setContent(updatedContentSnap.docs.map(d => ({ id: d.id, ...d.data() } as SportsContent)));
+                        // Update local state directly to show 0 likes without refetching
+                        setContent(prev => prev.map(item => ({ ...item, likes: 0 })));
                         toast.success('All likes have been reset to zero.');
                       } catch (err) {
                         console.error(err);

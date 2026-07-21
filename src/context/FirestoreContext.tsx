@@ -1,6 +1,6 @@
 /// <reference types="vite/client" />
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
-import { db, getDoc, getDocs, doc, collection, query, orderBy, limit } from '../lib/firebase';
+import { db, getDoc, getDocs, doc, collection, query, orderBy, limit, where } from '../lib/firebase';
 import { SiteConfig, ContentSection, SliderElement, SubscriptionPlan, SportsContent, VideoPromoSettings } from '../types';
 import { FALLBACK_SITE_CONFIG, FALLBACK_SECTIONS, FALLBACK_SLIDER_ITEMS, FALLBACK_SPORTS_CONTENT, FALLBACK_PROMO, FALLBACK_LIVE_STATS } from '../lib/fallbackData';
 
@@ -230,7 +230,7 @@ export function FirestoreProvider({ children }: { children: React.ReactNode }) {
           liveStatsResult
         ] = await Promise.allSettled([
           getDocs(query(collection(db, 'content'), limit(25))),
-          getDocs(query(collection(db, 'sections'), limit(20))),
+          getDocs(query(collection(db, 'sections'), where('isActive', '==', true), limit(20))),
           getDocs(query(collection(db, 'slider'), limit(10))),
           getDocs(query(collection(db, 'subscription_plans'), limit(10))),
           getDoc(doc(db, 'settings', 'siteConfig')),

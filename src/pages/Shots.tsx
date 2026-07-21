@@ -2,7 +2,7 @@ import { useEffect, useState, useRef, useMemo } from 'react';
 import { SportsContent } from '../types';
 import { useAuth } from '../hooks/useAuth';
 import { useFirestoreCache } from '../context/FirestoreContext';
-import { useRenderProfiler } from '../lib/firebase';
+import { useRenderProfiler, db, getDocs, collection, query, where, limit } from '../lib/firebase';
 import { 
   Heart, Share2, Volume2, VolumeX, Play, Pause, 
   ChevronUp, ChevronDown, Award, Send, MessageCircle, X, Compass
@@ -39,10 +39,39 @@ const getCommentAvatar = (username: string) => {
 export default function Shots() {
   useRenderProfiler('Shots');
   const { user } = useAuth();
-  const { content: cachedContent, loading } = useFirestoreCache();
+  const { content: cachedContent, loading: cacheLoading } = useFirestoreCache();
+  const [dbContent, setDbContent] = useState<SportsContent[] | null>(null);
+  const [loadingDb, setLoadingDb] = useState(false);
+
+  useEffect(() => {
+    setLoadingDb(true);
+    const q = query(
+      collection(db, 'content'),
+      where('type', '==', 'short'),
+      limit(30)
+    );
+
+    getDocs(q)
+      .then((snap) => {
+        const items = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as SportsContent));
+        setDbContent(items);
+      })
+      .catch((err) => {
+        console.error('[Shots] Failed to fetch shorts from Firestore:', err);
+        setDbContent(null);
+      })
+      .finally(() => {
+        setLoadingDb(false);
+      });
+  }, []);
+
+  const loading = cacheLoading || loadingDb;
   
   const shorts = useMemo(() => {
-    let items = cachedContent.filter(item => item.type === 'short');
+    let items = dbContent !== null 
+      ? dbContent 
+      : cachedContent.filter(item => item.type === 'short');
+      
     if (items.length === 0) {
       items = MOCK_SHORTS;
     } else {
@@ -53,7 +82,7 @@ export default function Shots() {
       });
     }
     return items;
-  }, [cachedContent]);
+  }, [cachedContent, dbContent]);
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isMuted, setIsMuted] = useState(false);

@@ -216,7 +216,7 @@ export function FirestoreProvider({ children }: { children: React.ReactNode }) {
         // OPTIMIZATION #1: QUERY LIMITS
         // Cap queries with limit() to fetch only the documents actually needed.
         // slider -> limit(10) (HeroSlider carousel only renders up to 10 active slides)
-        // content -> limit(100) (Covers dynamic sections, search page and category views without fetching entire DB)
+        // content -> limit(25) (Capped at 25 for fast initial homepage paint, other views decoupled)
         // sections -> limit(20) (Limits content section configurations)
         // subscription_plans -> limit(10) (Limits plans rendered on pricing grids)
         // ==========================================
@@ -229,7 +229,7 @@ export function FirestoreProvider({ children }: { children: React.ReactNode }) {
           videoPromoResult,
           liveStatsResult
         ] = await Promise.allSettled([
-          getDocs(query(collection(db, 'content'), limit(100))),
+          getDocs(query(collection(db, 'content'), limit(25))),
           getDocs(query(collection(db, 'sections'), limit(20))),
           getDocs(query(collection(db, 'slider'), limit(10))),
           getDocs(query(collection(db, 'subscription_plans'), limit(10))),
@@ -253,7 +253,7 @@ export function FirestoreProvider({ children }: { children: React.ReactNode }) {
         if (contentSnapResult.status === 'fulfilled' && !contentSnapResult.value.empty) {
           freshContent = contentSnapResult.value.docs.map(d => ({ id: d.id, ...d.data() } as SportsContent));
           setContent(freshContent);
-          console.log(`[FirestoreProvider] Optimization #1 - Loaded ${freshContent.length} content items (Capped at 100).`);
+          console.log(`[FirestoreProvider] Optimization #1 - Loaded ${freshContent.length} content items (Capped at 25).`);
         } else {
           if (contentSnapResult.status === 'rejected') {
             console.warn("[FirestoreProvider] Content query failed, using fallbacks:", contentSnapResult.reason);

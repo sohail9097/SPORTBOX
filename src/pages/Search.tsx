@@ -5,12 +5,34 @@ import ContentCard from '../components/ContentCard';
 import LoadingScreen from '../components/LoadingScreen';
 import { cn } from '../lib/utils';
 import { useFirestoreCache } from '../context/FirestoreContext';
+import { db, getDocs, collection, query, limit } from '../lib/firebase';
 
 export default function Search() {
-  const { content: allContent, loading } = useFirestoreCache();
+  const { content: cachedContent, loading: cacheLoading } = useFirestoreCache();
+  const [dbContent, setDbContent] = useState<SportsContent[] | null>(null);
+  const [loadingDb, setLoadingDb] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [results, setResults] = useState<SportsContent[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+
+  useEffect(() => {
+    setLoadingDb(true);
+    getDocs(query(collection(db, 'content'), limit(100)))
+      .then((snap) => {
+        const items = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as SportsContent));
+        setDbContent(items);
+      })
+      .catch((err) => {
+        console.error('[Search] Failed to fetch search content from Firestore:', err);
+        setDbContent(null);
+      })
+      .finally(() => {
+        setLoadingDb(false);
+      });
+  }, []);
+
+  const allContent = dbContent !== null ? dbContent : cachedContent;
+  const loading = cacheLoading || loadingDb;
 
   useEffect(() => {
     const filterResults = () => {

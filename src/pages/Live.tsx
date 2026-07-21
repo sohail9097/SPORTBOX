@@ -7,17 +7,44 @@ import { cn, getVideoAutoThumbnail } from '../lib/utils';
 import { toast } from 'sonner';
 import { useAuth } from '../hooks/useAuth';
 import { useFirestoreCache } from '../context/FirestoreContext';
+import { db, getDocs, collection, query, where, limit } from '../lib/firebase';
 
 export default function Live() {
   const { profile, isAdmin } = useAuth();
   const isSubscribed = isAdmin || (profile && profile.subscriptionTier !== 'free' && profile.subscriptionStatus === 'active');
 
-  const { content: cachedContent, loading } = useFirestoreCache();
+  const { content: cachedContent, loading: cacheLoading } = useFirestoreCache();
+  const [dbContent, setDbContent] = useState<SportsContent[] | null>(null);
+  const [loadingDb, setLoadingDb] = useState(false);
   const [activeBannerIndex, setActiveBannerIndex] = useState(0);
   const [reminders, setReminders] = useState<{ [id: string]: boolean }>({});
 
   const [bannerMatchData, setBannerMatchData] = useState<SportsContent | null>(null);
   const [bannerImageSrc, setBannerImageSrc] = useState<string>('');
+
+  useEffect(() => {
+    setLoadingDb(true);
+    const q = query(
+      collection(db, 'content'),
+      where('type', '==', 'live'),
+      limit(30)
+    );
+
+    getDocs(q)
+      .then((snap) => {
+        const items = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as SportsContent));
+        setDbContent(items);
+      })
+      .catch((err) => {
+        console.error('[Live] Failed to fetch live content from Firestore:', err);
+        setDbContent(null);
+      })
+      .finally(() => {
+        setLoadingDb(false);
+      });
+  }, []);
+
+  const loading = cacheLoading || loadingDb;
 
   useEffect(() => {
     // Sync reminders from localStorage
@@ -50,10 +77,11 @@ export default function Live() {
   };
 
   const content = useMemo(() => {
-    return cachedContent
-      .filter(item => item.type === 'live')
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  }, [cachedContent]);
+    const items = dbContent !== null 
+      ? dbContent 
+      : cachedContent.filter(item => item.type === 'live');
+    return items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }, [cachedContent, dbContent]);
 
   const liveMatches = useMemo(() => {
     return content.filter(item => item.status === 'live');

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { db, handleFirestoreError, OperationType, getDocs, collection, query, where, addDoc, deleteDoc, doc, updateDoc, setDoc, useRenderProfiler } from '../lib/firebase';
+import { db, handleFirestoreError, OperationType, getDocs, collection, query, where, addDoc, deleteDoc, doc, updateDoc, setDoc, useRenderProfiler, limit } from '../lib/firebase';
 import { SportsContent } from '../types';
 import { FALLBACK_SPORTS_CONTENT } from '../lib/fallbackData';
 import { 
@@ -1022,17 +1022,35 @@ export default function Olympics() {
   useRenderProfiler('Olympics', { activeTab });
   
   const { content: cachedContent } = useFirestoreCache();
+  const [dbVideos, setDbVideos] = useState<SportsContent[] | null>(null);
+
+  useEffect(() => {
+    const q = query(
+      collection(db, 'content'),
+      where('category', '==', 'olympics'),
+      limit(30)
+    );
+    getDocs(q)
+      .then((snap) => {
+        const items = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as SportsContent));
+        setDbVideos(items);
+      })
+      .catch((err) => {
+        console.error('[Olympics] Failed to fetch Olympic videos:', err);
+        setDbVideos(null);
+      });
+  }, []);
   
   // Custom added and Firestore pooled Olympic videos
   const [customVideos, setCustomVideos] = useState<CustomOlympicVideo[]>([]);
   
   const firestoreVideos = useMemo(() => {
-    const list = cachedContent.filter(item => item.category === 'olympics');
+    const list = dbVideos !== null ? dbVideos : cachedContent.filter(item => item.category === 'olympics');
     if (list.length === 0) {
       return FALLBACK_SPORTS_CONTENT.filter(item => item.category === 'olympics');
     }
     return list;
-  }, [cachedContent]);
+  }, [cachedContent, dbVideos]);
 
   const [selectedVideo, setSelectedVideo] = useState<any>(null);
   

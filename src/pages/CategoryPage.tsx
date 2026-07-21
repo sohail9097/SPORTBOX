@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { SportsContent, Category } from '../types';
 import ContentCard from '../components/ContentCard';
@@ -8,6 +8,7 @@ import { motion } from 'motion/react';
 import { Trophy, Activity, Play, ChevronRight } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useFirestoreCache } from '../context/FirestoreContext';
+import { db, getDocs, collection, query, where, limit } from '../lib/firebase';
 
 const CategoryLabelMap: Record<string, { label: string, color: string, bg: string }> = {
   football: { label: 'FB', color: 'text-[#00ff88]', bg: 'bg-[#00ff88]/10 border-[#00ff88]/20' },
@@ -23,17 +24,47 @@ const CategoryLabelMap: Record<string, { label: string, color: string, bg: strin
 
 export default function CategoryPage() {
   const { category } = useParams<{ category: string }>();
-  const { content: cachedContent, loading } = useFirestoreCache();
+  const { content: cachedContent, loading: cacheLoading } = useFirestoreCache();
+  const [dbContent, setDbContent] = useState<SportsContent[] | null>(null);
+  const [loadingDb, setLoadingDb] = useState(false);
+
+  useEffect(() => {
+    if (!category) return;
+    
+    setLoadingDb(true);
+    const q = query(
+      collection(db, 'content'),
+      where('category', '==', category),
+      limit(30)
+    );
+
+    getDocs(q)
+      .then((snap) => {
+        const items = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as SportsContent));
+        setDbContent(items);
+      })
+      .catch((err) => {
+        console.error('[CategoryPage] Failed to fetch category content from Firestore:', err);
+        setDbContent(null);
+      })
+      .finally(() => {
+        setLoadingDb(false);
+      });
+  }, [category]);
 
   const content = useMemo(() => {
     if (!category) return [];
-    const items = cachedContent.filter(item => item.category === category);
+    const items = dbContent !== null 
+      ? dbContent 
+      : cachedContent.filter(item => item.category === category);
     return [...items].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  }, [cachedContent, category]);
+  }, [cachedContent, category, dbContent]);
 
   const liveNow = useMemo(() => {
     return content.filter(item => item.status === 'live').slice(0, 4);
   }, [content]);
+
+  const loading = cacheLoading || loadingDb;
 
   const categoryKey = category?.toLowerCase() || '';
   const categoryName = category ? category.charAt(0).toUpperCase() + category.slice(1) : 'Sports';

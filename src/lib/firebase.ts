@@ -232,6 +232,57 @@ if (typeof window !== 'undefined') {
   (window as any).__firestore_renders = (window as any).__firestore_renders || {};
   (window as any).__onSnapshotLog = (window as any).__onSnapshotLog || [];
   (window as any).__firestoreCallLog = (window as any).__firestoreCallLog || [];
+
+  // Persistent Read Audit Log Setup
+  try {
+    const savedReads = localStorage.getItem('firestore_read_audit');
+    if (savedReads) {
+      (window as any).__firestoreReadLog = JSON.parse(savedReads);
+    }
+  } catch (_) {}
+  (window as any).__firestoreReadLog = (window as any).__firestoreReadLog || [];
+
+  (window as any).showFirestoreReadLog = function() {
+    try {
+      let logs: any[] = [];
+      const saved = localStorage.getItem('firestore_read_audit');
+      if (saved) {
+        try {
+          logs = JSON.parse(saved);
+        } catch (_) {}
+      }
+      if (!Array.isArray(logs) || logs.length === 0) {
+        console.log("%c[Firestore Read Audit] No read logs found in local storage.", "color: #ff9900; font-weight: bold;");
+        return;
+      }
+
+      const oneHourAgo = Date.now() - 60 * 60 * 1000;
+      const recentLogs = logs
+        .filter(log => new Date(log.timestamp).getTime() >= oneHourAgo)
+        .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+      if (recentLogs.length === 0) {
+        console.log("%c[Firestore Read Audit] No read logs found in the last hour.", "color: #ff9900; font-weight: bold;");
+        console.log(`Total logs stored across all time (capped at 500): ${logs.length}`);
+        return;
+      }
+
+      console.log(`%c[Firestore Read Audit] Displaying ${recentLogs.length} read operations from the last hour (Sorted old to new)`, "color: #00ff88; font-weight: bold; font-size: 13px;");
+      console.table(recentLogs.map((log, idx) => ({
+        '#': idx + 1,
+        'Time': new Date(log.timestamp).toLocaleTimeString(),
+        'Type': log.type,
+        'Path/Col': log.path,
+        'Docs': log.docsReturned,
+        'Cache': log.cacheStatus,
+        'Route': log.route,
+        'Tab': log.visibilityState,
+        'Triggered By': log.triggeredBy
+      })));
+    } catch (err) {
+      console.error('[Firestore Read Audit] Error running showFirestoreReadLog:', err);
+    }
+  };
   
   // Monkeypatch routing history to record route transitions for navigation timeline tracking
   if (!(window as any).__firestore_route_patched) {
@@ -409,6 +460,62 @@ function logOperation(
   // High-visibility separate log for mutations
   if (['setDoc', 'updateDoc', 'addDoc', 'deleteDoc'].includes(operation)) {
     console.log(`%c[Firestore Mutation Warning] ${operation.toUpperCase()} on "${path}" | Triggered by user: ${userStr} | Caller: ${caller.functionName} (${caller.fileName})`, 'color: #ff6600; font-weight: bold; font-size: 11px;');
+  }
+}
+
+export function recordReadAuditEntry(
+  type: 'getDoc' | 'getDocs',
+  path: string,
+  docsReturned: number,
+  cacheStatus: 'HIT' | 'MISS',
+  caller: any
+) {
+  if (typeof window === 'undefined') return;
+
+  try {
+    const entry = {
+      timestamp: new Date().toISOString(),
+      type,
+      path,
+      docsReturned,
+      triggeredBy: `${caller.fileName || 'Unknown File'} -> ${caller.functionName || 'Anonymous'}`,
+      cacheStatus,
+      route: window.location.pathname,
+      url: window.location.href,
+      visibilityState: document.visibilityState || 'unknown'
+    };
+
+    // Maintain in-memory log
+    if (!(window as any).__firestoreReadLog) {
+      (window as any).__firestoreReadLog = [];
+    }
+    (window as any).__firestoreReadLog.push(entry);
+
+    if ((window as any).__firestoreReadLog.length > 500) {
+      (window as any).__firestoreReadLog.shift();
+    }
+
+    // Persist to localStorage
+    let persisted: any[] = [];
+    try {
+      const saved = localStorage.getItem('firestore_read_audit');
+      if (saved) {
+        persisted = JSON.parse(saved);
+        if (!Array.isArray(persisted)) persisted = [];
+      }
+    } catch (_) {}
+
+    persisted.push(entry);
+
+    if (persisted.length > 500) {
+      persisted = persisted.slice(persisted.length - 500);
+    }
+
+    try {
+      localStorage.setItem('firestore_read_audit', JSON.stringify(persisted));
+    } catch (_) {}
+  } catch (err) {
+    console.error('[Firestore Audit Error] Failed to persist read entry:', err);
   }
 }
 
@@ -743,6 +850,7 @@ export async function getDoc(
       route: readLog.route,
       url: readLog.url
     });
+    recordReadAuditEntry('getDoc', path, snapshot?.exists() ? 1 : 0, isCacheHit ? 'HIT' : 'MISS', caller);
   }
 
   return snapshot;
@@ -917,6 +1025,7 @@ export async function getDocs(
       route: readLog.route,
       url: readLog.url
     });
+    recordReadAuditEntry('getDocs', path || key, snapshot?.size || 0, isCacheHit ? 'HIT' : 'MISS', caller);
   }
 
   return snapshot;

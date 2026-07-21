@@ -6,6 +6,7 @@ import { Layers, Trophy } from 'lucide-react';
 import { cn } from '../lib/utils';
 import AutoScrollingRow from './AutoScrollingRow';
 import { useFirestoreCache } from '../context/FirestoreContext';
+import { db, getDoc, doc } from '../lib/firebase';
 
 interface DynamicSectionsProps {
   page: 'home' | Category;
@@ -30,10 +31,37 @@ export default function DynamicSections({ page }: DynamicSectionsProps) {
       return;
     }
 
-    const fetchContentForSections = (list: ContentSection[]) => {
+    const fetchContentForSections = async (list: ContentSection[]) => {
       const data: Record<string, SportsContent[]> = {};
-      
       const contentMap = new Map(cachedContent.map(item => [item.id, item]));
+
+      // Identify any missing document IDs across all sections
+      const missingIdsSet = new Set<string>();
+      list.forEach(section => {
+        (section.contentIds || []).forEach(id => {
+          if (!contentMap.has(id)) {
+            missingIdsSet.add(id);
+          }
+        });
+      });
+
+      const missingIds = Array.from(missingIdsSet);
+      if (missingIds.length > 0) {
+        try {
+          console.log(`[DynamicSections] Fetching ${missingIds.length} missing content items from Firestore:`, missingIds);
+          const snaps = await Promise.all(
+            missingIds.map(id => getDoc(doc(db, 'content', id)).catch(() => null))
+          );
+          snaps.forEach(snap => {
+            if (snap && snap.exists()) {
+              const item = { id: snap.id, ...snap.data() } as SportsContent;
+              contentMap.set(item.id, item);
+            }
+          });
+        } catch (err) {
+          console.error('[DynamicSections] Failed to fetch missing section content:', err);
+        }
+      }
 
       // Map data for each section
       list.forEach(section => {

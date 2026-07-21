@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { SportsContent } from '../types';
 import { Search as SearchIcon, Filter, X, Loader2 } from 'lucide-react';
 import ContentCard from '../components/ContentCard';
@@ -12,10 +12,22 @@ export default function Search() {
   const [dbContent, setDbContent] = useState<SportsContent[] | null>(null);
   const [loadingDb, setLoadingDb] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [results, setResults] = useState<SportsContent[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const fetchedRef = useRef(false);
 
   useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [searchTerm]);
+
+  useEffect(() => {
+    if (fetchedRef.current) return;
+    fetchedRef.current = true;
+
     setLoadingDb(true);
     getDocs(query(collection(db, 'content'), limit(100)))
       .then((snap) => {
@@ -24,6 +36,7 @@ export default function Search() {
       })
       .catch((err) => {
         console.error('[Search] Failed to fetch search content from Firestore:', err);
+        fetchedRef.current = false;
         setDbContent(null);
       })
       .finally(() => {
@@ -38,8 +51,8 @@ export default function Search() {
     const filterResults = () => {
       let filtered = allContent;
 
-      if (searchTerm.trim() !== '') {
-        const lowerTerm = searchTerm.toLowerCase();
+      if (debouncedSearchTerm.trim() !== '') {
+        const lowerTerm = debouncedSearchTerm.toLowerCase();
         filtered = filtered.filter(item => 
           item.title.toLowerCase().includes(lowerTerm) || 
           item.description.toLowerCase().includes(lowerTerm) ||
@@ -56,7 +69,7 @@ export default function Search() {
     };
 
     filterResults();
-  }, [searchTerm, selectedCategory, allContent]);
+  }, [debouncedSearchTerm, selectedCategory, allContent]);
 
   const categories = ['all', 'football', 'cricket', 'wrestling', 'boxing', 'kabaddi', 'watersports', 'stunts', 'polo', 'olympics', 'others'];
 

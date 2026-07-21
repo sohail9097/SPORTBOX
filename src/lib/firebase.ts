@@ -87,6 +87,118 @@ const DEFAULT_TTL = 300000;
 // Track total real reads in the current browser/server session for safety limits
 let sessionNetworkReads = 0;
 
+// --- CLIENT-SIDE RATE LIMITING (CIRCUIT BREAKER) ---
+interface ReadEvent {
+  timestamp: number;
+  count: number;
+}
+const recentReadEvents: ReadEvent[] = [];
+let throttleEndTime = 0;
+
+export function isThrottled(): boolean {
+  return Date.now() < throttleEndTime;
+}
+
+export function registerRealReads(count: number) {
+  const now = Date.now();
+  if (count > 0) {
+    recentReadEvents.push({ timestamp: now, count });
+  }
+  
+  // Clean up events older than 60 seconds
+  const cutoff = now - 60000;
+  while (recentReadEvents.length > 0 && recentReadEvents[0].timestamp < cutoff) {
+    recentReadEvents.shift();
+  }
+  
+  const totalRecentReads = recentReadEvents.reduce((sum, e) => sum + e.count, 0);
+  if (totalRecentReads > 100 && now >= throttleEndTime) {
+    throttleEndTime = now + 30000; // Throttle for the next 30 seconds
+    console.error(`[RATE LIMIT] Session exceeded 100 reads/min, throttling. Current rolling reads in last 60s: ${totalRecentReads}`);
+  }
+}
+
+function checkThrottleAndGetStaleCache(path: string, isDoc: boolean, docRef?: any, key?: string): { isThrottled: boolean; cachedSnap?: any } {
+  const now = Date.now();
+  
+  // Clean up events older than 60 seconds
+  const cutoff = now - 60000;
+  while (recentReadEvents.length > 0 && recentReadEvents[0].timestamp < cutoff) {
+    recentReadEvents.shift();
+  }
+  
+  const totalRecentReads = recentReadEvents.reduce((sum, e) => sum + e.count, 0);
+  
+  let throttled = now < throttleEndTime;
+  if (!throttled && totalRecentReads >= 100) {
+    throttleEndTime = now + 30000; // Throttle for the next 30 seconds
+    throttled = true;
+    console.error(`[RATE LIMIT] Session exceeded 100 reads/min, throttling. Current rolling reads in last 60s: ${totalRecentReads}`);
+  }
+  
+  if (throttled) {
+    // Attempt to retrieve stale cache even if expired
+    if (isDoc) {
+      // Check memory cache
+      const cached = getDocCache.get(path);
+      if (cached) {
+        console.warn(`[RATE LIMIT] Throttling active. Served STALE memory cache for: ${path}`);
+        return { isThrottled: true, cachedSnap: cached.snapshot };
+      }
+      // Check localStorage cache
+      try {
+        const localCachedStr = typeof window !== 'undefined' ? localStorage.getItem(`sportsbox_doc_cache_${path}`) : null;
+        if (localCachedStr) {
+          const localCached = JSON.parse(localCachedStr);
+          const mockSnap = {
+            exists: () => localCached.exists,
+            data: () => localCached.data,
+            id: localCached.id || path.split('/').pop() || '',
+            ref: docRef,
+            metadata: { fromCache: true }
+          } as any;
+          console.warn(`[RATE LIMIT] Throttling active. Served STALE localStorage cache for: ${path}`);
+          return { isThrottled: true, cachedSnap: mockSnap };
+        }
+      } catch (_) {}
+    } else if (key) {
+      // Check memory cache
+      const cached = getDocsCache.get(key);
+      if (cached) {
+        console.warn(`[RATE LIMIT] Throttling active. Served STALE memory query cache for: ${path}`);
+        return { isThrottled: true, cachedSnap: cached.snapshot };
+      }
+      // Check localStorage cache
+      try {
+        const localCachedStr = typeof window !== 'undefined' ? localStorage.getItem(`sportsbox_query_cache_${key}`) : null;
+        if (localCachedStr) {
+          const localCached = JSON.parse(localCachedStr);
+          const mockDocs = (localCached.docs || []).map((d: any) => ({
+            id: d.id,
+            exists: () => true,
+            data: () => d.data,
+            ref: { path: `${path}/${d.id}` } as any,
+            metadata: { fromCache: true }
+          }));
+          const mockSnap = {
+            empty: localCached.empty,
+            size: localCached.size,
+            docs: mockDocs,
+            metadata: { fromCache: true },
+            forEach: (callback: any) => mockDocs.forEach(callback)
+          } as any;
+          console.warn(`[RATE LIMIT] Throttling active. Served STALE localStorage query cache for: ${path}`);
+          return { isThrottled: true, cachedSnap: mockSnap };
+        }
+      } catch (_) {}
+    }
+    
+    return { isThrottled: true, cachedSnap: null };
+  }
+  
+  return { isThrottled: false };
+}
+
 function extractPathFromFirestoreRef(ref: any): string {
   if (!ref) return 'unknown';
   
@@ -563,11 +675,10 @@ export async function deleteDoc(ref: any) {
 let listenerSeq = 0;
 export function onSnapshot(ref: any, ...args: any[]) {
   const path = getPath(ref);
-  const currentRealReads = (typeof window !== 'undefined' && (window as any).__firestore_counters?.realReads) || sessionNetworkReads;
-  if (currentRealReads >= 50) {
-    console.error(`[Firestore Safety Block] BLOCKED onSnapshot registration on path: ${path} (Session real reads: ${currentRealReads})`);
+  if (isThrottled()) {
+    console.error(`[RATE LIMIT] Throttling active. BLOCKED onSnapshot registration on path: ${path}`);
     return () => {
-      console.log(`[Firestore Safety Block] Mock unsubscribed for blocked onSnapshot on path: ${path}`);
+      console.log(`[RATE LIMIT] Mock unsubscribed for blocked onSnapshot on path: ${path}`);
     };
   }
 
@@ -627,6 +738,10 @@ export function onSnapshot(ref: any, ...args: any[]) {
     // Log each snapshot trigger as a Firestore read event
     const docCount = snapshot ? (snapshot.docs ? snapshot.docs.length : (snapshot.exists && snapshot.exists() ? 1 : 0)) : 0;
     const isCache = snapshot?.metadata?.fromCache ?? false;
+    
+    if (!isCache && docCount > 0) {
+      registerRealReads(docCount);
+    }
     
     const readLog = {
       id: `read_onSnapshot_${listenerId}_snap_${listenerInfo.snapshotsCount}`,
@@ -769,12 +884,20 @@ export async function getDoc(
   if (isCacheHit) {
     snapshot = cachedSnapshot;
   } else {
-    // Check safety limit before contacting the server
-    const currentRealReads = (typeof window !== 'undefined' && (window as any).__firestore_counters?.realReads) || sessionNetworkReads;
-    if (currentRealReads >= 50) {
-      const errMsg = `[Firestore Safety Block] Session real read limit (50) exceeded! Blocked getDoc on: ${path} (Session real reads: ${currentRealReads})`;
-      console.error(errMsg);
-      throw new Error(errMsg);
+    // 1. Check client-side rate limiting (circuit breaker)
+    const throttleCheck = checkThrottleAndGetStaleCache(path, true, docRef);
+    if (throttleCheck.isThrottled) {
+      if (throttleCheck.cachedSnap) {
+        return throttleCheck.cachedSnap;
+      }
+      console.warn(`[RATE LIMIT] Throttling active. No cache available for: ${path}. Returning fallback empty document.`);
+      return {
+        exists: () => false,
+        data: () => null,
+        id: docRef.id,
+        ref: docRef,
+        metadata: { fromCache: true }
+      } as any;
     }
 
     // Check if there is an in-flight promise for this exact path to prevent parallel stampedes
@@ -783,6 +906,9 @@ export async function getDoc(
       incrementCounter('getDoc', true);
       sessionNetworkReads++;
       inFlight = firestoreGetDoc(docRef).then((snap) => {
+        // Register the real read
+        registerRealReads(snap.exists() ? 1 : 0);
+
         // Store in memory cache
         getDocCache.set(path, { snapshot: snap, timestamp: Date.now() });
         
@@ -940,12 +1066,20 @@ export async function getDocs(
   if (isCacheHit) {
     snapshot = cachedSnapshot;
   } else {
-    // Check safety limit before contacting the server
-    const currentRealReads = (typeof window !== 'undefined' && (window as any).__firestore_counters?.realReads) || sessionNetworkReads;
-    if (currentRealReads >= 50) {
-      const errMsg = `[Firestore Safety Block] Session real read limit (50) exceeded! Blocked getDocs on collection: ${collectionName} (Session real reads: ${currentRealReads})`;
-      console.error(errMsg);
-      throw new Error(errMsg);
+    // 1. Check client-side rate limiting (circuit breaker)
+    const throttleCheck = checkThrottleAndGetStaleCache(path, false, undefined, key);
+    if (throttleCheck.isThrottled) {
+      if (throttleCheck.cachedSnap) {
+        return throttleCheck.cachedSnap;
+      }
+      console.warn(`[RATE LIMIT] Throttling active. No cache available for query: ${key}. Returning fallback empty collection.`);
+      return {
+        empty: true,
+        size: 0,
+        docs: [],
+        metadata: { fromCache: true },
+        forEach: (callback: any) => {}
+      } as any;
     }
 
     // Check if there is an in-flight promise for this exact query key to prevent parallel stampedes
@@ -954,6 +1088,9 @@ export async function getDocs(
       incrementCounter('getDocs', true);
       sessionNetworkReads++;
       inFlight = firestoreGetDocs(q).then((snap) => {
+        // Register the real reads
+        registerRealReads(Math.max(1, snap.size));
+
         // Store in memory cache
         getDocsCache.set(key, { snapshot: snap, timestamp: Date.now() });
         

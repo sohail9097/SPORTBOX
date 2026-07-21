@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { SportsContent, Category } from '../types';
 import ContentCard from '../components/ContentCard';
@@ -27,10 +27,18 @@ export default function CategoryPage() {
   const { content: cachedContent, loading: cacheLoading } = useFirestoreCache();
   const [dbContent, setDbContent] = useState<SportsContent[] | null>(null);
   const [loadingDb, setLoadingDb] = useState(false);
+  const fetchingCategoryRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!category) return;
     
+    // Prevent overlapping duplicate fetches for the same category
+    if (fetchingCategoryRef.current === category) {
+      return;
+    }
+    fetchingCategoryRef.current = category;
+    
+    let active = true;
     setLoadingDb(true);
     const q = query(
       collection(db, 'content'),
@@ -40,16 +48,25 @@ export default function CategoryPage() {
 
     getDocs(q)
       .then((snap) => {
+        if (!active) return;
         const items = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as SportsContent));
         setDbContent(items);
       })
       .catch((err) => {
+        if (!active) return;
         console.error('[CategoryPage] Failed to fetch category content from Firestore:', err);
+        fetchingCategoryRef.current = null;
         setDbContent(null);
       })
       .finally(() => {
-        setLoadingDb(false);
+        if (active) {
+          setLoadingDb(false);
+        }
       });
+
+    return () => {
+      active = false;
+    };
   }, [category]);
 
   const content = useMemo(() => {

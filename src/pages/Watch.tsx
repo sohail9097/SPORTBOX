@@ -77,6 +77,7 @@ export default function Watch() {
   const nativeVideoRef = useRef<HTMLVideoElement | null>(null);
   const uniqueViewTrackedRef = useRef<string | null>(null);
   const viewCountTrackedRef = useRef<string | null>(null);
+  const fetchedIdRef = useRef<string | null>(null);
 
   const [hasLiked, setHasLiked] = useState(false);
   const [spectatorsCount, setSpectatorsCount] = useState<number>(0);
@@ -194,6 +195,11 @@ export default function Watch() {
 
   useEffect(() => {
     if (id) {
+      if (fetchedIdRef.current === id) {
+        return;
+      }
+      fetchedIdRef.current = id;
+      
       window.scrollTo(0, 0);
       setIsPlaying(false);
       
@@ -296,6 +302,7 @@ export default function Watch() {
           })
           .catch((err) => {
             console.error("[Watch] Error fetching single video doc:", err);
+            fetchedIdRef.current = null;
             // Fallback to static item if network is offline / denied
             const fallbackItem = FALLBACK_SPORTS_CONTENT.find(item => item.id === id);
             if (fallbackItem) {

@@ -368,6 +368,18 @@ function incrementCounter(
   }
 }
 
+function getCurrentUserLogString() {
+  try {
+    const user = auth.currentUser;
+    if (user) {
+      return `UID: "${user.uid}" | Email: "${user.email || 'No Email'}" | Name: "${user.displayName || 'No Name'}"`;
+    }
+    return "ANONYMOUS / UNAUTHENTICATED";
+  } catch (err) {
+    return `ERROR RETRIEVING AUTH STATE: ${err instanceof Error ? err.message : String(err)}`;
+  }
+}
+
 function logOperation(
   operation: string,
   path: string,
@@ -376,13 +388,15 @@ function logOperation(
   caller: ReturnType<typeof getCallerDetails>
 ) {
   const timestamp = new Date().toISOString();
+  const userStr = getCurrentUserLogString();
   const title = `[Firestore Audit] ${operation.toUpperCase()} - ${isCacheHit ? 'CACHE HIT' : isRealDbCall ? 'REAL DB CALL' : 'WRAPPER CALL'}`;
   const color = isCacheHit ? 'color: #4caf50; font-weight: bold;' : isRealDbCall ? 'color: #ff3333; font-weight: bold;' : 'color: #2196f3; font-weight: bold;';
   
-  console.groupCollapsed(`%c${title} on path: ${path}`, color);
+  console.groupCollapsed(`%c${title} on path: ${path} | User: ${userStr}`, color);
   console.log(`%cTimestamp: %c${timestamp}`, 'color: #888;', 'color: #fff;');
   console.log(`%cOperation: %c${operation}`, 'color: #888;', 'color: #fff; font-weight: bold;');
   console.log(`%cPath: %c${path}`, 'color: #888;', 'color: #00ffff; font-weight: bold;');
+  console.log(`%cAuthenticated User: %c${userStr}`, 'color: #888;', 'color: #ffd700; font-weight: bold;');
   console.log(`%cCaller File: %c${caller.fileName}`, 'color: #888;', 'color: #fff; font-weight: bold;');
   console.log(`%cCaller Function: %c${caller.functionName}`, 'color: #888;', 'color: #fff;');
   if (typeof window !== 'undefined' && (window as any).__firestore_counters) {
@@ -391,6 +405,11 @@ function logOperation(
   console.log(`%cStack Trace:`, 'color: #888;');
   console.log(caller.stack);
   console.groupEnd();
+
+  // High-visibility separate log for mutations
+  if (['setDoc', 'updateDoc', 'addDoc', 'deleteDoc'].includes(operation)) {
+    console.log(`%c[Firestore Mutation Warning] ${operation.toUpperCase()} on "${path}" | Triggered by user: ${userStr} | Caller: ${caller.functionName} (${caller.fileName})`, 'color: #ff6600; font-weight: bold; font-size: 11px;');
+  }
 }
 
 // Wrapped Mutation Operations to automatically handle Smart Cache Invalidation

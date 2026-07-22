@@ -118,22 +118,31 @@ export function registerRealReads(count: number) {
   }
 }
 
-function checkThrottleAndGetStaleCache(path: string, isDoc: boolean, docRef?: any, key?: string): { isThrottled: boolean; cachedSnap?: any } {
+function checkThrottleAndGetStaleCache(
+  path: string, 
+  isDoc: boolean, 
+  estimatedCount: number, 
+  docRef?: any, 
+  key?: string
+): { isThrottled: boolean; cachedSnap?: any } {
   const now = Date.now();
+  const windowStart = now - 60000;
   
   // Clean up events older than 60 seconds
-  const cutoff = now - 60000;
-  while (recentReadEvents.length > 0 && recentReadEvents[0].timestamp < cutoff) {
+  while (recentReadEvents.length > 0 && recentReadEvents[0].timestamp < windowStart) {
     recentReadEvents.shift();
   }
   
-  const totalRecentReads = recentReadEvents.reduce((sum, e) => sum + e.count, 0);
+  const currentCount = recentReadEvents.reduce((sum, e) => sum + e.count, 0);
   
+  // Required log format for user verification:
+  console.log('[RATE LIMIT CHECK]', 'current count:', currentCount, 'window:', `${new Date(windowStart).toLocaleTimeString()} - ${new Date(now).toLocaleTimeString()}`, 'path:', path);
+
   let throttled = now < throttleEndTime;
-  if (!throttled && totalRecentReads >= 100) {
+  if (!throttled && (currentCount + estimatedCount) > 100) {
     throttleEndTime = now + 30000; // Throttle for the next 30 seconds
     throttled = true;
-    console.error(`[RATE LIMIT] Session exceeded 100 reads/min, throttling. Current rolling reads in last 60s: ${totalRecentReads}`);
+    console.error(`[RATE LIMIT] Session exceeded 100 reads/min threshold (${currentCount} + ${estimatedCount} > 100), throttling. Current rolling reads in last 60s: ${currentCount}`);
   }
   
   if (throttled) {
@@ -194,6 +203,11 @@ function checkThrottleAndGetStaleCache(path: string, isDoc: boolean, docRef?: an
     }
     
     return { isThrottled: true, cachedSnap: null };
+  }
+
+  // Optimistically reserve estimated reads in rolling window BEFORE dispatching network call
+  if (estimatedCount > 0) {
+    recentReadEvents.push({ timestamp: now, count: estimatedCount });
   }
   
   return { isThrottled: false };
@@ -675,7 +689,8 @@ export async function deleteDoc(ref: any) {
 let listenerSeq = 0;
 export function onSnapshot(ref: any, ...args: any[]) {
   const path = getPath(ref);
-  if (isThrottled()) {
+  const throttleCheck = checkThrottleAndGetStaleCache(path, true, 1, ref);
+  if (throttleCheck.isThrottled) {
     console.error(`[RATE LIMIT] Throttling active. BLOCKED onSnapshot registration on path: ${path}`);
     return () => {
       console.log(`[RATE LIMIT] Mock unsubscribed for blocked onSnapshot on path: ${path}`);
@@ -885,7 +900,7 @@ export async function getDoc(
     snapshot = cachedSnapshot;
   } else {
     // 1. Check client-side rate limiting (circuit breaker)
-    const throttleCheck = checkThrottleAndGetStaleCache(path, true, docRef);
+    const throttleCheck = checkThrottleAndGetStaleCache(path, true, 1, docRef);
     if (throttleCheck.isThrottled) {
       if (throttleCheck.cachedSnap) {
         return throttleCheck.cachedSnap;
@@ -1067,7 +1082,7 @@ export async function getDocs(
     snapshot = cachedSnapshot;
   } else {
     // 1. Check client-side rate limiting (circuit breaker)
-    const throttleCheck = checkThrottleAndGetStaleCache(path, false, undefined, key);
+    const throttleCheck = checkThrottleAndGetStaleCache(path, false, 20, undefined, key);
     if (throttleCheck.isThrottled) {
       if (throttleCheck.cachedSnap) {
         return throttleCheck.cachedSnap;

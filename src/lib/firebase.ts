@@ -93,6 +93,7 @@ interface ReadEvent {
   count: number;
 }
 const recentReadEvents: ReadEvent[] = [];
+let pendingEstimatedReads = 0;
 let throttleEndTime = 0;
 
 export function isThrottled(): boolean {
@@ -112,9 +113,9 @@ export function registerRealReads(count: number) {
   }
   
   const totalRecentReads = recentReadEvents.reduce((sum, e) => sum + e.count, 0);
-  if (totalRecentReads > 100 && now >= throttleEndTime) {
+  if (totalRecentReads > 150 && now >= throttleEndTime) {
     throttleEndTime = now + 30000; // Throttle for the next 30 seconds
-    console.error(`[RATE LIMIT] Session exceeded 100 reads/min, throttling. Current rolling reads in last 60s: ${totalRecentReads}`);
+    console.error(`[RATE LIMIT] Session exceeded 150 reads/min, throttling. Current rolling reads in last 60s: ${totalRecentReads}`);
   }
 }
 
@@ -133,16 +134,17 @@ function checkThrottleAndGetStaleCache(
     recentReadEvents.shift();
   }
   
-  const currentCount = recentReadEvents.reduce((sum, e) => sum + e.count, 0);
+  const rollingRealReads = recentReadEvents.reduce((sum, e) => sum + e.count, 0);
+  const currentCount = rollingRealReads + pendingEstimatedReads;
   
   // Required log format for user verification:
   console.log('[RATE LIMIT CHECK]', 'current count:', currentCount, 'window:', `${new Date(windowStart).toLocaleTimeString()} - ${new Date(now).toLocaleTimeString()}`, 'path:', path);
 
   let throttled = now < throttleEndTime;
-  if (!throttled && (currentCount + estimatedCount) > 100) {
+  if (!throttled && (currentCount + estimatedCount) > 150) {
     throttleEndTime = now + 30000; // Throttle for the next 30 seconds
     throttled = true;
-    console.error(`[RATE LIMIT] Session exceeded 100 reads/min threshold (${currentCount} + ${estimatedCount} > 100), throttling. Current rolling reads in last 60s: ${currentCount}`);
+    console.error(`[RATE LIMIT] Session exceeded 150 reads/min threshold (${currentCount} + ${estimatedCount} > 150), throttling. Current rolling reads in last 60s: ${rollingRealReads} (real) + ${pendingEstimatedReads} (pending)`);
   }
   
   if (throttled) {
@@ -203,11 +205,6 @@ function checkThrottleAndGetStaleCache(
     }
     
     return { isThrottled: true, cachedSnap: null };
-  }
-
-  // Optimistically reserve estimated reads in rolling window BEFORE dispatching network call
-  if (estimatedCount > 0) {
-    recentReadEvents.push({ timestamp: now, count: estimatedCount });
   }
   
   return { isThrottled: false };
@@ -920,7 +917,9 @@ export async function getDoc(
     if (!inFlight) {
       incrementCounter('getDoc', true);
       sessionNetworkReads++;
+      pendingEstimatedReads += 1;
       inFlight = firestoreGetDoc(docRef).then((snap) => {
+        pendingEstimatedReads = Math.max(0, pendingEstimatedReads - 1);
         // Register the real read
         registerRealReads(snap.exists() ? 1 : 0);
 
@@ -947,6 +946,7 @@ export async function getDoc(
         inFlightGetDoc.delete(path);
         return snap;
       }).catch((err) => {
+        pendingEstimatedReads = Math.max(0, pendingEstimatedReads - 1);
         inFlightGetDoc.delete(path);
         throw err;
       });
@@ -1102,7 +1102,9 @@ export async function getDocs(
     if (!inFlight) {
       incrementCounter('getDocs', true);
       sessionNetworkReads++;
+      pendingEstimatedReads += 20;
       inFlight = firestoreGetDocs(q).then((snap) => {
+        pendingEstimatedReads = Math.max(0, pendingEstimatedReads - 20);
         // Register the real reads
         registerRealReads(Math.max(1, snap.size));
 
@@ -1133,6 +1135,7 @@ export async function getDocs(
         inFlightGetDocs.delete(key);
         return snap;
       }).catch((err) => {
+        pendingEstimatedReads = Math.max(0, pendingEstimatedReads - 20);
         inFlightGetDocs.delete(key);
         throw err;
       });

@@ -186,19 +186,8 @@ export default function Plans() {
           Choose Your <span className="text-brand">League</span>
         </h1>
         <p className="text-slate-400 text-xs md:text-lg font-medium">
-          Select a plan to upgrade your arena experience, or start watching for free! Subscription is strictly optional.
+          Select a plan and verify your mobile number to activate your subscription and start streaming videos.
         </p>
-
-        <div className="pt-2 flex flex-wrap items-center justify-center gap-3">
-          <button 
-            onClick={() => navigate('/')}
-            className="px-6 py-3.5 bg-brand text-white font-black text-xs uppercase tracking-widest rounded-xl hover:bg-brand-alt transition-all shadow-xl shadow-brand/20 flex items-center gap-2 group"
-          >
-            <Play className="w-4 h-4 fill-white" />
-            Skip & Start Watching Videos
-            <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-          </button>
-        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -323,10 +312,13 @@ export default function Plans() {
                         <p className="text-xs md:text-text-muted font-medium">Your {selectedPlan.name} is now active. Enjoy high-priority sports streaming.</p>
                       </div>
                       <button 
-                        onClick={() => setSelectedPlan(null)}
-                        className="w-full py-4 md:py-5 bg-brand text-white font-black uppercase tracking-[0.2em] md:tracking-[0.3em] rounded-lg md:rounded-xl"
+                        onClick={() => {
+                          setSelectedPlan(null);
+                          navigate('/');
+                        }}
+                        className="w-full py-4 md:py-5 bg-brand text-white font-black uppercase tracking-[0.2em] md:tracking-[0.3em] rounded-lg md:rounded-xl shadow-xl shadow-brand/20 hover:bg-brand-alt transition-colors"
                       >
-                        Start Watching
+                        Start Watching Videos
                       </button>
                     </div>
                   ) : (

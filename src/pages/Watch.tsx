@@ -531,7 +531,12 @@ export default function Watch() {
   if (loading && !content) return <LoadingScreen />;
   if (!content) return <div className="h-screen flex flex-col items-center justify-center">Content not found. <Link to="/" className="text-brand mt-4">Back Home</Link></div>;
 
-  const isLocked = !isAdmin && !user;
+  const isSubscribed = isAdmin || (
+    profile && 
+    profile.subscriptionStatus === 'active' && 
+    Boolean(profile.mobileNumber)
+  );
+  const isLocked = !isSubscribed;
 
   const isIframeUrl = (url: string) => {
     if (!url) return false;
@@ -568,19 +573,19 @@ export default function Watch() {
                     {!user ? <Lock className="w-12 h-12 text-brand mx-auto" /> : <Crown className="w-12 h-12 text-brand mx-auto" />}
                     <div className="space-y-2">
                       <h2 className="text-2xl font-black uppercase italic tracking-tighter">
-                        {!user ? "Access Restricted" : "Stadium Pass Required"}
+                        {!user ? "Access Restricted" : "Subscription & Mobile Verification Required"}
                       </h2>
                       <p className="text-text-muted text-xs font-medium">
                         {!user 
-                          ? "Please sign in to view this content and start supporting your teams." 
-                          : "Join Stadium Pro to unlock this broadcast and support the teams."}
+                          ? "Please sign in to select a plan and start watching videos." 
+                          : "Please select a subscription plan and enter your mobile number to unlock video streaming."}
                       </p>
                     </div>
                     <Link 
                       to={!user ? "/login" : "/plans"} 
-                      className="inline-block px-8 py-3 bg-brand text-white font-black text-[10px] uppercase tracking-widest rounded-lg"
+                      className="inline-block px-8 py-3 bg-brand text-white font-black text-[10px] uppercase tracking-widest rounded-lg shadow-lg shadow-brand/20 hover:bg-brand-alt transition-all"
                     >
-                      {!user ? "Login / Register" : "Upgrade Now"}
+                      {!user ? "Login / Register" : "Select Subscription Plan"}
                     </Link>
                   </motion.div>
                 </div>

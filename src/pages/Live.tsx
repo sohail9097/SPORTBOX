@@ -11,7 +11,7 @@ import { db, getDocs, collection, query, where, limit } from '../lib/firebase';
 
 export default function Live() {
   const { profile, isAdmin } = useAuth();
-  const isSubscribed = isAdmin || (profile && profile.subscriptionTier !== 'free' && profile.subscriptionStatus === 'active');
+  const isSubscribed = isAdmin || (profile && profile.subscriptionStatus === 'active' && Boolean(profile.mobileNumber));
 
   const { content: cachedContent, loading: cacheLoading } = useFirestoreCache();
   const [dbContent, setDbContent] = useState<SportsContent[] | null>(null);

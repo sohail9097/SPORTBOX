@@ -19,9 +19,12 @@ export default function ContentCard({
   hideDetails?: boolean
 }) {
   const { profile, isAdmin, user } = useAuth();
-  const isLocked = !isAdmin && !user;
-  
-  const isSubscribed = isAdmin || (profile && profile.subscriptionTier !== 'free' && profile.subscriptionStatus === 'active');
+  const isSubscribed = isAdmin || (
+    profile && 
+    profile.subscriptionStatus === 'active' && 
+    Boolean(profile.mobileNumber)
+  );
+  const isLocked = !isSubscribed;
 
   const displayThumbnail = content.thumbnailUrl && content.thumbnailUrl.trim() !== ''
     ? content.thumbnailUrl

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Check, Crown, Zap, ShieldCheck, X, Loader2, CreditCard, Phone, Mail, Star, Activity, Percent, CheckCircle2, Key, User } from 'lucide-react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { Check, Crown, Zap, ShieldCheck, X, Loader2, CreditCard, Phone, Mail, Star, Activity, Percent, CheckCircle2, Key, User, Play, ArrowRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
 import { useAuth } from '../hooks/useAuth';
@@ -19,6 +20,8 @@ const IconMap: Record<string, any> = {
 };
 
 export default function Plans() {
+  const navigate = useNavigate();
+  const location = useLocation();
   const { user, profile } = useAuth();
   const { plans, loading } = useFirestoreCache();
   const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan | null>(null);
@@ -26,6 +29,8 @@ export default function Plans() {
   const [displayName, setDisplayName] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [step, setStep] = useState<'details' | 'payment' | 'success'>('details');
+
+  const isWelcome = new URLSearchParams(location.search).get('welcome') === 'true';
 
   const handleSubscribe = async () => {
     const digits = mobileNumber.trim().replace(/\D/g, "");
@@ -166,13 +171,34 @@ export default function Plans() {
 
   return (
     <div className="py-12 md:py-24 px-4 max-w-[1600px] mx-auto">
-      <div className="text-center max-w-2xl mx-auto mb-8 md:mb-20 space-y-2">
+      <div className="text-center max-w-2xl mx-auto mb-8 md:mb-16 space-y-4">
+        {isWelcome && (
+          <motion.div 
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-brand/10 border border-brand/30 text-brand text-xs font-black uppercase tracking-widest"
+          >
+            <CheckCircle2 className="w-4 h-4" />
+            Signed In Successfully
+          </motion.div>
+        )}
         <h1 className="text-3xl md:text-8xl font-black uppercase italic tracking-tighter leading-none">
           Choose Your <span className="text-brand">League</span>
         </h1>
         <p className="text-slate-400 text-xs md:text-lg font-medium">
-          Select a plan that fits your passion. Upgrade or cancel anytime.
+          Select a plan to upgrade your arena experience, or start watching for free! Subscription is strictly optional.
         </p>
+
+        <div className="pt-2 flex flex-wrap items-center justify-center gap-3">
+          <button 
+            onClick={() => navigate('/')}
+            className="px-6 py-3.5 bg-brand text-white font-black text-xs uppercase tracking-widest rounded-xl hover:bg-brand-alt transition-all shadow-xl shadow-brand/20 flex items-center gap-2 group"
+          >
+            <Play className="w-4 h-4 fill-white" />
+            Skip & Start Watching Videos
+            <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">

@@ -124,7 +124,7 @@ export default function Login() {
       } else {
         await signInWithEmailAndPassword(auth, email, password);
       }
-      navigate('/account');
+      navigate('/plans?welcome=true');
     } catch (err: any) {
       setError(err.message || "Authentication failed");
       setLoading(false);
@@ -170,7 +170,7 @@ export default function Login() {
           throw signInErr;
         }
       }
-      navigate('/account');
+      navigate('/plans?welcome=true');
     } catch (err: any) {
       console.error("[Demo Account Access Failure]:", err);
       setError(err?.message || "Demo Sign-In could not complete. Check Firestore connectivity.");
@@ -203,7 +203,7 @@ export default function Login() {
 
     try {
       await signInWithPopup(auth, provider);
-      navigate('/account');
+      navigate('/plans?welcome=true');
     } catch (err: any) {
       const errorCode = err?.code;
       const errorMessage = err?.message || '';

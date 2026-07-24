@@ -1491,7 +1491,7 @@ export default function Olympics() {
             Official Games Showcase Hub
           </div>
 
-          <h1 className="font-sans font-extrabold text-4xl sm:text-5xl md:text-6xl tracking-tight leading-tight max-w-4xl text-white">
+          <h1 className="font-sans font-extrabold text-4xl sm:text-5xl md:text-6xl tracking-tight leading-tight max-w-4xl text-black dark:text-white">
             Olympic Games Arena
           </h1>
           <p className="text-text-muted text-sm md:text-base max-w-2xl leading-relaxed">
@@ -1507,15 +1507,15 @@ export default function Olympics() {
             
             <div className="grid grid-cols-4 gap-2 md:gap-4 font-mono">
               <div className="bg-surface p-3 rounded-lg border border-border text-center">
-                <span className="block text-xl md:text-2xl font-black text-white">{timeRemaining.days}</span>
+                <span className="block text-xl md:text-2xl font-black text-black dark:text-white">{timeRemaining.days}</span>
                 <span className="text-[9px] uppercase font-sans font-bold text-text-muted tracking-wider">Days</span>
               </div>
               <div className="bg-surface p-3 rounded-lg border border-border text-center">
-                <span className="block text-xl md:text-2xl font-black text-white">{String(timeRemaining.hours).padStart(2, '0')}</span>
+                <span className="block text-xl md:text-2xl font-black text-black dark:text-white">{String(timeRemaining.hours).padStart(2, '0')}</span>
                 <span className="text-[9px] uppercase font-sans font-bold text-text-muted tracking-wider">Hours</span>
               </div>
               <div className="bg-surface p-3 rounded-lg border border-border text-center">
-                <span className="block text-xl md:text-2xl font-black text-white">{String(timeRemaining.mins).padStart(2, '0')}</span>
+                <span className="block text-xl md:text-2xl font-black text-black dark:text-white">{String(timeRemaining.mins).padStart(2, '0')}</span>
                 <span className="text-[9px] uppercase font-sans font-bold text-text-muted tracking-wider">Mins</span>
               </div>
               <div className="bg-surface p-3 rounded-lg border border-border text-center">
@@ -1572,7 +1572,7 @@ export default function Olympics() {
                   <History className="w-3.5 h-3.5" />
                   Historic Legacy
                 </div>
-                <h2 className="font-sans font-extrabold text-3xl sm:text-4xl text-white tracking-tight leading-tight">
+                <h2 className="font-sans font-extrabold text-3xl sm:text-4xl text-black dark:text-white tracking-tight leading-tight">
                   The Spirit & Flame of Global Athletics
                 </h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-text-muted text-xs md:text-sm leading-relaxed">
@@ -1588,7 +1588,7 @@ export default function Olympics() {
                     <Award className="w-5 h-5" />
                   </div>
                   <div>
-                    <h4 className="text-xs font-black uppercase tracking-widest text-white mb-1">Citius, Altius, Fortius - Communiter</h4>
+                    <h4 className="text-xs font-black uppercase tracking-widest text-black dark:text-white mb-1">Citius, Altius, Fortius - Communiter</h4>
                     <p className="text-text-muted text-xs leading-relaxed">The official Olympic motto literally translates to: "Faster, Higher, Stronger - Together".</p>
                   </div>
                 </div>
@@ -1597,7 +1597,7 @@ export default function Olympics() {
               {/* Grid of disciplines */}
               <div className="space-y-6 pt-6">
                 <div>
-                  <h3 className="font-sans font-bold text-xl text-white tracking-tight flex items-center gap-2">
+                  <h3 className="font-sans font-bold text-xl text-black dark:text-white tracking-tight flex items-center gap-2">
                     <Compass className="w-5 h-5 text-brand" />
                     Core Olympic Sports Disciplines
                   </h3>
@@ -1620,7 +1620,7 @@ export default function Olympics() {
                             <DisciplineIcon className="w-8 h-8 stroke-[1.5] animate-pulse" />
                             <div className="absolute top-2 left-2 px-2 py-0.5 rounded bg-black/60 text-white text-[9px] uppercase font-bold tracking-widest">{elem.tag}</div>
                           </div>
-                          <h4 className="font-sans text-xs font-bold text-white pt-1">{elem.title}</h4>
+                          <h4 className="font-sans text-xs font-bold text-black dark:text-white pt-1">{elem.title}</h4>
                           <p className="text-text-muted text-[11px] leading-relaxed">{elem.desc}</p>
                         </div>
                         <div className="flex justify-end pt-2 border-t border-border/40">
@@ -1648,7 +1648,7 @@ export default function Olympics() {
               {/* Content Header */}
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                  <h2 className="font-sans font-bold text-2xl text-white flex items-center gap-2">
+                  <h2 className="font-sans font-bold text-2xl text-black dark:text-white flex items-center gap-2">
                     <Video className="w-6 h-6 text-brand" />
                     Olympic Video Arena & User Highlights
                   </h2>
@@ -1683,7 +1683,7 @@ export default function Olympics() {
                       <h4 className="text-xs font-black uppercase tracking-widest text-brand flex items-center gap-2">
                         <Plus className="w-4 h-4" /> Add Custom Olympic Video (Real-time Database Sync)
                       </h4>
-                      <button type="button" onClick={() => setIsAddingVideo(false)} className="text-text-muted hover:text-white p-1">
+                      <button type="button" onClick={() => setIsAddingVideo(false)} className="text-text-muted hover:text-black dark:hover:text-white p-1">
                         <X className="w-4 h-4" />
                       </button>
                     </div>
@@ -1788,7 +1788,7 @@ export default function Olympics() {
                         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                           <div className="space-y-1">
                             <span className="text-[10px] uppercase font-black text-brand tracking-widest">Featured Active Video</span>
-                            <h3 className="font-sans font-bold text-xl text-white">{selectedVideo.title}</h3>
+                            <h3 className="font-sans font-bold text-xl text-black dark:text-white">{selectedVideo.title}</h3>
                           </div>
 
                           <div className="flex items-center gap-2">
@@ -1819,7 +1819,7 @@ export default function Olympics() {
                     <div className="aspect-video bg-surface rounded-2xl border border-dashed border-border flex flex-col items-center justify-center p-8 text-center space-y-4">
                       <Tv className="w-12 h-12 text-text-muted" />
                       <div className="space-y-1">
-                        <h4 className="text-sm font-bold text-white">No active Olympic video selected</h4>
+                        <h4 className="text-sm font-bold text-black dark:text-white">No active Olympic video selected</h4>
                         <p className="text-text-muted text-xs">Add elements or pick a replay from the playlist to queue.</p>
                       </div>
                     </div>
@@ -1924,7 +1924,7 @@ export default function Olympics() {
                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-4 border-b border-border">
                     <button
                       onClick={() => setSelectedAthlete(null)}
-                      className="inline-flex items-center gap-2 px-4 py-2 bg-surface hover:bg-surface-hover border border-border hover:border-white/20 text-xs font-bold text-white rounded-xl transition-all shadow-md group cursor-pointer"
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-surface hover:bg-surface-hover border border-border hover:border-white/20 text-xs font-bold text-black dark:text-white rounded-xl transition-all shadow-md group cursor-pointer"
                     >
                       <ArrowLeft className="w-4 h-4 text-brand group-hover:-translate-x-1 transition-transform" />
                       Back to Medalists
@@ -1960,7 +1960,7 @@ export default function Olympics() {
                           navigator.clipboard.writeText(val);
                           toast.success(`Copied profile link!`);
                         }}
-                        className="p-2 bg-surface hover:bg-surface-hover border border-border rounded-xl text-text-muted hover:text-white transition-all cursor-pointer"
+                        className="p-2 bg-surface hover:bg-surface-hover border border-border rounded-xl text-text-muted hover:text-black dark:hover:text-white transition-all cursor-pointer"
                         title="Copy profile link"
                       >
                         <Share2 className="w-4 h-4" />
@@ -1972,7 +1972,7 @@ export default function Olympics() {
                     <div className="bg-surface border border-border rounded-3xl p-6 md:p-8 space-y-6 animate-fadeIn">
                       <div className="border-b border-border pb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                         <div>
-                          <h2 className="text-xl font-bold font-sans text-white flex items-center gap-2">
+                          <h2 className="text-xl font-bold font-sans text-black dark:text-white flex items-center gap-2">
                             <Sparkles className="w-5 h-5 text-brand" />
                             Edit Profile: {selectedAthlete.name}
                           </h2>
@@ -1982,7 +1982,7 @@ export default function Olympics() {
                         <div className="flex items-center gap-2">
                           <button
                             onClick={() => setIsEditingAthlete(false)}
-                            className="px-4 py-2 bg-surface hover:bg-surface-hover hover:text-white border border-border text-xs font-bold text-white rounded-xl transition-all shadow-md cursor-pointer"
+                            className="px-4 py-2 bg-surface hover:bg-surface-hover hover:text-black dark:hover:text-white border border-border text-xs font-bold text-black dark:text-white rounded-xl transition-all shadow-md cursor-pointer"
                           >
                             Cancel
                           </button>
@@ -2006,7 +2006,7 @@ export default function Olympics() {
                               type="text"
                               value={editAthleteName}
                               onChange={(e) => setEditAthleteName(e.target.value)}
-                              className="block w-full px-4 py-2.5 bg-surface-alt border border-border rounded-xl text-xs text-white outline-none focus:border-brand/50 transition-all font-semibold"
+                              className="block w-full px-4 py-2.5 bg-surface-alt border border-border rounded-xl text-xs text-black dark:text-white outline-none focus:border-brand/50 transition-all font-semibold"
                               placeholder="Enter athlete name"
                             />
                           </div>
@@ -2018,7 +2018,7 @@ export default function Olympics() {
                                 type="text"
                                 value={editAthleteSport}
                                 onChange={(e) => setEditAthleteSport(e.target.value)}
-                                className="block w-full px-4 py-2.5 bg-surface-alt border border-border rounded-xl text-xs text-white outline-none focus:border-brand/50 transition-all font-semibold"
+                                className="block w-full px-4 py-2.5 bg-surface-alt border border-border rounded-xl text-xs text-black dark:text-white outline-none focus:border-brand/50 transition-all font-semibold"
                                 placeholder="e.g., Boxing Men's Middleweight"
                               />
                             </div>
@@ -2028,7 +2028,7 @@ export default function Olympics() {
                                 type="text"
                                 value={editAthleteCategory}
                                 onChange={(e) => setEditAthleteCategory(e.target.value)}
-                                className="block w-full px-4 py-2.5 bg-surface-alt border border-border rounded-xl text-xs text-white outline-none focus:border-brand/50 transition-all font-semibold"
+                                className="block w-full px-4 py-2.5 bg-surface-alt border border-border rounded-xl text-xs text-black dark:text-white outline-none focus:border-brand/50 transition-all font-semibold"
                                 placeholder="e.g., Boxing"
                               />
                             </div>
@@ -2041,7 +2041,7 @@ export default function Olympics() {
                                 type="text"
                                 value={editAthleteAvatar}
                                 onChange={(e) => setEditAthleteAvatar(e.target.value)}
-                                className="block w-full text-center px-2 py-2.5 bg-surface-alt border border-border rounded-xl text-xs text-white outline-none focus:border-brand/50 transition-all font-semibold"
+                                className="block w-full text-center px-2 py-2.5 bg-surface-alt border border-border rounded-xl text-xs text-black dark:text-white outline-none focus:border-brand/50 transition-all font-semibold"
                                 placeholder="🥊"
                               />
                             </div>
@@ -2051,7 +2051,7 @@ export default function Olympics() {
                                 type="text"
                                 value={editAthleteImage}
                                 onChange={(e) => setEditAthleteImage(e.target.value)}
-                                className="block w-full px-4 py-2.5 bg-surface-alt border border-border rounded-xl text-xs text-white outline-none focus:border-brand/50 transition-all font-semibold"
+                                className="block w-full px-4 py-2.5 bg-surface-alt border border-border rounded-xl text-xs text-black dark:text-white outline-none focus:border-brand/50 transition-all font-semibold"
                                 placeholder="https://images.unsplash.com/..."
                               />
                             </div>
@@ -2062,7 +2062,7 @@ export default function Olympics() {
                             <textarea
                               value={editAthleteBio}
                               onChange={(e) => setEditAthleteBio(e.target.value)}
-                              className="block w-full h-24 px-4 py-2.5 bg-surface-alt border border-border rounded-xl text-xs text-white outline-none focus:border-brand/50 transition-all font-semibold resize-none"
+                              className="block w-full h-24 px-4 py-2.5 bg-surface-alt border border-border rounded-xl text-xs text-black dark:text-white outline-none focus:border-brand/50 transition-all font-semibold resize-none"
                               placeholder="Describe legacy in 1-2 sentences"
                             />
                           </div>
@@ -2072,7 +2072,7 @@ export default function Olympics() {
                             <textarea
                               value={editAthleteQuote}
                               onChange={(e) => setEditAthleteQuote(e.target.value)}
-                              className="block w-full h-20 px-4 py-2.5 bg-surface-alt border border-border rounded-xl text-xs text-white outline-none focus:border-brand/50 transition-all font-semibold italic resize-none"
+                              className="block w-full h-20 px-4 py-2.5 bg-surface-alt border border-border rounded-xl text-xs text-black dark:text-white outline-none focus:border-brand/50 transition-all font-semibold italic resize-none"
                               placeholder="Inspirational quote of the champion"
                             />
                           </div>
@@ -2082,7 +2082,7 @@ export default function Olympics() {
                             <textarea
                               value={editAthleteFunFact}
                               onChange={(e) => setEditAthleteFunFact(e.target.value)}
-                              className="block w-full h-20 px-4 py-2.5 bg-surface-alt border border-border rounded-xl text-xs text-white outline-none focus:border-brand/50 transition-all font-semibold resize-none"
+                              className="block w-full h-20 px-4 py-2.5 bg-surface-alt border border-border rounded-xl text-xs text-black dark:text-white outline-none focus:border-brand/50 transition-all font-semibold resize-none"
                               placeholder="Interesting career dynamic or fact"
                             />
                           </div>
@@ -2095,7 +2095,7 @@ export default function Olympics() {
                             <textarea
                               value={editAthleteLongDetails}
                               onChange={(e) => setEditAthleteLongDetails(e.target.value)}
-                              className="block w-full h-44 px-4 py-2.5 bg-surface-alt border border-border rounded-xl text-xs text-white outline-none focus:border-brand/50 transition-all font-semibold leading-relaxed"
+                              className="block w-full h-44 px-4 py-2.5 bg-surface-alt border border-border rounded-xl text-xs text-black dark:text-white outline-none focus:border-brand/50 transition-all font-semibold leading-relaxed"
                               placeholder="Add general biography narrative blocks. Hit Enter for new paragraphs."
                             />
                           </div>
@@ -2170,7 +2170,7 @@ export default function Olympics() {
                                           setEditAthleteMoments(updated);
                                         }}
                                         placeholder="Moment description..."
-                                        className="block w-full h-12 px-2.5 py-1.5 bg-surface-alt border border-border rounded-lg text-[10px] text-white outline-none focus:border-brand/40 resize-none leading-relaxed"
+                                        className="block w-full h-12 px-2.5 py-1.5 bg-surface-alt border border-border rounded-lg text-[10px] text-black dark:text-white outline-none focus:border-brand/40 resize-none leading-relaxed"
                                       />
                                     </div>
                                   </div>
@@ -2191,7 +2191,7 @@ export default function Olympics() {
                         <button
                           type="button"
                           onClick={() => setIsEditingAthlete(false)}
-                          className="px-5 py-2 bg-surface hover:bg-surface-hover hover:text-white border border-border text-xs font-bold text-white rounded-xl transition-all shadow-md cursor-pointer"
+                          className="px-5 py-2 bg-surface hover:bg-surface-hover hover:text-black dark:hover:text-white border border-border text-xs font-bold text-black dark:text-white rounded-xl transition-all shadow-md cursor-pointer"
                         >
                           Cancel
                         </button>
@@ -2247,7 +2247,7 @@ export default function Olympics() {
                           </div>
 
                           <div>
-                            <h1 className="font-sans font-black text-3xl md:text-4xl lg:text-5xl tracking-tight text-white">{selectedAthlete.name}</h1>
+                            <h1 className="font-sans font-black text-3xl md:text-4xl lg:text-5xl tracking-tight text-black dark:text-white">{selectedAthlete.name}</h1>
                             <p className="text-brand text-xs uppercase font-extrabold tracking-widest mt-1.5">{selectedAthlete.sport}</p>
                           </div>
 
@@ -2263,7 +2263,7 @@ export default function Olympics() {
                         <div className="space-y-6">
                           {/* Key stats panel */}
                           <div className="bg-surface border border-border rounded-2xl p-5 space-y-4">
-                            <h3 className="text-[10px] font-black uppercase tracking-widest text-white border-b border-border pb-2.5 flex items-center gap-2">
+                            <h3 className="text-[10px] font-black uppercase tracking-widest text-black dark:text-white border-b border-border pb-2.5 flex items-center gap-2">
                               <Award className="w-4 h-4 text-brand" />
                               Legendary Profile Stats
                             </h3>
@@ -2271,12 +2271,12 @@ export default function Olympics() {
                             <div className="space-y-4">
                               <div>
                                 <span className="text-[10px] text-text-muted uppercase font-bold tracking-wider block">Discipline</span>
-                                <span className="text-xs text-white font-black">{selectedAthlete.sport}</span>
+                                <span className="text-xs text-black dark:text-white font-black">{selectedAthlete.sport}</span>
                               </div>
 
                               <div>
                                 <span className="text-[10px] text-text-muted uppercase font-bold tracking-wider block">Sport Category</span>
-                                <span className="text-xs text-white font-black">{selectedAthlete.category}</span>
+                                <span className="text-xs text-black dark:text-white font-black">{selectedAthlete.category}</span>
                               </div>
 
                               <div>
@@ -2285,7 +2285,7 @@ export default function Olympics() {
                                   {selectedAthlete.medals.map((m, mIdx) => (
                                     <div key={mIdx} className="flex items-center gap-2 text-xs bg-surface-alt border border-border/60 py-1.5 px-2.5 rounded-lg font-bold">
                                       <span>{m.type === 'gold' ? '🥇' : m.type === 'silver' ? '🥈' : '🥉'}</span>
-                                      <span className="uppercase text-[10px] text-white/95">{m.year}</span>
+                                      <span className="uppercase text-[10px] text-black/95 dark:text-white/95">{m.year}</span>
                                       <span className="text-[10px] text-text-muted truncate flex-grow text-right">{m.detail}</span>
                                     </div>
                                   ))}
@@ -2298,7 +2298,7 @@ export default function Olympics() {
                           {selectedAthlete.quote && (
                             <div className="bg-gradient-to-b from-surface to-surface-alt border border-border rounded-2xl p-6 relative overflow-hidden">
                               <Quote className="absolute top-4 right-4 w-12 h-12 text-brand/5 -rotate-12 pointer-events-none" />
-                              <p className="text-xs leading-relaxed italic text-white relative z-10">
+                              <p className="text-xs leading-relaxed italic text-black dark:text-white relative z-10">
                                 "{selectedAthlete.quote}"
                               </p>
                               <span className="block text-[9px] uppercase font-black tracking-widest text-brand mt-4 z-10 relative">
@@ -2322,7 +2322,7 @@ export default function Olympics() {
                         <div className="lg:col-span-2 space-y-8">
                           {/* Biography narrative */}
                           <div className="bg-surface/50 border border-border rounded-2xl p-6 md:p-8 space-y-5">
-                            <h3 className="text-xs font-black uppercase tracking-wider text-white border-b border-border pb-3 flex items-center gap-2">
+                            <h3 className="text-xs font-black uppercase tracking-wider text-black dark:text-white border-b border-border pb-3 flex items-center gap-2">
                               <History className="w-4.5 h-4.5 text-yellow-500" />
                               The Journey: Raising the Tiranga
                             </h3>
@@ -2355,7 +2355,7 @@ export default function Olympics() {
                                     <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent" />
                                   </div>
                                   <div className="p-4 space-y-1.5">
-                                    <h4 className="text-xs font-extrabold text-white">{m.title}</h4>
+                                    <h4 className="text-xs font-extrabold text-black dark:text-white">{m.title}</h4>
                                     <p className="text-[10px] text-text-muted font-semibold leading-relaxed">{m.description}</p>
                                   </div>
                                 </div>
@@ -2366,7 +2366,7 @@ export default function Olympics() {
                           {/* Timeline points */}
                           {selectedAthlete.timeline && (
                             <div className="bg-surface border border-border rounded-2xl p-6 md:p-8 space-y-6">
-                              <h3 className="text-xs font-black uppercase tracking-wider text-white border-b border-border pb-3 flex items-center gap-2">
+                              <h3 className="text-xs font-black uppercase tracking-wider text-black dark:text-white border-b border-border pb-3 flex items-center gap-2">
                                 <Sparkles className="w-4.5 h-4.5 text-brand" />
                                 Accolades & Career Timeline
                               </h3>
@@ -2378,7 +2378,7 @@ export default function Olympics() {
                                     <div className="absolute -left-[31px] top-1 bg-surface border-2 border-brand w-3.5 h-3.5 rounded-full z-10 transition-colors group-hover:bg-brand" />
                                     <div className="space-y-1">
                                       <span className="text-[10px] font-black text-brand uppercase tracking-wider bg-brand/10 border border-brand/25 px-2 py-0.5 rounded-full">{item.year}</span>
-                                      <h4 className="text-xs font-extrabold text-white mt-1.5">{item.title}</h4>
+                                      <h4 className="text-xs font-extrabold text-black dark:text-white mt-1.5">{item.title}</h4>
                                       <p className="text-[10px] text-text-muted font-medium">{item.description}</p>
                                     </div>
                                   </div>
@@ -2395,7 +2395,7 @@ export default function Olympics() {
                 <>
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-border">
                     <div>
-                      <h2 className="font-sans font-bold text-2xl text-white flex items-center gap-2 animate-pulse">
+                      <h2 className="font-sans font-bold text-2xl text-black dark:text-white flex items-center gap-2 animate-pulse">
                         <Trophy className="w-6 h-6 text-yellow-500" />
                         Indian Olympic Medalists
                       </h2>
@@ -2406,21 +2406,21 @@ export default function Olympics() {
                     <div className="flex gap-3 text-[11px] bg-surface-alt border border-border px-4 py-2 rounded-xl">
                       <div className="flex items-center gap-1.5 px-1.5">
                         <span className="text-base">🥇</span>
-                        <span className="font-bold text-white">
+                        <span className="font-bold text-black dark:text-white">
                           {medalists.reduce((sum, m) => sum + m.medals.filter(med => med.type === 'gold').length, 0)} Gold
                         </span>
                       </div>
                       <div className="w-[1px] h-4 bg-border/60 self-center" />
                       <div className="flex items-center gap-1.5 px-1.5">
                         <span className="text-base">🥈</span>
-                        <span className="font-bold text-white">
+                        <span className="font-bold text-black dark:text-white">
                           {medalists.reduce((sum, m) => sum + m.medals.filter(med => med.type === 'silver').length, 0)} Silver
                         </span>
                       </div>
                       <div className="w-[1px] h-4 bg-border/60 self-center" />
                       <div className="flex items-center gap-1.5 px-1.5">
                         <span className="text-base">🥉</span>
-                        <span className="font-bold text-white">
+                        <span className="font-bold text-black dark:text-white">
                           {medalists.reduce((sum, m) => sum + m.medals.filter(med => med.type === 'bronze').length, 0)} Bronze
                         </span>
                       </div>
@@ -2439,12 +2439,12 @@ export default function Olympics() {
                         placeholder="Search by Name, Sport..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="block w-full pl-10 pr-4 py-2.5 bg-surface border border-border rounded-xl text-xs placeholder:text-text-muted text-white outline-none focus:border-brand/45 transition-all font-semibold"
+                        className="block w-full pl-10 pr-4 py-2.5 bg-surface border border-border rounded-xl text-xs placeholder:text-text-muted text-black dark:text-white outline-none focus:border-brand/45 transition-all font-semibold"
                       />
                       {searchQuery !== '' && (
                         <button 
                           onClick={() => setSearchQuery('')}
-                          className="absolute inset-y-0 right-0 pr-3 flex items-center text-text-muted hover:text-white"
+                          className="absolute inset-y-0 right-0 pr-3 flex items-center text-text-muted hover:text-black dark:hover:text-white"
                         >
                           <X className="w-3.5 h-3.5" />
                         </button>
@@ -2456,7 +2456,7 @@ export default function Olympics() {
                       <select
                         value={sportFilter}
                         onChange={(e) => setSportFilter(e.target.value)}
-                        className="block w-full px-4 py-2.5 bg-surface border border-border rounded-xl text-xs text-white appearance-none outline-none focus:border-brand/45 transition-all font-bold uppercase tracking-wider"
+                        className="block w-full px-4 py-2.5 bg-surface border border-border rounded-xl text-xs text-black dark:text-white appearance-none outline-none focus:border-brand/45 transition-all font-bold uppercase tracking-wider"
                       >
                         <option value="all">🥋 All Core Sports</option>
                         {Array.from(new Set(medalists.map(m => m.category))).map(cat => (
@@ -2525,7 +2525,7 @@ export default function Olympics() {
                                 <span className="bg-brand/10 text-brand border border-brand/20 px-2 py-0.5 rounded-full text-[9px] uppercase font-black tracking-widest inline-block mb-1.5">
                                   {athlete.category}
                                 </span>
-                                <h3 className="text-sm font-bold text-white tracking-tight">{athlete.name}</h3>
+                                <h3 className="text-sm font-bold text-black dark:text-white tracking-tight">{athlete.name}</h3>
                                 <p className="text-text-muted text-[10px] uppercase font-bold mt-0.5">{athlete.sport}</p>
                               </div>
                             </div>
@@ -2574,7 +2574,7 @@ export default function Olympics() {
                                   <span>{m.type === 'gold' ? '🥇' : m.type === 'silver' ? '🥈' : '🥉'}</span>
                                   <span className="uppercase tracking-wide">{m.year}</span>
                                   <span className="opacity-50 font-normal">|</span>
-                                  <span className="text-[9px] text-white/80 font-medium truncate max-w-[150px]">{m.detail}</span>
+                                  <span className="text-[9px] text-black/80 dark:text-white/80 font-medium truncate max-w-[150px]">{m.detail}</span>
                                 </div>
                               ))}
                             </div>
@@ -2585,7 +2585,7 @@ export default function Olympics() {
                   ) : (
                     <div className="text-center py-16 bg-surface rounded-2xl border border-border space-y-3">
                       <div className="text-4xl text-text-muted animate-pulse">🎯</div>
-                      <h3 className="font-sans font-bold text-lg text-white">No Indian Medalists Found</h3>
+                      <h3 className="font-sans font-bold text-lg text-black dark:text-white">No Indian Medalists Found</h3>
                       <p className="text-text-muted text-xs">Try adjusting your filters or search input query words.</p>
                     </div>
                   )}
@@ -2604,7 +2604,7 @@ export default function Olympics() {
               className="max-w-2xl mx-auto space-y-8"
             >
               <div>
-                <h2 className="font-sans font-bold text-2xl text-white flex items-center gap-2">
+                <h2 className="font-sans font-bold text-2xl text-black dark:text-white flex items-center gap-2">
                   <Sparkles className="w-6 h-6 text-brand" />
                   Olympic Games Trivia Challenge
                 </h2>
@@ -2617,7 +2617,7 @@ export default function Olympics() {
                     <div className="inline-flex p-3 rounded-full bg-brand/10 border border-brand/20 text-brand">
                       <Trophy className="w-8 h-8" />
                     </div>
-                    <h3 className="font-sans font-bold text-xl text-white">Olympic Trivia Center</h3>
+                    <h3 className="font-sans font-bold text-xl text-black dark:text-white">Olympic Trivia Center</h3>
                     <p className="text-text-muted text-xs leading-relaxed max-w-md mx-auto">
                       Test your sports intelligence across 5 randomly selected questions. Answer correctly of 5, get unique questions and no repetition in the current round!
                     </p>
@@ -2632,11 +2632,11 @@ export default function Olympics() {
                           <span className="text-2xl font-black text-brand block mt-1">
                             {Math.max(...quizAttempts.map(a => a.score))} / 5
                           </span>
-                          <span className="text-[9px] font-semibold text-white/50 block mt-0.5 uppercase tracking-wide">🏆 Best Podium Run</span>
+                          <span className="text-[9px] font-semibold text-black/50 dark:text-white/50 block mt-0.5 uppercase tracking-wide">🏆 Best Podium Run</span>
                         </div>
                         <div className="bg-surface-alt border border-border rounded-xl p-4 text-center">
                           <span className="text-[10px] font-black uppercase tracking-widest text-text-muted block">Last Attempt</span>
-                          <span className="text-2xl font-black text-white block mt-1">
+                          <span className="text-2xl font-black text-black dark:text-white block mt-1">
                             {quizAttempts[0].score} / 5
                           </span>
                           <span className="text-[9px] font-semibold text-text-muted block mt-0.5 truncate uppercase tracking-widest">{quizAttempts[0].date}</span>
@@ -2645,7 +2645,7 @@ export default function Olympics() {
 
                       {/* Last attempt review card */}
                       <div className="p-4 rounded-xl border border-border bg-brand/5 space-y-1.5 text-left">
-                        <div className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wide text-white">
+                        <div className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wide text-black dark:text-white">
                           <span>{quizAttempts[0].icon}</span>
                           <span>{quizAttempts[0].title || "Your Last Result"}</span>
                         </div>
@@ -2663,7 +2663,7 @@ export default function Olympics() {
                               <div className="flex items-center gap-2.5">
                                 <span className="text-base select-none">{attempt.icon}</span>
                                 <div>
-                                  <span className="font-bold text-white block">Score: {attempt.score} / {attempt.total}</span>
+                                  <span className="font-bold text-black dark:text-white block">Score: {attempt.score} / {attempt.total}</span>
                                   <span className="text-[9px] text-text-muted">{attempt.date}</span>
                                 </div>
                               </div>
@@ -2707,7 +2707,7 @@ export default function Olympics() {
                     />
                   </div>
 
-                  <h3 className="font-sans text-lg md:text-xl font-bold text-white leading-snug">
+                  <h3 className="font-sans text-lg md:text-xl font-bold text-black dark:text-white leading-snug">
                     {triviaQuestions[triviaIdx]?.question}
                   </h3>
 
@@ -2757,7 +2757,7 @@ export default function Olympics() {
                       
                       <button
                         onClick={handleNextQuestion}
-                        className="w-full mt-2 py-3 bg-white text-bg text-xs font-black uppercase tracking-widest rounded-lg hover:bg-neutral-100 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                        className="w-full mt-2 py-3 bg-black dark:bg-white text-white dark:text-black text-xs font-black uppercase tracking-widest rounded-lg hover:opacity-90 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
                       >
                         {triviaIdx + 1 < triviaQuestions.length ? 'Next Question' : 'Finish Quiz'}
                       </button>
@@ -2771,7 +2771,7 @@ export default function Olympics() {
                   </div>
 
                   <div className="space-y-2">
-                    <h3 className="font-sans font-bold text-2xl text-white">
+                    <h3 className="font-sans font-bold text-2xl text-black dark:text-white">
                       {quizScore === 0 ? 'Oops! All Answers Wrong' : 'Quiz Completed Successfully!'}
                     </h3>
                     <p className="text-text-muted text-xs uppercase tracking-widest">You solved {quizScore} out of 5 answers correctly</p>
@@ -2802,7 +2802,7 @@ export default function Olympics() {
                     </button>
                     <button
                       onClick={resetQuiz}
-                      className="px-6 py-3 bg-surface border border-border hover:bg-white/5 text-white text-xs font-bold uppercase tracking-widest rounded-xl transition-all cursor-pointer"
+                      className="px-6 py-3 bg-surface border border-border hover:bg-black/5 dark:hover:bg-white/5 text-black dark:text-white text-xs font-bold uppercase tracking-widest rounded-xl transition-all cursor-pointer"
                     >
                       Back to Scoreboard
                     </button>

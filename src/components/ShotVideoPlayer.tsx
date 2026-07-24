@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 interface ShotVideoPlayerProps {
   src: string;
@@ -23,6 +23,7 @@ export default function ShotVideoPlayer({
 }: ShotVideoPlayerProps) {
   const localRef = useRef<HTMLVideoElement | null>(null);
   const playPromiseRef = useRef<Promise<void> | null>(null);
+  const [isVideoReady, setIsVideoReady] = useState(false);
 
   useEffect(() => {
     const video = localRef.current;
@@ -33,7 +34,6 @@ export default function ShotVideoPlayer({
     const syncPlayback = async () => {
       try {
         if (isPlaying) {
-          // If there is an active pause or play promise, we wait for it to be stable
           if (video.paused) {
             const p = video.play();
             playPromiseRef.current = p;
@@ -42,7 +42,6 @@ export default function ShotVideoPlayer({
             }
           }
         } else {
-          // Wait for any pending play promise to resolve before pausing, to avoid interruption error
           if (playPromiseRef.current) {
             try {
               await playPromiseRef.current;
@@ -62,7 +61,7 @@ export default function ShotVideoPlayer({
     syncPlayback();
   }, [isPlaying, isMuted, src]);
 
-  // Clean up and pause video when unmounting or source changing
+  // Clean up and pause video when unmounting
   useEffect(() => {
     return () => {
       const video = localRef.current;
@@ -77,20 +76,41 @@ export default function ShotVideoPlayer({
   }, []);
 
   return (
-    <video
-      ref={(el) => {
-        localRef.current = el;
-        videoRef(el);
-      }}
-      src={src}
-      poster={poster}
-      preload="auto"
-      loop={true}
-      playsInline
-      onClick={onClick}
-      onError={onError}
-      onEnded={onEnded}
-      className="w-full h-full cursor-pointer bg-neutral-950 object-cover object-center scale-100"
-    />
+    <div className="relative w-full h-full bg-black overflow-hidden cursor-pointer" onClick={onClick}>
+      <video
+        ref={(el) => {
+          localRef.current = el;
+          videoRef(el);
+        }}
+        src={src}
+        poster={poster}
+        preload="auto"
+        loop={true}
+        playsInline
+        muted={isMuted}
+        onError={onError}
+        onEnded={onEnded}
+        onCanPlay={() => setIsVideoReady(true)}
+        onPlaying={() => setIsVideoReady(true)}
+        onLoadedData={() => setIsVideoReady(true)}
+        className="w-full h-full object-cover object-center scale-100"
+      />
+
+      {/* High-quality poster overlay that stays until video is actively ready & playing to avoid black flash */}
+      {poster && (!isVideoReady || !isPlaying) && (
+        <div 
+          className={`absolute inset-0 transition-opacity duration-200 pointer-events-none ${
+            isVideoReady && isPlaying ? 'opacity-0' : 'opacity-100'
+          }`}
+        >
+          <img 
+            src={poster} 
+            alt="Poster" 
+            className="w-full h-full object-cover object-center"
+          />
+        </div>
+      )}
+    </div>
   );
 }
+

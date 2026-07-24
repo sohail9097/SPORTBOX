@@ -90,7 +90,7 @@ export default function BrandLogo({
               letterSpacing: '-0.015em'
             }}
           >
-            <span className="text-white">SPORTS</span>
+            <span className="text-black dark:text-white [.light_&]:text-black">SPORTS</span>
             <span className="text-[#ee3e38]">BOX</span>
           </span>
         </div>

@@ -573,7 +573,6 @@ export default function Shots() {
               ref={containerRef}
               onScroll={handleScroll}
               className="w-full h-full overflow-y-scroll snap-y snap-mandatory scroll-smooth no-scrollbar"
-              style={{ contentVisibility: 'auto' }}
             >
               <style dangerouslySetInnerHTML={{__html: `
                 .no-scrollbar::-webkit-scrollbar {
@@ -587,6 +586,7 @@ export default function Shots() {
               
               {shorts.map((short, idx) => {
                 const isCurrent = idx === currentIndex;
+                const shouldPreload = Math.abs(idx - currentIndex) <= 2;
                 const likedObj = likesState[short.id] || { liked: false, count: 0 };
                 const youtubeId = getYouTubeId(short.videoUrl);
                 const cloudflareIframeUrl = getCloudflareStreamIframeUrl(short.videoUrl);
@@ -603,12 +603,12 @@ export default function Shots() {
                     key={short.id} 
                     className="w-full h-full snap-start snap-always relative flex-shrink-0 flex items-center justify-center bg-black overflow-hidden"
                   >
-                    {isCurrent ? (
+                    {shouldPreload ? (
                       youtubeId ? (
                         <div className="w-full h-full relative overflow-hidden bg-black flex items-center justify-center">
                           <iframe
                             ref={(el) => { iframeRefs.current[idx] = el; }}
-                            src={`https://www.youtube.com/embed/${youtubeId}?autoplay=${isPlaying ? 1 : 0}&mute=${isMuted ? 1 : 0}&loop=1&playlist=${youtubeId}&controls=0&modestbranding=1&playsinline=1&rel=0&enablejsapi=1&origin=${window.location.origin}`}
+                            src={`https://www.youtube.com/embed/${youtubeId}?autoplay=${isCurrent && isPlaying ? 1 : 0}&mute=${isCurrent ? (isMuted ? 1 : 0) : 1}&loop=1&playlist=${youtubeId}&controls=0&modestbranding=1&playsinline=1&rel=0&enablejsapi=1&origin=${window.location.origin}`}
                             className={`${short.cropCenter !== false ? 'w-[316.05%] h-full max-w-none absolute left-1/2 -translate-x-1/2' : 'w-full h-full absolute inset-0'} border-0 select-none pointer-events-none`}
                             allow="autoplay; encrypted-media; picture-in-picture"
                           />
@@ -622,7 +622,7 @@ export default function Shots() {
                         <div className="w-full h-full relative overflow-hidden bg-black flex items-center justify-center">
                           <iframe
                             ref={(el) => { iframeRefs.current[idx] = el; }}
-                            src={sanitizeVideoUrlOrIframe(`${cloudflareIframeUrl}${cloudflareIframeUrl.includes('?') ? '&' : '?'}autoplay=${isPlaying ? 'true' : 'false'}&muted=${isMuted ? 'true' : 'false'}&loop=true&controls=false&api=true`)}
+                            src={sanitizeVideoUrlOrIframe(`${cloudflareIframeUrl}${cloudflareIframeUrl.includes('?') ? '&' : '?'}autoplay=${isCurrent && isPlaying ? 'true' : 'false'}&muted=${isCurrent ? (isMuted ? 'true' : 'false') : 'true'}&loop=true&controls=false&api=true`)}
                             className={`${short.cropCenter !== false ? 'w-[316.05%] h-full max-w-none absolute left-1/2 -translate-x-1/2' : 'w-full h-full absolute inset-0'} border-0 select-none pointer-events-none scale-[1.01]`}
                             allow="autoplay; encrypted-media; picture-in-picture"
                           />
@@ -664,19 +664,25 @@ export default function Shots() {
                           </div>
                         </div>
                       ) : (
-                        /* Vertical Video Element - rendered only for active short to prevent parallel media request spamming */
+                        /* Preloaded Vertical Video Element for active & adjacent shorts for 0ms Instagram Reels transitions */
                         <ShotVideoPlayer
                           src={transformedVideoUrl}
                           poster={transformedPosterUrl}
-                          isPlaying={isPlaying}
-                          isMuted={isMuted}
-                          onClick={() => setIsPlaying(prev => !prev)}
+                          isPlaying={isCurrent ? isPlaying : false}
+                          isMuted={isCurrent ? isMuted : true}
+                          onClick={() => {
+                            if (isCurrent) {
+                              setIsPlaying(prev => !prev);
+                            }
+                          }}
                           onError={() => {
                             console.warn("Video stream failed to load:", short.videoUrl);
                             setVideoErrors(prev => ({ ...prev, [short.id]: true }));
                           }}
                           onEnded={() => {
-                            handleNext();
+                            if (isCurrent) {
+                              handleNext();
+                            }
                           }}
                           videoRef={(el) => {
                             videoRefs.current[idx] = el;
@@ -684,12 +690,13 @@ export default function Shots() {
                         />
                       )
                     ) : (
-                      /* High-Quality Poster Image with Blur and Play icon for beautiful landscape transition list-loading */
+                      /* Poster Image placeholder for distant list items */
                       <div className="w-full h-full relative flex items-center justify-center bg-black overflow-hidden">
                         <img 
                           src={transformedPosterUrl} 
                           alt={short.title} 
                           className="w-full h-full object-cover object-center select-none opacity-85 blur-sm scale-105"
+                          loading="lazy"
                         />
                         <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
                           <div className="w-16 h-16 bg-white/10 rounded-full flex items-center justify-center backdrop-blur-md hover:bg-white/20 transition-all cursor-pointer">

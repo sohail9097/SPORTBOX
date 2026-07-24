@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../hooks/useAuth';
-import { db, handleFirestoreError, OperationType, doc, updateDoc, auth } from '../lib/firebase';
+import { db, handleFirestoreError, OperationType, doc, updateDoc, auth, onSnapshot, query, collection, where } from '../lib/firebase';
 import { motion, AnimatePresence } from 'motion/react';
-import { User, Phone, CheckCircle2, ShieldCheck, Mail, LogOut, ChevronRight, Loader2, Key, Settings, Clock, Crown, Play } from 'lucide-react';
+import { User, Phone, CheckCircle2, ShieldCheck, Mail, LogOut, ChevronRight, Loader2, Key, Settings, Clock, Crown, Play, Smartphone, Laptop, Monitor, AlertCircle } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { Link, useNavigate } from 'react-router-dom';
 import { SportsContent } from '../types';
@@ -10,6 +10,7 @@ import ContentCard from '../components/ContentCard';
 import LoadingScreen from '../components/LoadingScreen';
 import { toast } from 'sonner';
 import { useFirestoreCache } from '../context/FirestoreContext';
+import { getDeviceId, removeSession, removeCurrentSession, DeviceSession } from '../lib/sessionManager';
 
 export default function Account() {
   const navigate = useNavigate();
@@ -26,6 +27,59 @@ export default function Account() {
   
   const [recentContent, setRecentContent] = useState<SportsContent[]>([]);
   const [loadingRecent, setLoadingRecent] = useState(false);
+
+  const [activeSessions, setActiveSessions] = useState<DeviceSession[]>([]);
+  const [loggingOutSessionId, setLoggingOutSessionId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!user?.email) return;
+    const normalizedEmail = user.email.toLowerCase();
+    const q = query(
+      collection(db, 'sessions'),
+      where('userId', '==', normalizedEmail)
+    );
+
+    const unsubscribe = onSnapshot(q, (querySnap) => {
+      const list: DeviceSession[] = [];
+      querySnap.forEach((docSnap) => {
+        list.push({ id: docSnap.id, ...docSnap.data() } as DeviceSession);
+      });
+      setActiveSessions(list);
+    }, (err) => {
+      console.warn("[Account] Sessions snapshot error:", err);
+    });
+
+    return () => unsubscribe();
+  }, [user?.email]);
+
+  const handleLogoutSession = async (sessionToLogout: DeviceSession) => {
+    const currentDeviceId = getDeviceId();
+    const isThisDevice = sessionToLogout.deviceId === currentDeviceId;
+    setLoggingOutSessionId(sessionToLogout.id);
+
+    try {
+      if (isThisDevice) {
+        await removeCurrentSession(user?.email || '');
+        await auth.signOut();
+        navigate('/');
+      } else {
+        await removeSession(sessionToLogout.id);
+        toast.success(`Logged out from ${sessionToLogout.deviceName}`);
+      }
+    } catch (err) {
+      toast.error("Failed to logout session.");
+    } finally {
+      setLoggingOutSessionId(null);
+    }
+  };
+
+  const handleFullLogout = async () => {
+    try {
+      await removeCurrentSession(user?.email || '');
+    } catch (_) {}
+    await auth.signOut();
+    navigate('/');
+  };
 
   useEffect(() => {
     if (profile?.mobileNumber) setMobileNumber(profile.mobileNumber);
@@ -181,6 +235,71 @@ export default function Account() {
                   </div>
                 </div>
 
+                {/* Active Sessions Management */}
+                <div className="pt-6 border-t border-white/5 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="text-xs font-black uppercase tracking-wider text-white flex items-center gap-2">
+                        <Smartphone className="w-4 h-4 text-brand" /> Active Logged-In Devices
+                      </h4>
+                      <p className="text-[10px] text-text-muted mt-0.5">Maximum 2 concurrent active device sessions allowed.</p>
+                    </div>
+                    <span className="px-2.5 py-1 bg-brand/10 border border-brand/20 rounded-full text-[10px] font-black uppercase tracking-widest text-brand">
+                      {activeSessions.length} / 2 Devices
+                    </span>
+                  </div>
+
+                  <div className="space-y-3">
+                    {activeSessions.map((session) => {
+                      const isThisDevice = session.deviceId === getDeviceId();
+                      return (
+                        <div 
+                          key={session.id}
+                          className="p-4 rounded-xl bg-bg border border-white/10 flex items-center justify-between gap-3"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-text-muted">
+                              {session.deviceName.toLowerCase().includes('mobile') || session.deviceName.toLowerCase().includes('ios') || session.deviceName.toLowerCase().includes('android') ? (
+                                <Smartphone className="w-4 h-4 text-brand" />
+                              ) : session.deviceName.toLowerCase().includes('mac') || session.deviceName.toLowerCase().includes('windows') ? (
+                                <Laptop className="w-4 h-4 text-brand" />
+                              ) : (
+                                <Monitor className="w-4 h-4 text-brand" />
+                              )}
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <h5 className="text-xs font-bold text-white">{session.deviceName}</h5>
+                                {isThisDevice && (
+                                  <span className="px-2 py-0.5 bg-green-500/10 border border-green-500/20 text-green-400 text-[8px] font-black uppercase tracking-widest rounded-md">
+                                    This Device
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-[10px] text-text-muted mt-0.5">
+                                Logged in: {new Date(session.loginTime).toLocaleDateString()} {new Date(session.loginTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </p>
+                            </div>
+                          </div>
+
+                          <button
+                            onClick={() => handleLogoutSession(session)}
+                            disabled={loggingOutSessionId === session.id}
+                            className="px-3 py-2 bg-white/5 hover:bg-red-500/20 hover:border-red-500/30 text-red-400 font-bold uppercase tracking-widest text-[9px] rounded-lg border border-white/10 flex items-center gap-1.5 transition-all active:scale-95 disabled:opacity-50"
+                          >
+                            {loggingOutSessionId === session.id ? (
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                            ) : (
+                              <LogOut className="w-3 h-3" />
+                            )}
+                            Logout
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
                 <div className="flex flex-col md:flex-row gap-4 pt-6 border-t border-white/5">
                   <button 
                     onClick={handleUpdateProfile}
@@ -189,7 +308,7 @@ export default function Account() {
                     {loading ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Save Changes'}
                   </button>
                   <button 
-                    onClick={() => {auth.signOut(); navigate('/');}}
+                    onClick={handleFullLogout}
                     className="flex-grow py-4 bg-white/5 text-red-500 font-black uppercase tracking-widest text-[10px] rounded-lg hover:bg-red-500/10 transition-colors"
                   >
                     Logout Account

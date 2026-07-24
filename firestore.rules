@@ -19,6 +19,16 @@ service cloud.firestore {
     match /users/{userId} {
       allow read, write: if isOwner(userId) || isAdmin();
     }
+    // Sessions: logged in users can read and write sessions belonging to their account
+    match /sessions/{sessionId} {
+      allow read, write: if isSignedIn() && (
+        resource == null ||
+        resource.data.userId == request.auth.token.email ||
+        resource.data.email == request.auth.token.email ||
+        resource.data.userId == request.auth.uid ||
+        isAdmin()
+      );
+    }
     // Blogs: everyone can read, only admin can write
     match /blogs/{blogId} {
       allow read: if true;

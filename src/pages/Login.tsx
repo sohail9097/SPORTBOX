@@ -1,9 +1,11 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
-import { Play, Activity, Trophy, Bell, ShieldCheck, Mail, Lock, User as UserIcon, Phone, ArrowLeft, Loader2 } from 'lucide-react';
+import { Play, Activity, Trophy, Bell, ShieldCheck, Mail, Lock, User as UserIcon, Phone, ArrowLeft, Loader2, Monitor, Smartphone, Laptop, LogOut, AlertTriangle } from 'lucide-react';
 import { auth, db, handleFirestoreError, OperationType, doc, setDoc } from '../lib/firebase';
 import { useFirestoreCache } from '../context/FirestoreContext';
+import { verifyOrCreateSession, removeSession, forceCreateSession, DeviceSession } from '../lib/sessionManager';
+import { toast } from 'sonner';
 import ReCAPTCHA from 'react-google-recaptcha';
 import { 
   GoogleAuthProvider,
@@ -35,12 +37,61 @@ export default function Login() {
   const [fullName, setFullName] = useState('');
   const [mobileNumber, setMobileNumber] = useState('');
 
+  // Device Limit System State
+  const [showDeviceLimitModal, setShowDeviceLimitModal] = useState(false);
+  const [activeSessions, setActiveSessions] = useState<DeviceSession[]>([]);
+  const [pendingUser, setPendingUser] = useState<any | null>(null);
+  const [loggingOutId, setLoggingOutId] = useState<string | null>(null);
+
   const { siteConfig } = useFirestoreCache();
 
   const RECAPTCHA_SITE_KEY = "6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI";
 
   const handleRecaptchaChange = (token: string | null) => {
     setIsBotVerified(!!token);
+  };
+
+  const handlePostAuthSessionCheck = async (authenticatedUser: any) => {
+    if (!authenticatedUser?.email) {
+      navigate('/plans?welcome=true');
+      return;
+    }
+
+    const sessionCheck = await verifyOrCreateSession(authenticatedUser.email, authenticatedUser.uid);
+
+    if (!sessionCheck.allowed) {
+      setPendingUser(authenticatedUser);
+      setActiveSessions(sessionCheck.activeSessions || []);
+      setShowDeviceLimitModal(true);
+      setLoading(false);
+      return;
+    }
+
+    navigate('/plans?welcome=true');
+  };
+
+  const handleLogoutRemoteDevice = async (sessionToLogout: DeviceSession) => {
+    if (!pendingUser?.email) return;
+    setLoggingOutId(sessionToLogout.id);
+    try {
+      await removeSession(sessionToLogout.id);
+      await forceCreateSession(pendingUser.email);
+      toast.success(`Logged out from ${sessionToLogout.deviceName}. Login completed!`);
+      setShowDeviceLimitModal(false);
+      navigate('/plans?welcome=true');
+    } catch (err: any) {
+      toast.error("Failed to logout remote device. Please try again.");
+    } finally {
+      setLoggingOutId(null);
+    }
+  };
+
+  const handleCancelDeviceLimit = async () => {
+    await auth.signOut();
+    setShowDeviceLimitModal(false);
+    setPendingUser(null);
+    setActiveSessions([]);
+    toast.info("Login cancelled.");
   };
 
   const handleEmailAuth = async (e: React.FormEvent) => {
@@ -88,7 +139,7 @@ export default function Login() {
             throw signInErr;
           }
         }
-        navigate('/account');
+        await handlePostAuthSessionCheck(auth.currentUser);
         return;
       }
 
@@ -124,7 +175,7 @@ export default function Login() {
       } else {
         await signInWithEmailAndPassword(auth, email, password);
       }
-      navigate('/plans?welcome=true');
+      await handlePostAuthSessionCheck(auth.currentUser);
     } catch (err: any) {
       setError(err.message || "Authentication failed");
       setLoading(false);
@@ -170,7 +221,7 @@ export default function Login() {
           throw signInErr;
         }
       }
-      navigate('/plans?welcome=true');
+      await handlePostAuthSessionCheck(auth.currentUser);
     } catch (err: any) {
       console.error("[Demo Account Access Failure]:", err);
       setError(err?.message || "Demo Sign-In could not complete. Check Firestore connectivity.");
@@ -202,8 +253,8 @@ export default function Login() {
     }
 
     try {
-      await signInWithPopup(auth, provider);
-      navigate('/plans?welcome=true');
+      const res = await signInWithPopup(auth, provider);
+      await handlePostAuthSessionCheck(res.user);
     } catch (err: any) {
       const errorCode = err?.code;
       const errorMessage = err?.message || '';
@@ -531,6 +582,89 @@ export default function Login() {
            </div>
         </div>
       </div>
+
+      {/* Device Limit Exceeded Modal */}
+      <AnimatePresence>
+        {showDeviceLimitModal && (
+          <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="bg-zinc-950 border border-white/10 p-6 md:p-8 rounded-3xl max-w-lg w-full shadow-2xl relative overflow-hidden"
+            >
+              <div className="flex items-start gap-4 mb-6">
+                <div className="w-12 h-12 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-500 flex-shrink-0">
+                  <AlertTriangle className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-xl md:text-2xl font-black uppercase italic tracking-tight text-white">
+                    Device Limit Reached
+                  </h3>
+                  <p className="text-xs text-text-muted mt-1 leading-relaxed font-medium">
+                    Your account (<span className="text-white font-bold">{pendingUser?.email}</span>) is already logged in on <span className="text-brand font-bold">2 active devices</span> (maximum allowed).
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-3 mb-6">
+                <p className="text-[10px] font-black uppercase tracking-widest text-text-muted mb-2">
+                  Active Logged-In Devices:
+                </p>
+                {activeSessions.map((session) => (
+                  <div 
+                    key={session.id}
+                    className="p-4 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-between gap-3"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-brand/10 border border-brand/20 flex items-center justify-center text-brand">
+                        {session.deviceName.toLowerCase().includes('mobile') || session.deviceName.toLowerCase().includes('ios') || session.deviceName.toLowerCase().includes('android') ? (
+                          <Smartphone className="w-5 h-5" />
+                        ) : session.deviceName.toLowerCase().includes('mac') || session.deviceName.toLowerCase().includes('windows') ? (
+                          <Laptop className="w-5 h-5" />
+                        ) : (
+                          <Monitor className="w-5 h-5" />
+                        )}
+                      </div>
+                      <div>
+                        <h4 className="text-xs font-bold text-white uppercase tracking-wider">{session.deviceName}</h4>
+                        <p className="text-[10px] text-text-muted mt-0.5 font-medium">
+                          Logged in: {new Date(session.loginTime).toLocaleDateString()} {new Date(session.loginTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => handleLogoutRemoteDevice(session)}
+                      disabled={loggingOutId === session.id}
+                      className="px-4 py-2.5 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 font-black uppercase tracking-widest text-[10px] rounded-xl flex items-center gap-1.5 transition-all active:scale-95 disabled:opacity-50"
+                    >
+                      {loggingOutId === session.id ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <LogOut className="w-3.5 h-3.5" />
+                      )}
+                      Logout
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              <div className="pt-4 border-t border-white/10 flex items-center justify-between">
+                <p className="text-[10px] text-text-muted font-bold uppercase tracking-wider">
+                  Select a device above to logout and proceed.
+                </p>
+                <button
+                  onClick={handleCancelDeviceLimit}
+                  className="px-4 py-2 bg-white/5 hover:bg-white/10 text-white font-bold uppercase tracking-widest text-[10px] rounded-xl transition-all"
+                >
+                  Cancel
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

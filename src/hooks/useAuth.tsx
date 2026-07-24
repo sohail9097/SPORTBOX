@@ -1,7 +1,8 @@
 import { createContext, useContext, useEffect, useState, ReactNode, useRef } from 'react';
 import { User, onAuthStateChanged, onIdTokenChanged, getRedirectResult } from 'firebase/auth';
-import { auth, db, handleFirestoreError, OperationType, getDoc, doc, setDoc } from '../lib/firebase';
+import { auth, db, handleFirestoreError, OperationType, getDoc, doc, setDoc, onSnapshot } from '../lib/firebase';
 import { toast } from 'sonner';
+import { getDeviceId, getSessionDocId, removeCurrentSession } from '../lib/sessionManager';
 
 interface AuthContextType {
   user: User | null;
@@ -205,6 +206,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       window.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, []);
+
+  // Real-time listener for current device session (forces immediate logout if session document is deleted remotely)
+  useEffect(() => {
+    if (!user || !user.email) return;
+
+    const email = user.email.toLowerCase();
+    const docId = getSessionDocId(email, getDeviceId());
+    const sessionRef = doc(db, 'sessions', docId);
+
+    let sessionWasActive = false;
+
+    const unsubscribeSession = onSnapshot(sessionRef, (docSnap) => {
+      if (docSnap.exists()) {
+        sessionWasActive = true;
+      } else if (sessionWasActive) {
+        // Session was removed remotely!
+        console.warn("[SessionWatcher] Device session was removed remotely. Forcing logout...");
+        toast.error("You have been logged out because this device session was closed from another device.", { duration: 5000 });
+        auth.signOut();
+      }
+    }, (err) => {
+      console.warn("[SessionWatcher] Error listening to session:", err?.message || err);
+    });
+
+    return () => {
+      unsubscribeSession();
+    };
+  }, [user?.uid, user?.email]);
 
   const initializeProfile = async (authenticatedUser: User) => {
     const userDocRef = doc(db, 'users', authenticatedUser.uid);

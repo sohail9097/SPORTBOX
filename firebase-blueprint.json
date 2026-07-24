@@ -64,6 +64,20 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["title", "page", "contentIds", "type", "order", "isActive"]
+    },
+    "Session": {
+      "title": "Device Session",
+      "description": "Active device sessions for device limit verification",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "email": { "type": "string" },
+        "deviceId": { "type": "string" },
+        "deviceName": { "type": "string" },
+        "loginTime": { "type": "string", "format": "date-time" },
+        "lastActive": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "deviceId", "deviceName"]
     }
   },
   "firestore": {
@@ -82,6 +96,10 @@
     "/sections/{sectionId}": {
       "schema": "ContentSection",
       "description": "Dynamic page sections"
+    },
+    "/sessions/{sessionId}": {
+      "schema": "Session",
+      "description": "Active user sessions"
     },
     "/slider/{slideId}": {
       "schema": "SliderElement",

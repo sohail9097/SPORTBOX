@@ -22,7 +22,7 @@ const IconMap: Record<string, any> = {
 export default function Plans() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, profile, refreshProfile } = useAuth();
+  const { user, profile, refreshProfile, updateProfileState } = useAuth();
   const { plans, loading } = useFirestoreCache();
   const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan | null>(null);
   const [mobileNumber, setMobileNumber] = useState('');
@@ -58,7 +58,7 @@ export default function Plans() {
       // 1. FREE PLAN OR 100% DISCOUNT BYPASS FLOW
       if (finalPrice === 0) {
         const userRef = doc(db, 'users', user.uid);
-        await setDoc(userRef, {
+        const subData = {
           uid: user.uid,
           email: user.email,
           displayName: displayName,
@@ -69,8 +69,12 @@ export default function Plans() {
           isMobileVerified: true,
           lastPaymentDate: new Date().toISOString(),
           createdAt: profile?.createdAt || new Date().toISOString()
-        }, { merge: true });
+        };
+        await setDoc(userRef, subData, { merge: true });
 
+        if (updateProfileState) {
+          updateProfileState(subData);
+        }
         if (refreshProfile) {
           await refreshProfile();
         }
@@ -130,6 +134,15 @@ export default function Plans() {
 
             const verifyResult = await verificationResp.json();
             if (verificationResp.ok && verifyResult.success) {
+              if (updateProfileState) {
+                updateProfileState({
+                  subscriptionTier: selectedPlan.id,
+                  subscriptionStatus: 'active',
+                  isSubscribed: true,
+                  mobileNumber: normalizedPhone,
+                  isMobileVerified: true
+                });
+              }
               if (refreshProfile) {
                 await refreshProfile();
               }
@@ -327,7 +340,17 @@ export default function Plans() {
                         <p className="text-xs md:text-text-muted font-medium">Your {selectedPlan.name} is now active. Enjoy high-priority sports streaming.</p>
                       </div>
                       <button 
-                        onClick={() => {
+                        onClick={async () => {
+                          if (selectedPlan && updateProfileState) {
+                            updateProfileState({
+                              subscriptionTier: selectedPlan.id,
+                              subscriptionStatus: 'active',
+                              isSubscribed: true
+                            });
+                          }
+                          if (refreshProfile) {
+                            await refreshProfile();
+                          }
                           setSelectedPlan(null);
                           navigate('/');
                         }}

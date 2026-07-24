@@ -22,12 +22,14 @@ import {
 import { cn } from '../lib/utils';
 import BrandLogo from '../components/BrandLogo';
 import { SiteConfig } from '../types';
+import { useAuth } from '../hooks/useAuth';
 
 type AuthMode = 'login' | 'signup' | 'social';
 
 export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { refreshProfile, updateProfileState } = useAuth();
   const recaptchaRef = useRef<ReCAPTCHA>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -79,6 +81,7 @@ export default function Login() {
 
   const handlePostAuthSessionCheck = async (authenticatedUser: any) => {
     if (!authenticatedUser?.email) {
+      if (refreshProfile) await refreshProfile();
       navigate('/plans?welcome=true');
       return;
     }
@@ -89,6 +92,10 @@ export default function Login() {
       setHasAcceptedCurrentTerms(true);
     } catch (err) {
       console.warn("[Login] Error recording terms acceptance:", err);
+    }
+
+    if (refreshProfile) {
+      await refreshProfile();
     }
 
     const sessionCheck = await verifyOrCreateSession(authenticatedUser.email, authenticatedUser.uid);
@@ -157,18 +164,21 @@ export default function Login() {
             const userCredential = await createUserWithEmailAndPassword(auth, 'demo@sportsbox.com', 'sportsbox123');
             const userObj = userCredential.user;
             await updateProfile(userObj, { displayName: "Demo Sports Fan" });
-            await setDoc(doc(db, 'users', userObj.uid), {
+            const demoData = {
               uid: userObj.uid,
               email: userObj.email,
               displayName: "Demo Sports Fan",
               mobileNumber: "+919875412365",
               subscriptionTier: 'ultra',
               subscriptionStatus: 'active',
+              isSubscribed: true,
               favorites: [],
               watchLater: [],
               recentlyWatched: [],
               createdAt: new Date().toISOString()
-            });
+            };
+            await setDoc(doc(db, 'users', userObj.uid), demoData);
+            if (updateProfileState) updateProfileState(demoData);
           } else {
             throw signInErr;
           }
@@ -239,18 +249,21 @@ export default function Login() {
           const userCredential = await createUserWithEmailAndPassword(auth, demoEmail, demoPassword);
           const userObj = userCredential.user;
           await updateProfile(userObj, { displayName: "Demo Sports Fan" });
-          await setDoc(doc(db, 'users', userObj.uid), {
+          const demoData = {
             uid: userObj.uid,
             email: userObj.email,
             displayName: "Demo Sports Fan",
             mobileNumber: "+919875412365",
             subscriptionTier: 'ultra',
             subscriptionStatus: 'active',
+            isSubscribed: true,
             favorites: [],
             watchLater: [],
             recentlyWatched: [],
             createdAt: new Date().toISOString()
-          });
+          };
+          await setDoc(doc(db, 'users', userObj.uid), demoData);
+          if (updateProfileState) updateProfileState(demoData);
         } else {
           throw signInErr;
         }

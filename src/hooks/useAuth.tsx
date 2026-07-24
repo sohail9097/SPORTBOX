@@ -10,6 +10,7 @@ interface AuthContextType {
   isAdmin: boolean;
   profile: any | null;
   refreshProfile: () => Promise<any>;
+  updateProfileState: (newData: Partial<any>) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -293,6 +294,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [user?.uid]);
 
+  const updateProfileState = (newData: Partial<any>) => {
+    setProfile((prev: any) => {
+      const updated = { ...(prev || {}), ...newData };
+      currentProfileRef.current = updated;
+      return updated;
+    });
+  };
+
   const refreshProfile = async () => {
     if (!user) return null;
     try {
@@ -344,7 +353,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const isAdmin = user?.email ? ADMIN_EMAILS.includes(user.email.toLowerCase()) : false;
 
   return (
-    <AuthContext.Provider value={{ user, loading, isAdmin, profile, refreshProfile }}>
+    <AuthContext.Provider value={{ user, loading, isAdmin, profile, refreshProfile, updateProfileState }}>
       {children}
     </AuthContext.Provider>
   );

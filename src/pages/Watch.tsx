@@ -533,10 +533,10 @@ export default function Watch() {
 
   const isSubscribed = isAdmin || (
     profile && 
-    profile.subscriptionStatus === 'active' && 
+    (profile.subscriptionStatus === 'active' || (profile.subscriptionTier && profile.subscriptionTier !== 'free' && profile.subscriptionTier !== 'none')) && 
     Boolean(profile.mobileNumber)
   );
-  const isLocked = !isSubscribed;
+  const isLocked = content?.isPremium ? !isSubscribed : (!user);
 
   const isIframeUrl = (url: string) => {
     if (!url) return false;

@@ -9,6 +9,7 @@ interface AuthContextType {
   loading: boolean;
   isAdmin: boolean;
   profile: any | null;
+  refreshProfile: () => Promise<any>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -260,6 +261,55 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [user?.uid, user?.email]);
 
+  // Real-time Firestore user profile listener
+  useEffect(() => {
+    if (!user) {
+      setProfile(null);
+      setLoading(false);
+      return;
+    }
+
+    const userDocRef = doc(db, 'users', user.uid);
+    console.log(`[AuthProvider] Attaching real-time profile snapshot listener for uid: "${user.uid}"`);
+
+    const unsubscribeProfile = onSnapshot(userDocRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        console.log(`[AuthProvider Realtime Profile] Data updated: tier=${data?.subscriptionTier}, status=${data?.subscriptionStatus}, mobile=${data?.mobileNumber}`);
+        setProfile(data);
+        currentProfileRef.current = data;
+      } else {
+        console.log(`[AuthProvider Realtime Profile] User doc does not exist yet. Initializing profile...`);
+        initializeProfile(user);
+      }
+      setLoading(false);
+    }, (error) => {
+      console.warn("[AuthProvider Realtime Profile] Snapshot error:", error?.message || error);
+      setLoading(false);
+    });
+
+    return () => {
+      unsubscribeProfile();
+    };
+  }, [user?.uid]);
+
+  const refreshProfile = async () => {
+    if (!user) return null;
+    try {
+      const userDocRef = doc(db, 'users', user.uid);
+      const docSnap = await getDoc(userDocRef, { component: 'AuthProvider', file: 'useAuth.tsx', reason: 'Explicit profile refresh' });
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        setProfile(data);
+        currentProfileRef.current = data;
+        return data;
+      }
+    } catch (err) {
+      console.error("[AuthProvider] Manual refreshProfile error:", err);
+    }
+    return null;
+  };
+
   const initializeProfile = async (authenticatedUser: User) => {
     const userDocRef = doc(db, 'users', authenticatedUser.uid);
     try {
@@ -294,7 +344,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const isAdmin = user?.email ? ADMIN_EMAILS.includes(user.email.toLowerCase()) : false;
 
   return (
-    <AuthContext.Provider value={{ user, loading, isAdmin, profile }}>
+    <AuthContext.Provider value={{ user, loading, isAdmin, profile, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   );

@@ -22,7 +22,7 @@ const IconMap: Record<string, any> = {
 export default function Plans() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, profile } = useAuth();
+  const { user, profile, refreshProfile } = useAuth();
   const { plans, loading } = useFirestoreCache();
   const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan | null>(null);
   const [mobileNumber, setMobileNumber] = useState('');
@@ -33,7 +33,9 @@ export default function Plans() {
   const isWelcome = new URLSearchParams(location.search).get('welcome') === 'true';
 
   const handleSubscribe = async () => {
-    const digits = mobileNumber.trim().replace(/\D/g, "");
+    const rawDigits = mobileNumber.trim().replace(/\D/g, "");
+    const digits = rawDigits.length >= 10 ? rawDigits.slice(-10) : rawDigits;
+
     if (digits.length !== 10) {
       toast.error("Please enter a valid 10-digit mobile number.");
       return;
@@ -67,7 +69,14 @@ export default function Plans() {
           lastPaymentDate: new Date().toISOString(),
           createdAt: profile?.createdAt || new Date().toISOString()
         }, { merge: true });
+
+        if (refreshProfile) {
+          await refreshProfile();
+        }
+
+        toast.success("Subscription activated successfully!");
         setStep('success');
+        setIsProcessing(false);
         return;
       }
 
@@ -120,6 +129,9 @@ export default function Plans() {
 
             const verifyResult = await verificationResp.json();
             if (verificationResp.ok && verifyResult.success) {
+              if (refreshProfile) {
+                await refreshProfile();
+              }
               toast.success("Payment Received! Subscription is now active.");
               setStep('success');
             } else {
@@ -160,7 +172,9 @@ export default function Plans() {
 
   useEffect(() => {
     if (profile?.mobileNumber) {
-      setMobileNumber(profile.mobileNumber);
+      const raw = profile.mobileNumber.replace(/\D/g, "");
+      const clean10 = raw.length >= 10 ? raw.slice(-10) : raw;
+      setMobileNumber(clean10);
     }
     if (profile?.displayName) {
       setDisplayName(profile.displayName);

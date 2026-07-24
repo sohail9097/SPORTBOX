@@ -21,10 +21,10 @@ export default function ContentCard({
   const { profile, isAdmin, user } = useAuth();
   const isSubscribed = isAdmin || (
     profile && 
-    profile.subscriptionStatus === 'active' && 
+    (profile.subscriptionStatus === 'active' || (profile.subscriptionTier && profile.subscriptionTier !== 'free' && profile.subscriptionTier !== 'none')) && 
     Boolean(profile.mobileNumber)
   );
-  const isLocked = !isSubscribed;
+  const isLocked = content?.isPremium ? !isSubscribed : (!user);
 
   const displayThumbnail = content.thumbnailUrl && content.thumbnailUrl.trim() !== ''
     ? content.thumbnailUrl

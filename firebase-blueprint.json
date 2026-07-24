@@ -79,6 +79,17 @@
         "lastActive": { "type": "string", "format": "date-time" }
       },
       "required": ["userId", "deviceId", "deviceName"]
+    },
+    "TermsAcceptance": {
+      "title": "Terms Acceptance",
+      "description": "User terms and conditions acceptance records",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "acceptedAt": { "type": "string", "format": "date-time" },
+        "version": { "type": "string" }
+      },
+      "required": ["userId", "acceptedAt", "version"]
     }
   },
   "firestore": {
@@ -105,6 +116,10 @@
     "/slider/{slideId}": {
       "schema": "SliderElement",
       "description": "Homepage hero slider items"
+    },
+    "/termsAcceptance/{docId}": {
+      "schema": "TermsAcceptance",
+      "description": "User terms and conditions acceptance history"
     }
   }
 }

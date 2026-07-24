@@ -1,10 +1,13 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
-import { Play, Activity, Trophy, Bell, ShieldCheck, Mail, Lock, User as UserIcon, Phone, ArrowLeft, Loader2, Monitor, Smartphone, Laptop, LogOut, AlertTriangle } from 'lucide-react';
+import { Play, Activity, Trophy, Bell, ShieldCheck, Mail, Lock, User as UserIcon, Phone, ArrowLeft, Loader2, Monitor, Smartphone, Laptop, LogOut, AlertTriangle, FileText } from 'lucide-react';
 import { auth, db, handleFirestoreError, OperationType, doc, setDoc } from '../lib/firebase';
 import { useFirestoreCache } from '../context/FirestoreContext';
 import { verifyOrCreateSession, removeSession, forceCreateSession, DeviceSession } from '../lib/sessionManager';
+import { CURRENT_TERMS_VERSION } from '../config/termsConfig';
+import { checkHasAcceptedTerms, recordTermsAcceptance } from '../lib/termsManager';
+import TermsModal from '../components/TermsModal';
 import { toast } from 'sonner';
 import ReCAPTCHA from 'react-google-recaptcha';
 import { 
@@ -31,6 +34,11 @@ export default function Login() {
   const [isBotVerified, setIsBotVerified] = useState(false);
   const [authMode, setAuthMode] = useState<AuthMode>('social');
   
+  // Terms & Conditions Acceptance State
+  const [hasAcceptedCurrentTerms, setHasAcceptedCurrentTerms] = useState<boolean | null>(null);
+  const [isTermsAccepted, setIsTermsAccepted] = useState<boolean>(false);
+  const [showTermsModal, setShowTermsModal] = useState<boolean>(false);
+
   // Form State
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -47,6 +55,24 @@ export default function Login() {
 
   const RECAPTCHA_SITE_KEY = "6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI";
 
+  // Check Firestore for terms acceptance whenever email is typed/changed
+  useEffect(() => {
+    if (!email || !email.includes('@')) {
+      setHasAcceptedCurrentTerms(false);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      const accepted = await checkHasAcceptedTerms(email, CURRENT_TERMS_VERSION);
+      setHasAcceptedCurrentTerms(accepted);
+    }, 250);
+
+    return () => clearTimeout(timer);
+  }, [email]);
+
+  const shouldShowTermsCheckbox = !hasAcceptedCurrentTerms;
+  const isActionDisabled = loading || !isBotVerified || (shouldShowTermsCheckbox && !isTermsAccepted);
+
   const handleRecaptchaChange = (token: string | null) => {
     setIsBotVerified(!!token);
   };
@@ -55,6 +81,14 @@ export default function Login() {
     if (!authenticatedUser?.email) {
       navigate('/plans?welcome=true');
       return;
+    }
+
+    // Record terms acceptance in Firestore
+    try {
+      await recordTermsAcceptance(authenticatedUser.email, CURRENT_TERMS_VERSION);
+      setHasAcceptedCurrentTerms(true);
+    } catch (err) {
+      console.warn("[Login] Error recording terms acceptance:", err);
     }
 
     const sessionCheck = await verifyOrCreateSession(authenticatedUser.email, authenticatedUser.uid);
@@ -354,6 +388,37 @@ export default function Login() {
                   />
                 </div>
               </div>
+
+              {/* Conditional Terms & Conditions Checkbox */}
+              {shouldShowTermsCheckbox && (
+                <div className="w-full pt-3 mt-1 border-t border-white/10 flex items-start gap-2.5 text-left">
+                  <input
+                    type="checkbox"
+                    id="termsCheckbox"
+                    checked={isTermsAccepted}
+                    onChange={(e) => setIsTermsAccepted(e.target.checked)}
+                    className="mt-0.5 w-4 h-4 rounded border-white/20 bg-white/10 text-brand focus:ring-brand accent-brand cursor-pointer flex-shrink-0"
+                  />
+                  <label htmlFor="termsCheckbox" className="text-[11px] text-text-muted font-medium leading-tight cursor-pointer select-none">
+                    I agree to the{' '}
+                    <button
+                      type="button"
+                      onClick={(e) => { e.preventDefault(); setShowTermsModal(true); }}
+                      className="text-brand font-bold hover:underline"
+                    >
+                      Terms & Conditions
+                    </button>{' '}
+                    and{' '}
+                    <button
+                      type="button"
+                      onClick={(e) => { e.preventDefault(); setShowTermsModal(true); }}
+                      className="text-brand font-bold hover:underline"
+                    >
+                      Privacy Policy
+                    </button>
+                  </label>
+                </div>
+              )}
             </div>
 
             <AnimatePresence mode="wait">
@@ -367,7 +432,7 @@ export default function Login() {
                 >
                   <button 
                     onClick={() => handleSocialLogin('google')}
-                    disabled={loading || !isBotVerified}
+                    disabled={isActionDisabled}
                     className="w-full h-14 bg-white text-black font-black uppercase tracking-widest text-xs rounded-xl flex items-center justify-center gap-3 transition-all active:scale-[0.98] disabled:opacity-30"
                   >
                     <GoogleIcon />
@@ -377,7 +442,7 @@ export default function Login() {
                   <div className="grid grid-cols-2 gap-3">
                     <button 
                       onClick={() => handleSocialLogin('facebook')}
-                      disabled={loading || !isBotVerified}
+                      disabled={isActionDisabled}
                       className="h-14 bg-[#1877F2]/10 border border-[#1877F2]/20 text-[#1877F2] font-black uppercase tracking-widest text-[10px] rounded-xl flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-30"
                     >
                       <FacebookIcon />
@@ -385,7 +450,7 @@ export default function Login() {
                     </button>
                     <button 
                       onClick={() => handleSocialLogin('x')}
-                      disabled={loading || !isBotVerified}
+                      disabled={isActionDisabled}
                       className="h-14 bg-white/5 border border-white/10 text-white font-black uppercase tracking-widest text-[10px] rounded-xl flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-30"
                     >
                       <XIcon />
@@ -480,7 +545,7 @@ export default function Login() {
 
                   <button 
                     type="submit"
-                    disabled={loading || !isBotVerified}
+                    disabled={isActionDisabled}
                     className="w-full h-14 bg-brand text-white font-black uppercase tracking-widest text-xs rounded-xl flex items-center justify-center gap-3 transition-all active:scale-[0.98] disabled:opacity-50"
                   >
                     {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : authMode === 'signup' ? 'Create Account' : 'Sign In'}
@@ -498,7 +563,7 @@ export default function Login() {
             </AnimatePresence>
 
             <p className="text-[10px] text-center text-text-muted font-bold uppercase tracking-[0.2em]">
-              By continuing, you agree to our <Link to="#" className="text-brand hover:underline">Terms of Play</Link>
+              By continuing, you agree to our <button type="button" onClick={() => setShowTermsModal(true)} className="text-brand hover:underline">Terms & Conditions</button>
             </p>
           </div>
         </motion.div>
@@ -665,6 +730,12 @@ export default function Login() {
           </div>
         )}
       </AnimatePresence>
+
+      {/* Terms & Conditions Full Document Modal */}
+      <TermsModal 
+        isOpen={showTermsModal} 
+        onClose={() => setShowTermsModal(false)} 
+      />
     </div>
   );
 }

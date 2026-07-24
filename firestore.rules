@@ -27,6 +27,11 @@ service cloud.firestore {
              request.auth.token.email != null;
     }
 
+    // Terms Acceptance: read and create/update allowed so pre-login checks and acceptance recordings work
+    match /termsAcceptance/{docId} {
+      allow read, write: if true;
+    }
+
     // Sessions: logged in users can only access session documents belonging to their own email
     match /sessions/{sessionId} {
       allow read, delete: if (isSessionOwner() && (

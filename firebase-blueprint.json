@@ -72,6 +72,7 @@
       "properties": {
         "userId": { "type": "string" },
         "email": { "type": "string" },
+        "normalizedEmail": { "type": "string" },
         "deviceId": { "type": "string" },
         "deviceName": { "type": "string" },
         "loginTime": { "type": "string", "format": "date-time" },

@@ -71,7 +71,8 @@ export {
   arrayUnion, 
   arrayRemove, 
   documentId,
-  serverTimestamp
+  serverTimestamp,
+  runTransaction
 } from 'firebase/firestore';
 
 // --- OPTIMIZED IN-MEMORY CACHE FOR FIRESTORE READS ---

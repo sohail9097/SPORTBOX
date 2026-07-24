@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState, ReactNode, useRef } fro
 import { User, onAuthStateChanged, onIdTokenChanged, getRedirectResult } from 'firebase/auth';
 import { auth, db, handleFirestoreError, OperationType, getDoc, doc, setDoc, onSnapshot } from '../lib/firebase';
 import { toast } from 'sonner';
-import { getDeviceId, getSessionDocId, removeCurrentSession } from '../lib/sessionManager';
+import { getDeviceId, getSessionDocId, removeCurrentSession, verifyOrCreateSession } from '../lib/sessionManager';
 
 interface AuthContextType {
   user: User | null;
@@ -207,30 +207,55 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  // Real-time listener for current device session (forces immediate logout if session document is deleted remotely)
+  // Verify device limit and attach real-time session listener whenever user is authenticated (fresh login OR auto-login)
   useEffect(() => {
     if (!user || !user.email) return;
 
-    const email = user.email.toLowerCase();
-    const docId = getSessionDocId(email, getDeviceId());
+    let isSubscribed = true;
+    const email = user.email.toLowerCase().trim();
+    const deviceId = getDeviceId();
+    const docId = getSessionDocId(email, deviceId);
     const sessionRef = doc(db, 'sessions', docId);
+
+    console.log(`[AuthProvider] Session Verification starting on app load for user "${email}" (deviceId: "${deviceId}", docId: "${docId}")`);
+
+    // Verify session limit on every app load / state restore
+    verifyOrCreateSession(email, user.uid).then((res) => {
+      if (!isSubscribed) return;
+      if (!res.allowed) {
+        console.warn(`[AuthProvider] Device limit EXCEEDED for user "${email}" on auto-login/restore. Forcing logout...`);
+        toast.error("Your account has reached the 2-device limit. Signing out on this device...", { duration: 6000 });
+        auth.signOut();
+      } else {
+        console.log(`[AuthProvider] Session verification PASSED for user "${email}" on docId "${docId}".`);
+      }
+    }).catch((err) => {
+      console.error("[AuthProvider] Session verification check error:", err);
+    });
 
     let sessionWasActive = false;
 
+    // Real-time listener: triggers if session doc is removed remotely from another device
+    console.log(`[AuthProvider] Attaching real-time session onSnapshot listener for docId: "${docId}"`);
     const unsubscribeSession = onSnapshot(sessionRef, (docSnap) => {
+      console.log(`[AuthProvider SessionWatcher] onSnapshot fired for docId "${docId}": exists = ${docSnap.exists()}`);
       if (docSnap.exists()) {
         sessionWasActive = true;
-      } else if (sessionWasActive) {
-        // Session was removed remotely!
-        console.warn("[SessionWatcher] Device session was removed remotely. Forcing logout...");
-        toast.error("You have been logged out because this device session was closed from another device.", { duration: 5000 });
-        auth.signOut();
+      } else {
+        if (sessionWasActive) {
+          console.warn(`[AuthProvider SessionWatcher] Session doc "${docId}" was removed remotely. Forcing logout...`);
+          toast.error("You have been logged out because this device session was closed from another device.", { duration: 5000 });
+          auth.signOut();
+        } else {
+          console.warn(`[AuthProvider SessionWatcher] Session doc "${docId}" does NOT exist on initial listener check.`);
+        }
       }
     }, (err) => {
-      console.warn("[SessionWatcher] Error listening to session:", err?.message || err);
+      console.warn(`[AuthProvider SessionWatcher] Error listening to session "${docId}":`, err?.message || err);
     });
 
     return () => {
+      isSubscribed = false;
       unsubscribeSession();
     };
   }, [user?.uid, user?.email]);

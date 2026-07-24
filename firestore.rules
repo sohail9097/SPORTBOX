@@ -19,15 +19,27 @@ service cloud.firestore {
     match /users/{userId} {
       allow read, write: if isOwner(userId) || isAdmin();
     }
-    // Sessions: logged in users can read and write sessions belonging to their account
+    // Helper for session ownership
+    function isSessionOwner() {
+      return isSignedIn() && 
+             request.auth.token != null &&
+             'email' in request.auth.token &&
+             request.auth.token.email != null;
+    }
+
+    // Sessions: logged in users can only access session documents belonging to their own email
     match /sessions/{sessionId} {
-      allow read, write: if isSignedIn() && (
-        resource == null ||
-        resource.data.userId == request.auth.token.email ||
-        resource.data.email == request.auth.token.email ||
-        resource.data.userId == request.auth.uid ||
-        isAdmin()
-      );
+      allow read, delete: if (isSessionOwner() && (
+        (resource.data.normalizedEmail != null && resource.data.normalizedEmail == request.auth.token.email.lower()) ||
+        (resource.data.userId != null && resource.data.userId == request.auth.token.email.lower()) ||
+        (resource.data.email != null && resource.data.email == request.auth.token.email.lower())
+      )) || isAdmin();
+
+      allow create, update: if (isSessionOwner() && (
+        (request.resource.data.normalizedEmail != null && request.resource.data.normalizedEmail == request.auth.token.email.lower()) ||
+        (request.resource.data.userId != null && request.resource.data.userId == request.auth.token.email.lower()) ||
+        (request.resource.data.email != null && request.resource.data.email == request.auth.token.email.lower())
+      )) || isAdmin();
     }
     // Blogs: everyone can read, only admin can write
     match /blogs/{blogId} {

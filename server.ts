@@ -255,6 +255,7 @@ async function startServer() {
         displayName: displayName || existingData?.displayName || null,
         subscriptionTier: planId,
         subscriptionStatus: 'active',
+        isSubscribed: true,
         mobileNumber: mobileNumber || existingData?.mobileNumber || null,
         isMobileVerified: true,
         lastPaymentDate: new Date().toISOString(),

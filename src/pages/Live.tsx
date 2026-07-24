@@ -11,10 +11,16 @@ import { db, getDocs, collection, query, where, limit } from '../lib/firebase';
 
 export default function Live() {
   const { profile, isAdmin } = useAuth();
-  const isSubscribed = isAdmin || (
-    profile && 
-    (profile.subscriptionStatus === 'active' || (profile.subscriptionTier && profile.subscriptionTier !== 'free' && profile.subscriptionTier !== 'none')) && 
-    Boolean(profile.mobileNumber)
+  const isSubscribed = Boolean(
+    isAdmin || (
+      profile && (
+        profile.subscriptionStatus?.toLowerCase() === 'active' ||
+        profile.isSubscribed === true ||
+        (profile.subscriptionTier && 
+         profile.subscriptionTier.toLowerCase() !== 'none' && 
+         profile.subscriptionTier.toLowerCase() !== 'free')
+      )
+    )
   );
 
   const { content: cachedContent, loading: cacheLoading } = useFirestoreCache();

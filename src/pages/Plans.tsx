@@ -64,6 +64,7 @@ export default function Plans() {
           displayName: displayName,
           subscriptionTier: selectedPlan.id,
           subscriptionStatus: 'active',
+          isSubscribed: true,
           mobileNumber: normalizedPhone,
           isMobileVerified: true,
           lastPaymentDate: new Date().toISOString(),

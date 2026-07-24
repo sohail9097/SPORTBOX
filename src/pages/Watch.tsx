@@ -531,10 +531,16 @@ export default function Watch() {
   if (loading && !content) return <LoadingScreen />;
   if (!content) return <div className="h-screen flex flex-col items-center justify-center">Content not found. <Link to="/" className="text-brand mt-4">Back Home</Link></div>;
 
-  const isSubscribed = isAdmin || (
-    profile && 
-    (profile.subscriptionStatus === 'active' || (profile.subscriptionTier && profile.subscriptionTier !== 'free' && profile.subscriptionTier !== 'none')) && 
-    Boolean(profile.mobileNumber)
+  const isSubscribed = Boolean(
+    isAdmin || (
+      profile && (
+        profile.subscriptionStatus?.toLowerCase() === 'active' ||
+        profile.isSubscribed === true ||
+        (profile.subscriptionTier && 
+         profile.subscriptionTier.toLowerCase() !== 'none' && 
+         profile.subscriptionTier.toLowerCase() !== 'free')
+      )
+    )
   );
   const isLocked = content?.isPremium ? !isSubscribed : (!user);
 

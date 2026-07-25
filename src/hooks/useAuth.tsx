@@ -3,7 +3,9 @@ import { User, onAuthStateChanged, onIdTokenChanged, getRedirectResult } from 'f
 import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 import { auth, db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { toast } from 'sonner';
-import { getDeviceId, getSessionDocId, removeCurrentSession, verifyOrCreateSession } from '../lib/sessionManager';
+import { getDeviceId, getSessionDocId, removeCurrentSession, verifyOrCreateSession, DeviceSession, removeSession, forceCreateSession } from '../lib/sessionManager';
+import { motion, AnimatePresence } from 'motion/react';
+import { AlertTriangle, Smartphone, Laptop, Monitor, LogOut, Loader2 } from 'lucide-react';
 
 interface AuthContextType {
   user: User | null;
@@ -22,6 +24,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Device Limit Modal State
+  const [showDeviceLimitModal, setShowDeviceLimitModal] = useState(false);
+  const [deviceLimitSessions, setDeviceLimitSessions] = useState<DeviceSession[]>([]);
+  const [loggingOutDeviceId, setLoggingOutDeviceId] = useState<string | null>(null);
 
   const currentUserRef = useRef<User | null>(null);
   const currentProfileRef = useRef<any | null>(null);
@@ -226,11 +233,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     verifyOrCreateSession(email, user.uid).then((res) => {
       if (!isSubscribed) return;
       if (!res.allowed) {
-        console.warn(`[AuthProvider] Device limit EXCEEDED for user "${email}" on auto-login/restore. Forcing logout...`);
-        toast.error("Your account has reached the 2-device limit. Signing out on this device...", { duration: 6000 });
-        auth.signOut();
+        console.warn(`[AuthProvider] Device limit EXCEEDED for user "${email}". Opening Device Limit modal...`);
+        setDeviceLimitSessions(res.activeSessions || []);
+        setShowDeviceLimitModal(true);
       } else {
         console.log(`[AuthProvider] Session verification PASSED for user "${email}" on docId "${docId}".`);
+        setShowDeviceLimitModal(false);
       }
     }).catch((err) => {
       console.error("[AuthProvider] Session verification check error:", err);
@@ -353,9 +361,127 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const isAdmin = user?.email ? ADMIN_EMAILS.includes(user.email.toLowerCase()) : false;
 
+  const handleLogoutRemoteDevice = async (sessionToLogout: DeviceSession) => {
+    if (!user || !user.email) return;
+    setLoggingOutDeviceId(sessionToLogout.id);
+    try {
+      console.log(`[AuthProvider] Removing session ${sessionToLogout.id} for user ${user.email}`);
+      await removeSession(sessionToLogout.id);
+
+      const remaining = deviceLimitSessions.filter(s => s.id !== sessionToLogout.id);
+      setDeviceLimitSessions(remaining);
+
+      if (remaining.length < 2) {
+        await forceCreateSession(user.email);
+        toast.success(`Logged out from ${sessionToLogout.deviceName}. Login completed!`);
+        setShowDeviceLimitModal(false);
+        if (refreshProfile) {
+          try {
+            await refreshProfile();
+          } catch (_) {}
+        }
+      } else {
+        toast.success(`Logged out from ${sessionToLogout.deviceName}. Select another device if needed.`);
+      }
+    } catch (err) {
+      console.error("[AuthProvider] Failed to logout remote device:", err);
+      toast.error("Failed to logout remote device. Please try again.");
+    } finally {
+      setLoggingOutDeviceId(null);
+    }
+  };
+
+  const handleCancelDeviceLimit = async () => {
+    setShowDeviceLimitModal(false);
+    await auth.signOut();
+  };
+
   return (
     <AuthContext.Provider value={{ user, loading, isAdmin, profile, refreshProfile, updateProfileState }}>
       {children}
+
+      {/* Global Device Limit Modal */}
+      <AnimatePresence>
+        {showDeviceLimitModal && (
+          <div className="fixed inset-0 z-[9999] bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="bg-zinc-950 border border-white/10 p-6 md:p-8 rounded-3xl max-w-lg w-full shadow-2xl relative overflow-hidden text-left"
+            >
+              <div className="flex items-start gap-4 mb-6">
+                <div className="w-12 h-12 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-500 flex-shrink-0">
+                  <AlertTriangle className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-xl md:text-2xl font-black uppercase italic tracking-tight text-white">
+                    Device Limit Reached
+                  </h3>
+                  <p className="text-xs text-text-muted mt-1 leading-relaxed font-medium">
+                    Your account (<span className="text-white font-bold">{user?.email}</span>) is already logged in on <span className="text-brand font-bold">2 active devices</span> (maximum allowed).
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-3 mb-6">
+                <p className="text-[10px] font-black uppercase tracking-widest text-text-muted mb-2">
+                  Active Logged-In Devices:
+                </p>
+                {deviceLimitSessions.map((session) => (
+                  <div 
+                    key={session.id}
+                    className="p-4 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-between gap-3"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-brand/10 border border-brand/20 flex items-center justify-center text-brand flex-shrink-0">
+                        {session.deviceName.toLowerCase().includes('mobile') || session.deviceName.toLowerCase().includes('ios') || session.deviceName.toLowerCase().includes('android') ? (
+                          <Smartphone className="w-5 h-5" />
+                        ) : session.deviceName.toLowerCase().includes('mac') || session.deviceName.toLowerCase().includes('windows') ? (
+                          <Laptop className="w-5 h-5" />
+                        ) : (
+                          <Monitor className="w-5 h-5" />
+                        )}
+                      </div>
+                      <div>
+                        <h4 className="text-xs font-bold text-white uppercase tracking-wider">{session.deviceName}</h4>
+                        <p className="text-[10px] text-text-muted mt-0.5 font-medium">
+                          Logged in: {new Date(session.loginTime).toLocaleDateString()} {new Date(session.loginTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => handleLogoutRemoteDevice(session)}
+                      disabled={loggingOutDeviceId === session.id}
+                      className="px-4 py-2.5 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 font-black uppercase tracking-widest text-[10px] rounded-xl flex items-center gap-1.5 transition-all active:scale-95 disabled:opacity-50 flex-shrink-0 cursor-pointer"
+                    >
+                      {loggingOutDeviceId === session.id ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <LogOut className="w-3.5 h-3.5" />
+                      )}
+                      Logout
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              <div className="pt-4 border-t border-white/10 flex items-center justify-between">
+                <p className="text-[10px] text-text-muted font-bold uppercase tracking-wider">
+                  Select a device above to logout and proceed.
+                </p>
+                <button
+                  onClick={handleCancelDeviceLimit}
+                  className="px-4 py-2 bg-white/5 hover:bg-white/10 text-white font-bold uppercase tracking-widest text-[10px] rounded-xl transition-all cursor-pointer"
+                >
+                  Cancel
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </AuthContext.Provider>
   );
 }

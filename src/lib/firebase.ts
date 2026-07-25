@@ -7,6 +7,18 @@ import {
   initializeFirestore, 
   persistentLocalCache,
   persistentMultipleTabManager,
+  doc,
+  collection,
+  query,
+  where,
+  limit,
+  orderBy,
+  increment, 
+  arrayUnion, 
+  arrayRemove, 
+  documentId,
+  serverTimestamp,
+  runTransaction,
   getDoc as firestoreGetDoc,
   getDocs as firestoreGetDocs,
   setDoc as firestoreSetDoc,
@@ -73,7 +85,7 @@ export {
   documentId,
   serverTimestamp,
   runTransaction
-} from 'firebase/firestore';
+};
 
 // --- OPTIMIZED IN-MEMORY CACHE FOR FIRESTORE READS ---
 const getDocCache = new Map<string, { snapshot: DocumentSnapshot<any>; timestamp: number }>();

@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode, useRef } from 'react';
 import { User, onAuthStateChanged, onIdTokenChanged, getRedirectResult } from 'firebase/auth';
-import { auth, db, handleFirestoreError, OperationType, getDoc, doc, setDoc, onSnapshot } from '../lib/firebase';
+import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
+import { auth, db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { toast } from 'sonner';
 import { getDeviceId, getSessionDocId, removeCurrentSession, verifyOrCreateSession } from '../lib/sessionManager';
 
@@ -85,7 +86,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
         }, 3000);
 
-        getDoc(userDocRef, { component: 'AuthProvider', file: 'useAuth.tsx', reason: 'Fetch user profile doc on auth state change' })
+        getDoc(userDocRef)
           .then((docSnap) => {
             clearTimeout(authTimeout);
             profileFetchInProgressRef.current = null;
@@ -306,7 +307,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!user) return null;
     try {
       const userDocRef = doc(db, 'users', user.uid);
-      const docSnap = await getDoc(userDocRef, { component: 'AuthProvider', file: 'useAuth.tsx', reason: 'Explicit profile refresh' });
+      const docSnap = await getDoc(userDocRef);
       if (docSnap.exists()) {
         const data = docSnap.data();
         setProfile(data);

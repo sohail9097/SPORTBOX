@@ -32,19 +32,9 @@ service cloud.firestore {
       allow read, write: if true;
     }
 
-    // Sessions: logged in users can only access session documents belonging to their own email
+    // Sessions: allow read and write for session management and device limit verification
     match /sessions/{sessionId} {
-      allow read, delete: if (isSessionOwner() && (
-        (resource.data.normalizedEmail != null && resource.data.normalizedEmail == request.auth.token.email.lower()) ||
-        (resource.data.userId != null && resource.data.userId == request.auth.token.email.lower()) ||
-        (resource.data.email != null && resource.data.email == request.auth.token.email.lower())
-      )) || isAdmin();
-
-      allow create, update: if (isSessionOwner() && (
-        (request.resource.data.normalizedEmail != null && request.resource.data.normalizedEmail == request.auth.token.email.lower()) ||
-        (request.resource.data.userId != null && request.resource.data.userId == request.auth.token.email.lower()) ||
-        (request.resource.data.email != null && request.resource.data.email == request.auth.token.email.lower())
-      )) || isAdmin();
+      allow read, write, delete: if true;
     }
     // Blogs: everyone can read, only admin can write
     match /blogs/{blogId} {

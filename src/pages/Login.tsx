@@ -112,15 +112,38 @@ export default function Login() {
   };
 
   const handleLogoutRemoteDevice = async (sessionToLogout: DeviceSession) => {
-    if (!pendingUser?.email) return;
+    const userEmail = pendingUser?.email || auth.currentUser?.email;
+    if (!userEmail) {
+      toast.error("User session not found. Please try logging in again.");
+      setShowDeviceLimitModal(false);
+      return;
+    }
+
     setLoggingOutId(sessionToLogout.id);
     try {
+      console.log(`[Login] Removing session ${sessionToLogout.id} for user ${userEmail}`);
       await removeSession(sessionToLogout.id);
-      await forceCreateSession(pendingUser.email);
-      toast.success(`Logged out from ${sessionToLogout.deviceName}. Login completed!`);
-      setShowDeviceLimitModal(false);
-      navigate('/plans?welcome=true');
+
+      const remainingSessions = activeSessions.filter(s => s.id !== sessionToLogout.id);
+      setActiveSessions(remainingSessions);
+
+      if (remainingSessions.length < 2) {
+        console.log(`[Login] Remaining sessions count ${remainingSessions.length} < 2. Creating current device session...`);
+        await forceCreateSession(userEmail);
+        toast.success(`Logged out from ${sessionToLogout.deviceName}. Login completed!`);
+        setShowDeviceLimitModal(false);
+
+        if (refreshProfile) {
+          try {
+            await refreshProfile();
+          } catch (_) {}
+        }
+        navigate('/plans?welcome=true');
+      } else {
+        toast.success(`Logged out from ${sessionToLogout.deviceName}. Please select another device to logout.`);
+      }
     } catch (err: any) {
+      console.error("[Login] Failed to logout remote device:", err);
       toast.error("Failed to logout remote device. Please try again.");
     } finally {
       setLoggingOutId(null);

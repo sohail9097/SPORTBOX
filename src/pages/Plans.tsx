@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Check, Crown, Zap, ShieldCheck, X, Loader2, CreditCard, Phone, Mail, Star, Activity, Percent, CheckCircle2, Key, User, Play, ArrowRight } from 'lucide-react';
+import { Check, Crown, Zap, ShieldCheck, X, Loader2, CreditCard, Phone, Mail, Star, Activity, Percent, CheckCircle2, Key, User, Play, ArrowRight, ChevronDown, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
 import { useAuth } from '../hooks/useAuth';
@@ -8,6 +8,7 @@ import { db, handleFirestoreError, OperationType, signInWithGoogle, auth, getDoc
 import { SubscriptionPlan } from '../types';
 import LoadingScreen from '../components/LoadingScreen';
 import { toast } from 'sonner';
+import { COUNTRY_CODES, DEFAULT_COUNTRY, CountryCodeOption, parsePhoneNumber } from '../lib/countryCodes';
 
 import { useFirestoreCache } from '../context/FirestoreContext';
 
@@ -25,6 +26,7 @@ export default function Plans() {
   const { user, profile, refreshProfile, updateProfileState } = useAuth();
   const { plans, loading } = useFirestoreCache();
   const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan | null>(null);
+  const [selectedCountry, setSelectedCountry] = useState<CountryCodeOption>(DEFAULT_COUNTRY);
   const [mobileNumber, setMobileNumber] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
@@ -32,16 +34,19 @@ export default function Plans() {
 
   const isWelcome = new URLSearchParams(location.search).get('welcome') === 'true';
 
+  const rawMobileDigits = mobileNumber.replace(/\D/g, "");
+  const isValidMobile = rawMobileDigits.length === selectedCountry.digitLength;
+  const showMobileError = rawMobileDigits.length > 0 && !isValidMobile;
+
   const handleSubscribe = async () => {
     const rawDigits = mobileNumber.trim().replace(/\D/g, "");
-    const digits = rawDigits.length >= 10 ? rawDigits.slice(-10) : rawDigits;
 
-    if (digits.length !== 10) {
-      toast.error("Please enter a valid 10-digit mobile number.");
+    if (rawDigits.length !== selectedCountry.digitLength) {
+      toast.error("Please enter a valid number.");
       return;
     }
 
-    const normalizedPhone = "+91" + digits;
+    const normalizedPhone = selectedCountry.dialCode + rawDigits;
 
     if (!displayName || displayName.trim().length < 3) {
       toast.error("Please enter your full name.");
@@ -186,9 +191,9 @@ export default function Plans() {
 
   useEffect(() => {
     if (profile?.mobileNumber) {
-      const raw = profile.mobileNumber.replace(/\D/g, "");
-      const clean10 = raw.length >= 10 ? raw.slice(-10) : raw;
-      setMobileNumber(clean10);
+      const parsed = parsePhoneNumber(profile.mobileNumber);
+      setSelectedCountry(parsed.country);
+      setMobileNumber(parsed.localDigits);
     }
     if (profile?.displayName) {
       setDisplayName(profile.displayName);
@@ -430,16 +435,60 @@ export default function Plans() {
                                     <Phone className="w-3 h-3" />
                                     Mobile Number
                                   </label>
-                                  <div className="flex gap-3">
-                                    <input 
-                                      type="tel"
-                                      placeholder="Enter 10-digit number"
-                                      value={mobileNumber}
-                                      onChange={e => setMobileNumber(e.target.value)}
-                                      className="flex-grow bg-bg border border-white/10 p-4 md:p-5 rounded-xl md:rounded-2xl focus:border-brand outline-none text-xs md:text-sm font-bold"
-                                    />
+                                  <div className="flex gap-2 sm:gap-3">
+                                    <div className="relative flex-shrink-0">
+                                      <select
+                                        value={selectedCountry.code}
+                                        onChange={(e) => {
+                                          const found = COUNTRY_CODES.find(c => c.code === e.target.value);
+                                          if (found) {
+                                            setSelectedCountry(found);
+                                            const digits = mobileNumber.replace(/\D/g, '');
+                                            if (digits.length > found.digitLength) {
+                                              setMobileNumber(digits.slice(0, found.digitLength));
+                                            }
+                                          }
+                                        }}
+                                        className="appearance-none bg-bg border border-white/10 hover:border-white/20 focus:border-brand p-3.5 sm:p-4 md:p-5 pr-8 sm:pr-9 rounded-xl md:rounded-2xl text-xs sm:text-sm font-bold text-white outline-none transition-colors cursor-pointer"
+                                      >
+                                        {COUNTRY_CODES.map((c) => (
+                                          <option key={c.code} value={c.code} className="bg-zinc-900 text-white">
+                                            {c.flag} {c.dialCode} ({c.name})
+                                          </option>
+                                        ))}
+                                      </select>
+                                      <ChevronDown className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white/50 absolute right-2.5 sm:right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                                    </div>
+
+                                    <div className="flex-grow relative">
+                                      <input 
+                                        type="tel"
+                                        placeholder={`Enter ${selectedCountry.digitLength}-digit number`}
+                                        value={mobileNumber}
+                                        onChange={e => {
+                                          const val = e.target.value.replace(/\D/g, '');
+                                          if (val.length <= selectedCountry.digitLength) {
+                                            setMobileNumber(val);
+                                          }
+                                        }}
+                                        className={cn(
+                                          "w-full bg-bg border p-3.5 sm:p-4 md:p-5 rounded-xl md:rounded-2xl focus:border-brand outline-none text-xs sm:text-sm font-bold text-white placeholder:text-white/30 transition-colors",
+                                          showMobileError ? "border-red-500 focus:border-red-500" : "border-white/10"
+                                        )}
+                                      />
+                                    </div>
                                   </div>
-                                  <p className="text-[8px] md:text-[10px] text-white/40 font-bold uppercase tracking-wider">India (+91) format supported</p>
+
+                                  {showMobileError && (
+                                    <p className="text-[10px] md:text-xs text-red-400 font-semibold flex items-center gap-1 mt-1">
+                                      <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                                      Please enter a valid number.
+                                    </p>
+                                  )}
+
+                                  <p className="text-[8px] md:text-[10px] text-white/40 font-bold uppercase tracking-wider">
+                                    {selectedCountry.name.toUpperCase()} ({selectedCountry.dialCode}) - {selectedCountry.digitLength} DIGITS FORMAT SUPPORTED
+                                  </p>
                                 </div>
                               </div>
 
@@ -467,7 +516,7 @@ export default function Plans() {
 
                                     <button 
                                       onClick={handleSubscribe}
-                                      disabled={isProcessing || !mobileNumber || !displayName}
+                                      disabled={isProcessing || !isValidMobile || !displayName.trim()}
                                       className="w-full py-4 md:py-5 bg-brand text-white font-black uppercase tracking-[0.2em] md:tracking-[0.3em] rounded-xl md:rounded-2xl shadow-xl shadow-brand/20 disabled:opacity-50 text-xs md:text-sm cursor-pointer"
                                     >
                                       {isProcessing ? (

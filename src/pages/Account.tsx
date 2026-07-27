@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { db, handleFirestoreError, OperationType, doc, updateDoc, auth, onSnapshot, query, collection, where } from '../lib/firebase';
 import { motion, AnimatePresence } from 'motion/react';
-import { User, Phone, CheckCircle2, ShieldCheck, Mail, LogOut, ChevronRight, Loader2, Key, Settings, Clock, Crown, Play, Smartphone, Laptop, Monitor, AlertCircle } from 'lucide-react';
+import { User, Phone, CheckCircle2, ShieldCheck, Mail, LogOut, ChevronRight, Loader2, Key, Settings, Clock, Crown, Play, Smartphone, Laptop, Monitor, AlertCircle, ChevronDown } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { Link, useNavigate } from 'react-router-dom';
 import { SportsContent } from '../types';
@@ -11,6 +11,7 @@ import LoadingScreen from '../components/LoadingScreen';
 import { toast } from 'sonner';
 import { useFirestoreCache } from '../context/FirestoreContext';
 import { getDeviceId, removeSession, removeCurrentSession, DeviceSession } from '../lib/sessionManager';
+import { COUNTRY_CODES, DEFAULT_COUNTRY, CountryCodeOption, parsePhoneNumber } from '../lib/countryCodes';
 
 export default function Account() {
   const navigate = useNavigate();
@@ -18,9 +19,23 @@ export default function Account() {
   const { content: cachedContent, loading: cacheLoading } = useFirestoreCache();
   const [loading, setLoading] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
-  const [mobileNumber, setMobileNumber] = useState(profile?.mobileNumber || '');
-  const [displayName, setDisplayName] = useState(profile?.displayName || '');
+  const [selectedCountry, setSelectedCountry] = useState<CountryCodeOption>(DEFAULT_COUNTRY);
+  const [mobileNumber, setMobileNumber] = useState('');
+  const [displayName, setDisplayName] = useState('');
   const [verificationSuccess, setVerificationSuccess] = useState(false);
+
+  useEffect(() => {
+    if (profile?.mobileNumber) {
+      const parsed = parsePhoneNumber(profile.mobileNumber);
+      setSelectedCountry(parsed.country);
+      setMobileNumber(parsed.localDigits);
+    } else {
+      setMobileNumber('');
+    }
+    if (profile?.displayName) {
+      setDisplayName(profile.displayName);
+    }
+  }, [profile?.mobileNumber, profile?.displayName]);
   
   const [watchLaterContent, setWatchLaterContent] = useState<SportsContent[]>([]);
   const [loadingWatchLater, setLoadingWatchLater] = useState(false);
@@ -126,12 +141,12 @@ export default function Account() {
     }
 
     const digits = mobileNumber.trim().replace(/\D/g, "");
-    if (digits.length !== 10) {
-      toast.error("Please enter a valid 10-digit mobile number.");
+    if (digits.length !== selectedCountry.digitLength) {
+      toast.error("Please enter a valid number.");
       return;
     }
 
-    const normalizedPhone = "+91" + digits;
+    const normalizedPhone = selectedCountry.dialCode + digits;
 
     setLoading(true);
     try {
@@ -225,12 +240,54 @@ export default function Account() {
                     <DetailItem icon={Crown} label="Subscription" value={profile?.subscriptionTier || 'Free'} highlight />
                     <div className="space-y-2">
                        <label className="text-[10px] font-black uppercase tracking-widest text-text-muted">Mobile Number</label>
-                       <input 
-                         type="tel" 
-                         value={mobileNumber}
-                         onChange={e => setMobileNumber(e.target.value)}
-                         className="w-full bg-bg border border-white/10 p-3 rounded-lg outline-none focus:border-brand text-xs font-bold"
-                       />
+                       <div className="flex gap-2">
+                         <div className="relative flex-shrink-0">
+                           <select
+                             value={selectedCountry.code}
+                             onChange={(e) => {
+                               const found = COUNTRY_CODES.find(c => c.code === e.target.value);
+                               if (found) {
+                                 setSelectedCountry(found);
+                                 const digits = mobileNumber.replace(/\D/g, '');
+                                 if (digits.length > found.digitLength) {
+                                   setMobileNumber(digits.slice(0, found.digitLength));
+                                 }
+                               }
+                             }}
+                             className="appearance-none bg-bg border border-white/10 p-3 pr-7 rounded-lg outline-none focus:border-brand text-xs font-bold text-white cursor-pointer"
+                           >
+                             {COUNTRY_CODES.map((c) => (
+                               <option key={c.code} value={c.code} className="bg-zinc-900 text-white">
+                                 {c.flag} {c.dialCode} ({c.name})
+                               </option>
+                             ))}
+                           </select>
+                           <ChevronDown className="w-3 h-3 text-white/50 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+                         </div>
+                         <input 
+                           type="tel" 
+                           placeholder={`Enter ${selectedCountry.digitLength}-digit number`}
+                           value={mobileNumber}
+                           onChange={e => {
+                             const val = e.target.value.replace(/\D/g, '');
+                             if (val.length <= selectedCountry.digitLength) {
+                               setMobileNumber(val);
+                             }
+                           }}
+                           className={cn(
+                             "flex-grow bg-bg border p-3 rounded-lg outline-none focus:border-brand text-xs font-bold text-white transition-colors",
+                             mobileNumber.replace(/\D/g, '').length > 0 && mobileNumber.replace(/\D/g, '').length !== selectedCountry.digitLength
+                               ? "border-red-500 focus:border-red-500"
+                               : "border-white/10"
+                           )}
+                         />
+                       </div>
+                       {mobileNumber.replace(/\D/g, '').length > 0 && mobileNumber.replace(/\D/g, '').length !== selectedCountry.digitLength && (
+                         <p className="text-[10px] text-red-400 font-semibold flex items-center gap-1 mt-1">
+                           <AlertCircle className="w-3 h-3 flex-shrink-0" />
+                           Please enter a valid number.
+                         </p>
+                       )}
                     </div>
                   </div>
                 </div>

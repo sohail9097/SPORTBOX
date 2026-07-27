@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 import { useFirestoreCache } from '../context/FirestoreContext';
 import { getDeviceId, removeSession, removeCurrentSession, DeviceSession } from '../lib/sessionManager';
 import { COUNTRY_CODES, DEFAULT_COUNTRY, CountryCodeOption, parsePhoneNumber } from '../lib/countryCodes';
+import CountryCodeSelector from '../components/CountryCodeSelector';
 
 export default function Account() {
   const navigate = useNavigate();
@@ -240,30 +241,18 @@ export default function Account() {
                     <DetailItem icon={Crown} label="Subscription" value={profile?.subscriptionTier || 'Free'} highlight />
                     <div className="space-y-2">
                        <label className="text-[10px] font-black uppercase tracking-widest text-text-muted">Mobile Number</label>
-                       <div className="flex gap-2">
-                         <div className="relative flex-shrink-0">
-                           <select
-                             value={selectedCountry.code}
-                             onChange={(e) => {
-                               const found = COUNTRY_CODES.find(c => c.code === e.target.value);
-                               if (found) {
-                                 setSelectedCountry(found);
-                                 const digits = mobileNumber.replace(/\D/g, '');
-                                 if (digits.length > found.digitLength) {
-                                   setMobileNumber(digits.slice(0, found.digitLength));
-                                 }
-                               }
-                             }}
-                             className="appearance-none bg-bg border border-white/10 p-3 pr-7 rounded-lg outline-none focus:border-brand text-xs font-bold text-white cursor-pointer"
-                           >
-                             {COUNTRY_CODES.map((c) => (
-                               <option key={c.code} value={c.code} className="bg-zinc-900 text-white">
-                                 {c.flag} {c.dialCode} ({c.name})
-                               </option>
-                             ))}
-                           </select>
-                           <ChevronDown className="w-3 h-3 text-white/50 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
-                         </div>
+                       <div className="flex gap-2 items-stretch">
+                         <CountryCodeSelector
+                           selectedCountry={selectedCountry}
+                           onSelect={(newCountry) => {
+                             setSelectedCountry(newCountry);
+                             const digits = mobileNumber.replace(/\D/g, '');
+                             if (digits.length > newCountry.digitLength) {
+                               setMobileNumber(digits.slice(0, newCountry.digitLength));
+                             }
+                           }}
+                           triggerClassName="py-3 px-3 rounded-lg text-xs"
+                         />
                          <input 
                            type="tel" 
                            placeholder={`Enter ${selectedCountry.digitLength}-digit number`}
@@ -275,7 +264,7 @@ export default function Account() {
                              }
                            }}
                            className={cn(
-                             "flex-grow bg-bg border p-3 rounded-lg outline-none focus:border-brand text-xs font-bold text-white transition-colors",
+                             "flex-grow bg-bg border p-3 rounded-lg outline-none focus:border-brand text-xs font-bold text-white transition-colors h-full",
                              mobileNumber.replace(/\D/g, '').length > 0 && mobileNumber.replace(/\D/g, '').length !== selectedCountry.digitLength
                                ? "border-red-500 focus:border-red-500"
                                : "border-white/10"

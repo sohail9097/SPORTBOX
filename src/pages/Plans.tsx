@@ -9,6 +9,7 @@ import { SubscriptionPlan } from '../types';
 import LoadingScreen from '../components/LoadingScreen';
 import { toast } from 'sonner';
 import { COUNTRY_CODES, DEFAULT_COUNTRY, CountryCodeOption, parsePhoneNumber } from '../lib/countryCodes';
+import CountryCodeSelector from '../components/CountryCodeSelector';
 
 import { useFirestoreCache } from '../context/FirestoreContext';
 
@@ -435,30 +436,17 @@ export default function Plans() {
                                     <Phone className="w-3 h-3" />
                                     Mobile Number
                                   </label>
-                                  <div className="flex gap-2 sm:gap-3">
-                                    <div className="relative flex-shrink-0">
-                                      <select
-                                        value={selectedCountry.code}
-                                        onChange={(e) => {
-                                          const found = COUNTRY_CODES.find(c => c.code === e.target.value);
-                                          if (found) {
-                                            setSelectedCountry(found);
-                                            const digits = mobileNumber.replace(/\D/g, '');
-                                            if (digits.length > found.digitLength) {
-                                              setMobileNumber(digits.slice(0, found.digitLength));
-                                            }
-                                          }
-                                        }}
-                                        className="appearance-none bg-bg border border-white/10 hover:border-white/20 focus:border-brand p-3.5 sm:p-4 md:p-5 pr-8 sm:pr-9 rounded-xl md:rounded-2xl text-xs sm:text-sm font-bold text-white outline-none transition-colors cursor-pointer"
-                                      >
-                                        {COUNTRY_CODES.map((c) => (
-                                          <option key={c.code} value={c.code} className="bg-zinc-900 text-white">
-                                            {c.flag} {c.dialCode} ({c.name})
-                                          </option>
-                                        ))}
-                                      </select>
-                                      <ChevronDown className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white/50 absolute right-2.5 sm:right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                                    </div>
+                                  <div className="flex gap-2 sm:gap-3 items-stretch">
+                                    <CountryCodeSelector
+                                      selectedCountry={selectedCountry}
+                                      onSelect={(newCountry) => {
+                                        setSelectedCountry(newCountry);
+                                        const digits = mobileNumber.replace(/\D/g, '');
+                                        if (digits.length > newCountry.digitLength) {
+                                          setMobileNumber(digits.slice(0, newCountry.digitLength));
+                                        }
+                                      }}
+                                    />
 
                                     <div className="flex-grow relative">
                                       <input 
@@ -472,7 +460,7 @@ export default function Plans() {
                                           }
                                         }}
                                         className={cn(
-                                          "w-full bg-bg border p-3.5 sm:p-4 md:p-5 rounded-xl md:rounded-2xl focus:border-brand outline-none text-xs sm:text-sm font-bold text-white placeholder:text-white/30 transition-colors",
+                                          "w-full bg-bg border p-3.5 sm:p-4 md:p-5 rounded-xl md:rounded-2xl focus:border-brand outline-none text-xs sm:text-sm font-bold text-white placeholder:text-white/30 transition-colors h-full",
                                           showMobileError ? "border-red-500 focus:border-red-500" : "border-white/10"
                                         )}
                                       />

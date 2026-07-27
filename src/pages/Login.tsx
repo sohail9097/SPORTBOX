@@ -24,6 +24,7 @@ import BrandLogo from '../components/BrandLogo';
 import { SiteConfig } from '../types';
 import { useAuth } from '../hooks/useAuth';
 import { COUNTRY_CODES, DEFAULT_COUNTRY, CountryCodeOption } from '../lib/countryCodes';
+import CountryCodeSelector from '../components/CountryCodeSelector';
 
 type AuthMode = 'login' | 'signup' | 'social';
 
@@ -545,30 +546,18 @@ export default function Login() {
                           />
                         </div>
                         <div className="space-y-1">
-                          <div className="flex gap-2">
-                            <div className="relative flex-shrink-0">
-                              <select
-                                value={selectedCountry.code}
-                                onChange={(e) => {
-                                  const found = COUNTRY_CODES.find(c => c.code === e.target.value);
-                                  if (found) {
-                                    setSelectedCountry(found);
-                                    const digits = mobileNumber.replace(/\D/g, '');
-                                    if (digits.length > found.digitLength) {
-                                      setMobileNumber(digits.slice(0, found.digitLength));
-                                    }
-                                  }
-                                }}
-                                className="appearance-none h-14 bg-white/5 border border-white/10 rounded-xl px-3 pr-8 text-xs font-bold text-white outline-none focus:border-brand/50 transition-all cursor-pointer"
-                              >
-                                {COUNTRY_CODES.map((c) => (
-                                  <option key={c.code} value={c.code} className="bg-zinc-900 text-white">
-                                    {c.flag} {c.dialCode}
-                                  </option>
-                                ))}
-                              </select>
-                              <ChevronDown className="w-3.5 h-3.5 text-text-muted absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                            </div>
+                          <div className="flex gap-2 items-stretch">
+                            <CountryCodeSelector
+                              selectedCountry={selectedCountry}
+                              onSelect={(newCountry) => {
+                                setSelectedCountry(newCountry);
+                                const digits = mobileNumber.replace(/\D/g, '');
+                                if (digits.length > newCountry.digitLength) {
+                                  setMobileNumber(digits.slice(0, newCountry.digitLength));
+                                }
+                              }}
+                              triggerClassName="h-14 bg-white/5"
+                            />
                             <div className="relative group flex-grow">
                               <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted group-focus-within:text-brand transition-colors pointer-events-none" />
                               <input 

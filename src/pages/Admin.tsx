@@ -1230,27 +1230,20 @@ export default function Admin() {
     setLoading(true);
     try {
       console.log('[SAFE LIMIT FETCH]', 'content', new Date().toISOString());
-      const deletedIds = getDeletedContentIds();
       const q = query(collection(db, 'content'), limit(100));
       const querySnapshot = await getDocs(q);
       const dbItems = querySnapshot.docs
         .map(doc => ({ ...doc.data(), id: doc.id } as SportsContent))
-        .filter(item => item && !deletedIds.includes(item.id));
+        .filter(item => item && !isTestOrPlaceholderContent(item));
       
-      const dbIds = new Set(dbItems.map(item => item.id));
-      const availableFallback = FALLBACK_SPORTS_CONTENT.filter(
-        fb => !dbIds.has(fb.id) && !deletedIds.includes(fb.id)
-      );
-      
-      const items = [...dbItems, ...availableFallback];
       // Sort in-memory to prevent missing index errors and missing field exclusions
-      items.sort((a, b) => {
+      dbItems.sort((a, b) => {
         const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
         const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
         return dateB - dateA;
       });
-      setContent(items);
-      updateContentState(items);
+      setContent(dbItems);
+      updateContentState(dbItems);
     } catch (error) {
       console.error("fetchContent error:", error);
     } finally {
@@ -1584,8 +1577,7 @@ export default function Admin() {
     
     // Save current content for a potential rollback
     const previousContent = [...content];
-    // Record deleted ID and optimistically filter the item out of the list so it disappears instantly across all pages
-    addDeletedContentId(id);
+    // Optimistically filter the item out of the list so it disappears instantly
     const nextContent = content.filter(item => item.id !== id);
     setContent(nextContent);
     updateContentState(nextContent);

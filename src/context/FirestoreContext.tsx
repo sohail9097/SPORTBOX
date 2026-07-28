@@ -1,6 +1,6 @@
 /// <reference types="vite/client" />
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
-import { db, getDoc, getDocs, doc, collection, query, orderBy, limit, where, deleteDoc } from '../lib/firebase';
+import { db, getDoc, getDocs, doc, collection, query, orderBy, limit, where, deleteDoc, onSnapshot } from '../lib/firebase';
 import { SiteConfig, ContentSection, SliderElement, SubscriptionPlan, SportsContent, VideoPromoSettings } from '../types';
 import { FALLBACK_SITE_CONFIG, FALLBACK_SECTIONS, FALLBACK_SLIDER_ITEMS, FALLBACK_SPORTS_CONTENT, FALLBACK_PROMO, FALLBACK_LIVE_STATS } from '../lib/fallbackData';
 import { isTestOrPlaceholderContent } from '../lib/utils';
@@ -115,13 +115,7 @@ export function addDeletedContentId(id: string) {
 let inMemoryCache: CacheData | null = null;
 
 function loadCache(): CacheData | null {
-  const deletedIds = getDeletedContentIds();
-
   if (inMemoryCache) {
-    if (Array.isArray(inMemoryCache.content)) {
-      inMemoryCache.content = inMemoryCache.content.filter(item => item && !deletedIds.includes(item.id));
-    }
-    // Optimization #5: DEV LOGGING
     console.log("[Firestore Cache] Served successfully from in-memory cache (Same Session).");
     return inMemoryCache;
   }
@@ -131,9 +125,6 @@ function loadCache(): CacheData | null {
     if (serialized) {
       const parsed = JSON.parse(serialized);
       if (parsed && typeof parsed === 'object' && parsed.timestamp) {
-        if (Array.isArray(parsed.content)) {
-          parsed.content = parsed.content.filter((item: any) => item && !deletedIds.includes(item.id));
-        }
         inMemoryCache = parsed as CacheData;
         console.log("[Firestore Cache] Served successfully from localStorage cache (Page Refresh).");
         return inMemoryCache;
@@ -147,9 +138,8 @@ function loadCache(): CacheData | null {
 }
 
 function saveCache(data: Omit<CacheData, 'timestamp'>) {
-  const deletedIds = getDeletedContentIds();
   const cleanContent = Array.isArray(data.content) 
-    ? data.content.filter(item => item && !deletedIds.includes(item.id)) 
+    ? data.content.filter(item => item && !isTestOrPlaceholderContent(item)) 
     : [];
 
   const cacheWithTime: CacheData = {
@@ -275,8 +265,7 @@ export function FirestoreProvider({ children }: { children: React.ReactNode }) {
           getDoc(doc(db, 'settings', 'liveStats'))
         ]);
 
-        const deletedIds = getDeletedContentIds();
-        let freshContent: SportsContent[] = FALLBACK_SPORTS_CONTENT.filter(item => item && !deletedIds.includes(item.id));
+        let freshContent: SportsContent[] = [];
         let freshSections: ContentSection[] = FALLBACK_SECTIONS as any[];
         let freshSlider: SliderElement[] = FALLBACK_SLIDER_ITEMS as any[];
         let freshPlans: SubscriptionPlan[] = FALLBACK_PLANS;
@@ -288,29 +277,26 @@ export function FirestoreProvider({ children }: { children: React.ReactNode }) {
         console.log("[FirestoreProvider] Received responses from Firestore server / offline IndexedDB cache.");
 
         // 1. Content
-        if (contentSnapResult.status === 'fulfilled' && !contentSnapResult.value.empty) {
+        if (contentSnapResult.status === 'fulfilled') {
           const rawDocs = contentSnapResult.value.docs;
           const cleanList: SportsContent[] = [];
           rawDocs.forEach(d => {
             const data = d.data() as SportsContent;
             const item = { id: d.id, ...data };
-            if (!isTestOrPlaceholderContent(item) && !deletedIds.includes(item.id)) {
+            if (!isTestOrPlaceholderContent(item)) {
               cleanList.push(item);
             }
           });
           
-          const customIds = new Set(cleanList.map(item => item.id));
-          const availableFallback = FALLBACK_SPORTS_CONTENT.filter(
-            fb => !customIds.has(fb.id) && !deletedIds.includes(fb.id)
-          );
-          freshContent = [...cleanList, ...availableFallback];
+          freshContent = cleanList;
           setContent(freshContent);
-          console.log(`[FirestoreProvider] Loaded ${freshContent.length} content items (${cleanList.length} custom, ${availableFallback.length} fallback).`);
+          console.log(`[FirestoreProvider] Loaded ${freshContent.length} content items strictly from Firestore.`);
         } else {
           if (contentSnapResult.status === 'rejected') {
             console.warn("[FirestoreProvider] Content query failed, using fallbacks:", contentSnapResult.reason);
+            freshContent = FALLBACK_SPORTS_CONTENT;
+            setContent(freshContent);
           }
-          setContent(freshContent);
         }
 
         // 2. Sections
@@ -506,18 +492,40 @@ export function FirestoreProvider({ children }: { children: React.ReactNode }) {
   };
 
   useEffect(() => {
-    // Optimization #4: Avoid redundant execution on re-mounts
-    if (hasFetchedRef.current) return;
-    hasFetchedRef.current = true;
+    // Attach real-time snapshot listener on content collection to stay 100% synchronized across all windows/previews
+    const unsubContent = onSnapshot(collection(db, 'content'), (snap) => {
+      const cleanList: SportsContent[] = [];
+      snap.docs.forEach(d => {
+        const item = { id: d.id, ...d.data() } as SportsContent;
+        if (!isTestOrPlaceholderContent(item)) {
+          cleanList.push(item);
+        }
+      });
+      cleanList.sort((a, b) => {
+        const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return dateB - dateA;
+      });
+      setContent(cleanList);
+      setIsDataLoaded(true);
+      setLoading(false);
+    }, (err) => {
+      console.warn("[FirestoreProvider] Content realtime listener failed:", err);
+    });
 
     const isWatchPage = window.location.pathname.startsWith('/watch/');
     if (isWatchPage) {
       console.log("[FirestoreProvider] Initial mount on Watch page. Loading config only.");
       fetchConfigOnly();
-    } else {
+    } else if (!hasFetchedRef.current) {
+      hasFetchedRef.current = true;
       console.log("[FirestoreProvider] Initial mount on standard page. Loading full fetchAll.");
       fetchAll();
     }
+
+    return () => {
+      unsubContent();
+    };
   }, []);
 
   const updateSiteConfigState = (config: SiteConfig) => setSiteConfig(config);

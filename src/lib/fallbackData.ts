@@ -27,7 +27,7 @@ export const FALLBACK_SPORTS_CONTENT: SportsContent[] = [
     viewCount: 28910,
     likes: 5630,
     createdAt: new Date().toISOString(),
-    status: 'ended',
+    status: 'live',
     tags: ['World Cup', 'Live', 'IND vs AUS', 'Finals'],
     scheduledTime: new Date().toISOString()
   },
@@ -43,7 +43,7 @@ export const FALLBACK_SPORTS_CONTENT: SportsContent[] = [
     viewCount: 8430,
     likes: 1290,
     createdAt: new Date().toISOString(),
-    status: 'ended',
+    status: 'live',
     tags: ['Pro Kabaddi', 'Live', 'Raiders', 'Championship']
   },
 

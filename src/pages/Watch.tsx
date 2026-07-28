@@ -8,6 +8,7 @@ import { Play, Share2, Heart, MessageSquare, Crown, Info, ChevronRight, Activity
 import { motion } from 'motion/react';
 import { cn, formatDate, transformGDriveUrl, getVideoAutoThumbnail, sanitizeVideoUrlOrIframe, getEmbedUrl } from '../lib/utils';
 import StadiumPlayer from '../components/StadiumPlayer';
+import LivestreamFallbackScreen from '../components/LivestreamFallbackScreen';
 import ReactMarkdown from 'react-markdown';
 import { toast } from 'sonner';
 import { useFirestoreCache } from '../context/FirestoreContext';
@@ -642,10 +643,13 @@ export default function Watch() {
                       isLive={content.status === 'live'} 
                     />
                   ) : (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-center bg-surface/90">
-                      <Play className="w-12 h-12 text-white/10 mb-4" />
-                      <p className="text-text-muted font-medium">Video feed offline.</p>
-                    </div>
+                    <LivestreamFallbackScreen
+                      reason="offline"
+                      title="Sorry, we're working on it!"
+                      subheading="The stream will be back shortly. Thanks for your patience."
+                      streamTitle={content.title}
+                      onManualRetry={() => window.location.reload()}
+                    />
                   )}
                 </div>
               )}

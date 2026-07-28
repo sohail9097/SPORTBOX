@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import videojs from 'video.js';
 import 'video.js/dist/video-js.css';
-import { Play, Pause, RotateCcw, RotateCw, Volume2, VolumeX, Maximize, Settings, FastForward, Radio } from 'lucide-react';
+import { Play, Pause, RotateCcw, RotateCw, Volume2, VolumeX, Maximize, Settings, FastForward, Radio, WifiOff } from 'lucide-react';
 import { cn, sanitizeVideoUrlOrIframe, getEmbedUrl } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
-
 import { toast } from 'sonner';
+import LivestreamFallbackScreen from './LivestreamFallbackScreen';
 
 interface StadiumPlayerProps {
   url: string;
@@ -37,12 +37,41 @@ export default function StadiumPlayer({ url, poster, isLive, useIframe: initialU
   const [playbackRate, setPlaybackRate] = useState(1);
   const [hasError, setHasError] = useState(false);
   const [useIframe, setUseIframe] = useState(initialUseIframe);
+  const [showFallback, setShowFallback] = useState(false);
+  const [fallbackReason, setFallbackReason] = useState<'error' | 'buffering' | 'offline' | 'timeout' | 'network'>('buffering');
+  
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const bufferTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const loadTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const [isChangingState, setIsChangingState] = useState(false);
 
+  // Monitor network online/offline state
+  useEffect(() => {
+    const handleOffline = () => {
+      setFallbackReason('offline');
+      setShowFallback(true);
+    };
+    const handleOnline = () => {
+      toast.info("Network reconnected. Restoring stream...");
+      handleAutoReconnect();
+    };
+
+    window.addEventListener('offline', handleOffline);
+    window.addEventListener('online', handleOnline);
+
+    return () => {
+      window.removeEventListener('offline', handleOffline);
+      window.removeEventListener('online', handleOnline);
+    };
+  }, [url]);
+
   useEffect(() => {
     if (!videoRef.current) return;
+
+    // Reset fallback state on URL change
+    setShowFallback(false);
+    setHasError(false);
 
     const videoElement = document.createElement('video-js');
     videoElement.classList.add('vjs-big-play-centered', 'vjs-stadium-theme');
@@ -56,6 +85,7 @@ export default function StadiumPlayer({ url, poster, isLive, useIframe: initialU
       controls: false, // We'll build custom controls
       responsive: true,
       fluid: true,
+      errorDisplay: false, // Suppress raw VideoJS modal dialogs in favor of custom LivestreamFallbackScreen
       html5: {
         vhs: {
           overrideNative: true
@@ -66,6 +96,26 @@ export default function StadiumPlayer({ url, poster, isLive, useIframe: initialU
         type: url.includes('m3u8') ? 'application/x-mpegURL' : (url.includes('drive.google.com') || url.includes('mp4')) ? 'video/mp4' : 'video/mp4'
       }]
     });
+
+    // 8-second initial load timeout
+    loadTimerRef.current = setTimeout(() => {
+      if (!player.duration() && player.paused() && !player.currentTime()) {
+        console.warn("[StadiumPlayer] Load timeout reached. Triggering livestream fallback screen.");
+        setFallbackReason('timeout');
+        setShowFallback(true);
+      }
+    }, 8000);
+
+    const clearTimers = () => {
+      if (bufferTimerRef.current) {
+        clearTimeout(bufferTimerRef.current);
+        bufferTimerRef.current = null;
+      }
+      if (loadTimerRef.current) {
+        clearTimeout(loadTimerRef.current);
+        loadTimerRef.current = null;
+      }
+    };
 
     player.ready(() => {
       if (config.autoplay) {
@@ -78,18 +128,61 @@ export default function StadiumPlayer({ url, poster, isLive, useIframe: initialU
       }
     });
 
-    player.on('play', () => setIsPlaying(true));
+    player.on('play', () => {
+      setIsPlaying(true);
+      clearTimers();
+      setShowFallback(false);
+    });
+    player.on('playing', () => {
+      setIsPlaying(true);
+      clearTimers();
+      setShowFallback(false);
+    });
+    player.on('canplay', () => {
+      clearTimers();
+    });
     player.on('pause', () => setIsPlaying(false));
-    player.on('timeupdate', () => setCurrentTime(player.currentTime()));
+    player.on('timeupdate', () => {
+      setCurrentTime(player.currentTime());
+      if (player.currentTime() > 0) {
+        clearTimers();
+        setShowFallback(false);
+      }
+    });
     player.on('loadedmetadata', () => {
       setDuration(player.duration());
       setHasError(false);
+      clearTimers();
     });
+
+    // Trigger fallback screen if stream stalls or buffers for > 6 seconds
+    const startBufferTimer = () => {
+      if (bufferTimerRef.current) return;
+      bufferTimerRef.current = setTimeout(() => {
+        console.warn("[StadiumPlayer] Stream stall/buffering timeout (>6s). Activating fallback screen.");
+        setFallbackReason('buffering');
+        setShowFallback(true);
+      }, 6000);
+    };
+
+    player.on('waiting', startBufferTimer);
+    player.on('stalled', startBufferTimer);
+
     player.on('error', () => {
       const error = player.error();
-      console.warn("Player technical issue:", error ? error.message : "Source not supported");
+      console.warn("StadiumPlayer videojs issue handled:", error ? `[Code ${error.code}] ${error.message}` : "Source not supported");
+      clearTimers();
       setHasError(true);
+
+      // If code 4 (MEDIA_ERR_SRC_NOT_SUPPORTED) or source format error, check if we can switch to iframe embed mode automatically
+      if (error && (error.code === 4 || error.code === 2) && !useIframe) {
+        setUseIframe(true);
+      }
+
+      setFallbackReason('error');
+      setShowFallback(true);
     });
+
     player.on('volumechange', () => {
       setVolume(player.volume());
       setIsMuted(player.muted());
@@ -99,11 +192,30 @@ export default function StadiumPlayer({ url, poster, isLive, useIframe: initialU
     });
 
     return () => {
+      clearTimers();
       if (player) {
         player.dispose();
       }
     };
   }, [url]);
+
+  const handleAutoReconnect = async () => {
+    if (!playerRef.current) return;
+    try {
+      playerRef.current.src({
+        src: url,
+        type: url.includes('m3u8') ? 'application/x-mpegURL' : (url.includes('drive.google.com') || url.includes('mp4')) ? 'video/mp4' : 'video/mp4'
+      });
+      playerRef.current.load();
+      const playPromise = playerRef.current.play();
+      if (playPromise !== undefined) {
+        await playPromise;
+      }
+      setShowFallback(false);
+    } catch (err) {
+      console.log("[StadiumPlayer] Auto reconnect attempt error:", err);
+    }
+  };
 
   const togglePlay = async () => {
     if (!playerRef.current || isChangingState) return;
@@ -185,31 +297,6 @@ export default function StadiumPlayer({ url, poster, isLive, useIframe: initialU
     url.trim().startsWith('<iframe') ||
     url.trim().startsWith('<');
 
-  if (hasError && !useIframe) {
-    return (
-      <div className="relative w-full aspect-video bg-[#0c0d12] border border-white/5 rounded-xl flex flex-col items-center justify-center p-8 text-center space-y-4 shadow-2xl">
-        <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center border border-red-500/10">
-          <Radio className="w-8 h-8 text-red-500 animate-pulse" />
-        </div>
-        <div className="space-y-1">
-          <h4 className="text-white font-extrabold text-sm uppercase tracking-wider">Stream Broadcast Format Alert</h4>
-          <p className="text-text-muted text-[11px] max-w-sm leading-relaxed uppercase tracking-wider">
-            This stream is currently using an external format or the server has gone off-air.
-          </p>
-        </div>
-        <button 
-          onClick={() => {
-            setUseIframe(true);
-            setHasError(false);
-          }}
-          className="px-6 py-2.5 bg-brand hover:bg-brand/90 text-white text-[10px] font-black uppercase tracking-widest rounded-lg transition-all transform active:scale-95 shadow-lg shadow-brand/20"
-        >
-          Activate Alternative Web Player
-        </button>
-      </div>
-    );
-  }
-
   if ((isGDrive && driveId) || isIframeUrl) {
     const iframeSrc = isGDrive ? `https://drive.google.com/file/d/${driveId}/preview` : sanitizeVideoUrlOrIframe(getEmbedUrl(url));
     if (!iframeSrc) return null;
@@ -221,6 +308,17 @@ export default function StadiumPlayer({ url, poster, isLive, useIframe: initialU
           allow="autoplay; encrypted-media; picture-in-picture"
           allowFullScreen
         ></iframe>
+
+        {/* Livestream Fallback Screen Overlay for Iframe Streams */}
+        <AnimatePresence>
+          {showFallback && (
+            <LivestreamFallbackScreen
+              reason={fallbackReason}
+              onManualRetry={() => setShowFallback(false)}
+              onAutoRetry={async () => setShowFallback(false)}
+            />
+          )}
+        </AnimatePresence>
       </div>
     );
   }
@@ -232,6 +330,17 @@ export default function StadiumPlayer({ url, poster, isLive, useIframe: initialU
       onMouseLeave={() => isPlaying && setShowControls(false)}
     >
       <div ref={videoRef} className="w-full h-full" onClick={togglePlay} />
+
+      {/* Livestream Fallback Screen Overlay */}
+      <AnimatePresence>
+        {showFallback && (
+          <LivestreamFallbackScreen
+            reason={fallbackReason}
+            onManualRetry={handleAutoReconnect}
+            onAutoRetry={handleAutoReconnect}
+          />
+        )}
+      </AnimatePresence>
 
       {/* Cinematic Overlays */}
       <AnimatePresence>
@@ -384,15 +493,28 @@ export default function StadiumPlayer({ url, poster, isLive, useIframe: initialU
         )}
       </AnimatePresence>
 
-      {/* Quality Badge (Optional Jio Hotstar Feel) */}
-      <div className="absolute top-8 right-8 z-20 flex gap-2">
+      {/* Quality Badge & Signal Test Trigger */}
+      <div className="absolute top-6 right-6 z-20 flex items-center gap-2">
+         <button
+            type="button"
+            onClick={() => {
+              setFallbackReason('buffering');
+              setShowFallback(true);
+              toast.info("Simulating livestream signal drop...");
+            }}
+            title="Test Livestream Fallback Screen"
+            className="bg-red-500/10 hover:bg-red-500/20 backdrop-blur-md border border-red-500/30 px-2.5 py-1 rounded text-[10px] font-black uppercase tracking-widest text-red-400 transition-all cursor-pointer flex items-center gap-1.5 active:scale-95"
+         >
+            <Radio className="w-3 h-3 text-red-500 animate-pulse" />
+            <span>Test Fallback</span>
+         </button>
          <div 
             className="backdrop-blur-md border px-3 py-1 rounded-sm text-[10px] font-black uppercase tracking-widest"
             style={{ backgroundColor: `${config.primaryColor}33`, borderColor: `${config.primaryColor}4d`, color: config.primaryColor }}
          >
             Ultra HD
          </div>
-         <div className="bg-white/10 backdrop-blur-md border border-white/20 px-3 py-1 rounded-sm text-[10px] font-black uppercase tracking-widest text-white/90">
+         <div className="bg-white/10 backdrop-blur-md border border-white/20 px-3 py-1 rounded-sm text-[10px] font-black uppercase tracking-widest text-white/90 hidden sm:block">
             5.1 Audio
          </div>
       </div>

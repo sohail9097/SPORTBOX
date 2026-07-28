@@ -1,8 +1,9 @@
 /// <reference types="vite/client" />
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
-import { db, getDoc, getDocs, doc, collection, query, orderBy, limit, where } from '../lib/firebase';
+import { db, getDoc, getDocs, doc, collection, query, orderBy, limit, where, deleteDoc } from '../lib/firebase';
 import { SiteConfig, ContentSection, SliderElement, SubscriptionPlan, SportsContent, VideoPromoSettings } from '../types';
 import { FALLBACK_SITE_CONFIG, FALLBACK_SECTIONS, FALLBACK_SLIDER_ITEMS, FALLBACK_SPORTS_CONTENT, FALLBACK_PROMO, FALLBACK_LIVE_STATS } from '../lib/fallbackData';
+import { isTestOrPlaceholderContent } from '../lib/utils';
 
 interface FirestoreContextType {
   siteConfig: SiteConfig;
@@ -251,7 +252,18 @@ export function FirestoreProvider({ children }: { children: React.ReactNode }) {
 
         // 1. Content
         if (contentSnapResult.status === 'fulfilled' && !contentSnapResult.value.empty) {
-          freshContent = contentSnapResult.value.docs.map(d => ({ id: d.id, ...d.data() } as SportsContent));
+          const rawDocs = contentSnapResult.value.docs;
+          const cleanList: SportsContent[] = [];
+          rawDocs.forEach(d => {
+            const data = d.data() as SportsContent;
+            const item = { id: d.id, ...data };
+            if (isTestOrPlaceholderContent(item)) {
+              deleteDoc(doc(db, 'content', d.id)).catch(() => {});
+            } else {
+              cleanList.push(item);
+            }
+          });
+          freshContent = cleanList;
           setContent(freshContent);
           console.log(`[FirestoreProvider] Optimization #1 - Loaded ${freshContent.length} content items (Capped at 25).`);
         } else {

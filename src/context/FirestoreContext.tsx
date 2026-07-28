@@ -230,7 +230,7 @@ export function FirestoreProvider({ children }: { children: React.ReactNode }) {
           videoPromoResult,
           liveStatsResult
         ] = await Promise.allSettled([
-          getDocs(query(collection(db, 'content'), limit(200))),
+          getDocs(query(collection(db, 'content'), limit(80))),
           getDocs(query(collection(db, 'sections'), where('isActive', '==', true), limit(50))),
           getDocs(query(collection(db, 'slider'), limit(20))),
           getDocs(query(collection(db, 'subscription_plans'), limit(20))),

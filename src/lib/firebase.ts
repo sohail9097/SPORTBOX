@@ -126,9 +126,9 @@ export function registerRealReads(count: number) {
   }
   
   const totalRecentReads = recentReadEvents.reduce((sum, e) => sum + e.count, 0);
-  if (totalRecentReads > 150 && now >= throttleEndTime) {
+  if (totalRecentReads > 500 && now >= throttleEndTime) {
     throttleEndTime = now + 30000; // Throttle for the next 30 seconds
-    console.error(`[RATE LIMIT] Session exceeded 150 reads/min, throttling. Current rolling reads in last 60s: ${totalRecentReads}`);
+    console.error(`[RATE LIMIT] Session exceeded 500 reads/min, throttling. Current rolling reads in last 60s: ${totalRecentReads}`);
   }
 }
 
@@ -154,10 +154,10 @@ function checkThrottleAndGetStaleCache(
   console.log('[RATE LIMIT CHECK]', 'current count:', currentCount, 'window:', `${new Date(windowStart).toLocaleTimeString()} - ${new Date(now).toLocaleTimeString()}`, 'path:', path);
 
   let throttled = now < throttleEndTime;
-  if (!throttled && (currentCount + estimatedCount) > 150) {
+  if (!throttled && (currentCount + estimatedCount) > 500) {
     throttleEndTime = now + 30000; // Throttle for the next 30 seconds
     throttled = true;
-    console.error(`[RATE LIMIT] Session exceeded 150 reads/min threshold (${currentCount} + ${estimatedCount} > 150), throttling. Current rolling reads in last 60s: ${rollingRealReads} (real) + ${pendingEstimatedReads} (pending)`);
+    console.error(`[RATE LIMIT] Session exceeded 500 reads/min threshold (${currentCount} + ${estimatedCount} > 500), throttling. Current rolling reads in last 60s: ${rollingRealReads} (real) + ${pendingEstimatedReads} (pending)`);
   }
   
   if (throttled) {
@@ -673,7 +673,15 @@ export async function updateDoc(ref: any, data: any) {
   logOperation('updateDoc', path, false, true, caller);
   
   invalidateCache(ref?.path);
-  return firestoreUpdateDoc(ref, data);
+  try {
+    return await firestoreUpdateDoc(ref, data);
+  } catch (err: any) {
+    if (err?.message?.includes('No document to update') || err?.code === 'not-found') {
+      console.warn(`[updateDoc] Document at ${path} did not exist in Firestore. Falling back to setDoc({ merge: true }).`);
+      return await firestoreSetDoc(ref, data, { merge: true });
+    }
+    throw err;
+  }
 }
 
 export async function addDoc(colRef: any, data: any) {

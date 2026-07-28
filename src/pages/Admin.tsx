@@ -4,9 +4,9 @@ import { db, handleFirestoreError, OperationType, auth, isDbOffline, forceGoOnli
 import { SportsContent, Category, ContentType, ContentSection, SliderElement, VideoPromoSettings, SiteConfig, SubscriptionPlan, BlogPost } from '../types';
 import { Plus, Trash2, Edit2, Play, LayoutDashboard, Film, Users, Settings, Save, X, Eye, Radio, Crown, Layers, MoveUp, MoveDown, CheckSquare, Square, Image as ImageIcon, Upload, Library, ShieldCheck, ShieldAlert, Zap, Percent, Trophy, ChevronRight, Activity, Heart, Dribbble, CircleDot, Target, Disc, Flag, Gamepad2, Folder, ChevronLeft, BookOpen, Scissors, Waves, Flame, Compass, Award, Sparkles, Wand2, Clock, BarChart2, RefreshCw } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { cn, formatDate, transformGDriveUrl, getVideoAutoThumbnail } from '../lib/utils';
+import { cn, formatDate, transformGDriveUrl, getVideoAutoThumbnail, isTestOrPlaceholderContent } from '../lib/utils';
 import { useAuth } from '../hooks/useAuth';
-import { useFirestoreCache, addDeletedContentId, getDeletedContentIds } from '../context/FirestoreContext';
+import { useFirestoreCache } from '../context/FirestoreContext';
 import { FALLBACK_SPORTS_CONTENT } from '../lib/fallbackData';
 import { IndianMedalist, INDIAN_MEDALISTS } from './Olympics';
 import MediaManager from '../components/MediaManager';

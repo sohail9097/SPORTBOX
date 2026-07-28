@@ -2441,7 +2441,7 @@ export default function Admin() {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  {content.filter(c => c.type === 'live' || c.status === 'live').map(item => (
+                  {content.filter(c => c.type === 'live' || c.status === 'live' || c.status === 'scheduled').map(item => (
                     <LiveControlCard 
                       key={`live-center-${item.id}`}
                       item={item}
@@ -2482,7 +2482,7 @@ export default function Admin() {
                       onDelete={handleDelete}
                     />
                   ))}
-                  {content.filter(c => c.type === 'live' || c.status === 'live').length === 0 && (
+                  {content.filter(c => c.type === 'live' || c.status === 'live' || c.status === 'scheduled').length === 0 && (
                     <div className="col-span-full py-20 text-center glass-card border-dashed border-white/10 bg-white/5 space-y-4">
                       <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mx-auto">
                         <Radio className="w-8 h-8 text-white/20" />

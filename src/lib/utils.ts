@@ -218,19 +218,9 @@ export function getEmbedUrl(url: string): string {
 
 export function isTestOrPlaceholderContent(item: { title?: string; description?: string }): boolean {
   if (!item) return true;
-  const title = String(item.title || '').trim().toLowerCase();
-  const desc = String(item.description || '').trim().toLowerCase();
-
-  const junkKeywords = ['test', 'new', 'sample', 'demo', 'test - 1', 'test - 2', 'new - 1', 'new - 2', 'test match', 'juu', 'u juj', 'asdf', 'qwerty', 'foo', 'bar'];
-
-  if (junkKeywords.includes(title) || junkKeywords.includes(desc)) return true;
-
-  if (title.startsWith('test') || title.startsWith('new -') || title.startsWith('new_') || title === 'new' || title === 'juu' || title.includes('juu')) return true;
-  if (desc.startsWith('test') || desc.startsWith('new -') || desc.startsWith('new_') || desc === 'u juj') return true;
-
-  // Filter out very short non-standard acronym titles (length <= 4) unless valid sports codes
-  const validShortCodes = ['nba', 'ufc', 'f1', 'mlb', 'nhl', 'wwe', 'wbc', 'ipl', 'pga', 'atp', 'wta', 'mma'];
-  if (title.length > 0 && title.length <= 4 && !validShortCodes.includes(title)) return true;
-
+  const title = String(item.title || '').trim();
+  const desc = String(item.description || '').trim();
+  // Only consider items with no title AND no description as placeholders
+  if (!title && !desc) return true;
   return false;
 }

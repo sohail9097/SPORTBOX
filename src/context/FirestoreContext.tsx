@@ -230,10 +230,10 @@ export function FirestoreProvider({ children }: { children: React.ReactNode }) {
           videoPromoResult,
           liveStatsResult
         ] = await Promise.allSettled([
-          getDocs(query(collection(db, 'content'), limit(25))),
-          getDocs(query(collection(db, 'sections'), where('isActive', '==', true), limit(20))),
-          getDocs(query(collection(db, 'slider'), limit(10))),
-          getDocs(query(collection(db, 'subscription_plans'), limit(10))),
+          getDocs(query(collection(db, 'content'), limit(200))),
+          getDocs(query(collection(db, 'sections'), where('isActive', '==', true), limit(50))),
+          getDocs(query(collection(db, 'slider'), limit(20))),
+          getDocs(query(collection(db, 'subscription_plans'), limit(20))),
           getDoc(doc(db, 'settings', 'siteConfig')),
           getDoc(doc(db, 'settings', 'videoPromo')),
           getDoc(doc(db, 'settings', 'liveStats'))
@@ -257,15 +257,13 @@ export function FirestoreProvider({ children }: { children: React.ReactNode }) {
           rawDocs.forEach(d => {
             const data = d.data() as SportsContent;
             const item = { id: d.id, ...data };
-            if (isTestOrPlaceholderContent(item)) {
-              deleteDoc(doc(db, 'content', d.id)).catch(() => {});
-            } else {
+            if (!isTestOrPlaceholderContent(item)) {
               cleanList.push(item);
             }
           });
           freshContent = cleanList;
           setContent(freshContent);
-          console.log(`[FirestoreProvider] Optimization #1 - Loaded ${freshContent.length} content items (Capped at 25).`);
+          console.log(`[FirestoreProvider] Loaded ${freshContent.length} content items.`);
         } else {
           if (contentSnapResult.status === 'rejected') {
             console.warn("[FirestoreProvider] Content query failed, using fallbacks:", contentSnapResult.reason);

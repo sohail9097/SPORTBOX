@@ -86,14 +86,41 @@ interface CacheData {
   timestamp: number;
 }
 
-const CACHE_KEY = 'sportsbox_firestore_cache_v1';
+const CACHE_KEY = 'sportsbox_firestore_cache_v2';
+const DELETED_IDS_KEY = 'sportsbox_deleted_content_ids';
 const CACHE_TTL = 10 * 60 * 1000; // 10 minutes cache TTL
+
+export function getDeletedContentIds(): string[] {
+  try {
+    const raw = localStorage.getItem(DELETED_IDS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function addDeletedContentId(id: string) {
+  try {
+    const ids = getDeletedContentIds();
+    if (!ids.includes(id)) {
+      ids.push(id);
+      localStorage.setItem(DELETED_IDS_KEY, JSON.stringify(ids));
+    }
+  } catch (err) {
+    console.warn("Failed to save deleted ID:", err);
+  }
+}
 
 // Persistent module-level memory cache to avoid ANY Firestore reads on route changes / mounts in same session
 let inMemoryCache: CacheData | null = null;
 
 function loadCache(): CacheData | null {
+  const deletedIds = getDeletedContentIds();
+
   if (inMemoryCache) {
+    if (Array.isArray(inMemoryCache.content)) {
+      inMemoryCache.content = inMemoryCache.content.filter(item => item && !deletedIds.includes(item.id));
+    }
     // Optimization #5: DEV LOGGING
     console.log("[Firestore Cache] Served successfully from in-memory cache (Same Session).");
     return inMemoryCache;
@@ -104,6 +131,9 @@ function loadCache(): CacheData | null {
     if (serialized) {
       const parsed = JSON.parse(serialized);
       if (parsed && typeof parsed === 'object' && parsed.timestamp) {
+        if (Array.isArray(parsed.content)) {
+          parsed.content = parsed.content.filter((item: any) => item && !deletedIds.includes(item.id));
+        }
         inMemoryCache = parsed as CacheData;
         console.log("[Firestore Cache] Served successfully from localStorage cache (Page Refresh).");
         return inMemoryCache;
@@ -117,8 +147,14 @@ function loadCache(): CacheData | null {
 }
 
 function saveCache(data: Omit<CacheData, 'timestamp'>) {
+  const deletedIds = getDeletedContentIds();
+  const cleanContent = Array.isArray(data.content) 
+    ? data.content.filter(item => item && !deletedIds.includes(item.id)) 
+    : [];
+
   const cacheWithTime: CacheData = {
     ...data,
+    content: cleanContent,
     timestamp: Date.now()
   };
   inMemoryCache = cacheWithTime;
@@ -239,7 +275,8 @@ export function FirestoreProvider({ children }: { children: React.ReactNode }) {
           getDoc(doc(db, 'settings', 'liveStats'))
         ]);
 
-        let freshContent: SportsContent[] = FALLBACK_SPORTS_CONTENT;
+        const deletedIds = getDeletedContentIds();
+        let freshContent: SportsContent[] = FALLBACK_SPORTS_CONTENT.filter(item => item && !deletedIds.includes(item.id));
         let freshSections: ContentSection[] = FALLBACK_SECTIONS as any[];
         let freshSlider: SliderElement[] = FALLBACK_SLIDER_ITEMS as any[];
         let freshPlans: SubscriptionPlan[] = FALLBACK_PLANS;
@@ -257,18 +294,23 @@ export function FirestoreProvider({ children }: { children: React.ReactNode }) {
           rawDocs.forEach(d => {
             const data = d.data() as SportsContent;
             const item = { id: d.id, ...data };
-            if (!isTestOrPlaceholderContent(item)) {
+            if (!isTestOrPlaceholderContent(item) && !deletedIds.includes(item.id)) {
               cleanList.push(item);
             }
           });
-          freshContent = cleanList;
+          
+          const customIds = new Set(cleanList.map(item => item.id));
+          const availableFallback = FALLBACK_SPORTS_CONTENT.filter(
+            fb => !customIds.has(fb.id) && !deletedIds.includes(fb.id)
+          );
+          freshContent = [...cleanList, ...availableFallback];
           setContent(freshContent);
-          console.log(`[FirestoreProvider] Loaded ${freshContent.length} content items.`);
+          console.log(`[FirestoreProvider] Loaded ${freshContent.length} content items (${cleanList.length} custom, ${availableFallback.length} fallback).`);
         } else {
           if (contentSnapResult.status === 'rejected') {
             console.warn("[FirestoreProvider] Content query failed, using fallbacks:", contentSnapResult.reason);
           }
-          setContent(FALLBACK_SPORTS_CONTENT);
+          setContent(freshContent);
         }
 
         // 2. Sections
@@ -482,9 +524,15 @@ export function FirestoreProvider({ children }: { children: React.ReactNode }) {
   const updateVideoPromoState = (promo: VideoPromoSettings) => setVideoPromo(promo);
   const updateLiveStatsState = (stats: { totalViews?: number; liveCount?: number }) => setLiveStats(stats);
   const updatePlansState = (newPlans: SubscriptionPlan[]) => setPlans(newPlans);
-  const updateSectionsState = (newSections: ContentSection[]) => setSections(newSections);
+  const updateSectionsState = (newSections: ContentSection[]) => {
+    setSections(newSections);
+    saveCache({ siteConfig, videoPromo, liveStats, sections: newSections, slider, plans, content });
+  };
   const updateSliderState = (newSlides: SliderElement[]) => setSlider(newSlides);
-  const updateContentState = (newContent: SportsContent[]) => setContent(newContent);
+  const updateContentState = (newContent: SportsContent[]) => {
+    setContent(newContent);
+    saveCache({ siteConfig, videoPromo, liveStats, sections, slider, plans, content: newContent });
+  };
 
   return (
     <FirestoreContext.Provider value={{

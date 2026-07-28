@@ -6,6 +6,8 @@ import { Plus, Trash2, Edit2, Play, LayoutDashboard, Film, Users, Settings, Save
 import { motion, AnimatePresence } from 'motion/react';
 import { cn, formatDate, transformGDriveUrl, getVideoAutoThumbnail } from '../lib/utils';
 import { useAuth } from '../hooks/useAuth';
+import { useFirestoreCache, addDeletedContentId, getDeletedContentIds } from '../context/FirestoreContext';
+import { FALLBACK_SPORTS_CONTENT } from '../lib/fallbackData';
 import { IndianMedalist, INDIAN_MEDALISTS } from './Olympics';
 import MediaManager from '../components/MediaManager';
 import StadiumPlayer from '../components/StadiumPlayer';
@@ -214,6 +216,7 @@ function LiveControlCard({
 
 export default function Admin() {
   const { user, isAdmin, loading: authLoading } = useAuth();
+  const { updateContentState, updateSectionsState, refetchAll } = useFirestoreCache();
   const navigate = useNavigate();
   const [dbIsOffline, setDbIsOffline] = useState(isDbOffline());
   const [isSyncing, setIsSyncing] = useState(false);
@@ -1227,9 +1230,19 @@ export default function Admin() {
     setLoading(true);
     try {
       console.log('[SAFE LIMIT FETCH]', 'content', new Date().toISOString());
+      const deletedIds = getDeletedContentIds();
       const q = query(collection(db, 'content'), limit(100));
       const querySnapshot = await getDocs(q);
-      const items = querySnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as SportsContent));
+      const dbItems = querySnapshot.docs
+        .map(doc => ({ ...doc.data(), id: doc.id } as SportsContent))
+        .filter(item => item && !deletedIds.includes(item.id));
+      
+      const dbIds = new Set(dbItems.map(item => item.id));
+      const availableFallback = FALLBACK_SPORTS_CONTENT.filter(
+        fb => !dbIds.has(fb.id) && !deletedIds.includes(fb.id)
+      );
+      
+      const items = [...dbItems, ...availableFallback];
       // Sort in-memory to prevent missing index errors and missing field exclusions
       items.sort((a, b) => {
         const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
@@ -1237,6 +1250,7 @@ export default function Admin() {
         return dateB - dateA;
       });
       setContent(items);
+      updateContentState(items);
     } catch (error) {
       console.error("fetchContent error:", error);
     } finally {
@@ -1446,7 +1460,9 @@ export default function Admin() {
         const docRef = doc(db, 'content', editingId);
         await updateDoc(docRef, finalForm);
         const updatedItem = { ...finalForm, id: editingId } as SportsContent;
-        setContent(prev => prev.map(item => item.id === editingId ? updatedItem : item));
+        const nextList = content.map(item => item.id === editingId ? updatedItem : item);
+        setContent(nextList);
+        updateContentState(nextList);
       } else {
         const payload = {
           ...finalForm,
@@ -1456,16 +1472,14 @@ export default function Admin() {
         };
         const docRef = await addDoc(collection(db, 'content'), payload);
         const newItem = { ...payload, id: docRef.id } as SportsContent;
-        setContent(prev => {
-          const newList = [newItem, ...prev];
-          newList.sort((a, b) => {
-            const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-            const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-            return dateB - dateA;
-          });
-          return newList;
+        const nextList = [newItem, ...content].sort((a, b) => {
+          const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return dateB - dateA;
         });
-    }
+        setContent(nextList);
+        updateContentState(nextList);
+      }
     toast.success("Content saved successfully!");
     // setIsAdding(false); // USER REQUEST: Keep modal open for next content
     setEditingId(null);
@@ -1570,8 +1584,11 @@ export default function Admin() {
     
     // Save current content for a potential rollback
     const previousContent = [...content];
-    // Optimistically filter the item out of the list so it disappears instantly
-    setContent(prev => prev.filter(item => item.id !== id));
+    // Record deleted ID and optimistically filter the item out of the list so it disappears instantly across all pages
+    addDeletedContentId(id);
+    const nextContent = content.filter(item => item.id !== id);
+    setContent(nextContent);
+    updateContentState(nextContent);
     
     try {
       await withTimeout(deleteDoc(doc(db, 'content', id)));
@@ -1589,6 +1606,7 @@ export default function Admin() {
       } else {
         toast.error("Failed to delete content. Reverting view...", { id: toastId });
         setContent(previousContent);
+        updateContentState(previousContent);
       }
       handleFirestoreError(error, OperationType.DELETE, `content/${id}`);
       setDbIsOffline(isDbOffline());

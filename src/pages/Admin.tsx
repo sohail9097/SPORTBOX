@@ -216,7 +216,7 @@ function LiveControlCard({
 
 export default function Admin() {
   const { user, isAdmin, loading: authLoading } = useAuth();
-  const { updateContentState, updateSectionsState, refetchAll } = useFirestoreCache();
+  const { updateContentState, updateSectionsState, updateSliderState, refetchAll } = useFirestoreCache();
   const navigate = useNavigate();
   const [dbIsOffline, setDbIsOffline] = useState(isDbOffline());
   const [isSyncing, setIsSyncing] = useState(false);
@@ -1420,24 +1420,26 @@ export default function Admin() {
   const fetchSections = async () => {
     try {
       console.log('[UNLIMITED FETCH]', 'sections', new Date().toISOString());
-      const q = query(collection(db, 'sections'), orderBy('order', 'asc'));
-      const querySnapshot = await getDocs(q);
+      const querySnapshot = await getDocs(collection(db, 'sections'));
       const items = querySnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as ContentSection));
+      items.sort((a, b) => (a.order || 0) - (b.order || 0));
       setSections(items);
+      updateSectionsState(items);
     } catch (error) {
-      console.error(error);
+      console.error("Error fetching sections in Admin:", error);
     }
   };
 
   const fetchSlider = async () => {
     try {
       console.log('[UNLIMITED FETCH]', 'slider', new Date().toISOString());
-      const q = query(collection(db, 'slider'), orderBy('order', 'asc'));
-      const querySnapshot = await getDocs(q);
+      const querySnapshot = await getDocs(collection(db, 'slider'));
       const items = querySnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as SliderElement));
+      items.sort((a, b) => (a.order || 0) - (b.order || 0));
       setSlider(items);
+      updateSliderState(items);
     } catch (error) {
-      console.error(error);
+      console.error("Error fetching slider in Admin:", error);
     }
   };
 

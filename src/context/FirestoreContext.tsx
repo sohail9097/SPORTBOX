@@ -257,7 +257,7 @@ export function FirestoreProvider({ children }: { children: React.ReactNode }) {
           liveStatsResult
         ] = await Promise.allSettled([
           getDocs(query(collection(db, 'content'), limit(80))),
-          getDocs(query(collection(db, 'sections'), where('isActive', '==', true), limit(50))),
+          getDocs(query(collection(db, 'sections'), limit(50))),
           getDocs(query(collection(db, 'slider'), limit(20))),
           getDocs(query(collection(db, 'subscription_plans'), limit(20))),
           getDoc(doc(db, 'settings', 'siteConfig')),
@@ -513,6 +513,24 @@ export function FirestoreProvider({ children }: { children: React.ReactNode }) {
       console.warn("[FirestoreProvider] Content realtime listener failed:", err);
     });
 
+    // Real-time listener on sections collection
+    const unsubSections = onSnapshot(collection(db, 'sections'), (snap) => {
+      const list: ContentSection[] = snap.docs.map(d => ({ id: d.id, ...d.data() } as ContentSection));
+      list.sort((a, b) => (a.order || 0) - (b.order || 0));
+      setSections(list);
+    }, (err) => {
+      console.warn("[FirestoreProvider] Sections realtime listener failed:", err);
+    });
+
+    // Real-time listener on slider collection
+    const unsubSlider = onSnapshot(collection(db, 'slider'), (snap) => {
+      const list: SliderElement[] = snap.docs.map(d => ({ id: d.id, ...d.data() } as SliderElement));
+      list.sort((a, b) => (a.order || 0) - (b.order || 0));
+      setSlider(list);
+    }, (err) => {
+      console.warn("[FirestoreProvider] Slider realtime listener failed:", err);
+    });
+
     const isWatchPage = window.location.pathname.startsWith('/watch/');
     if (isWatchPage) {
       console.log("[FirestoreProvider] Initial mount on Watch page. Loading config only.");
@@ -525,6 +543,8 @@ export function FirestoreProvider({ children }: { children: React.ReactNode }) {
 
     return () => {
       unsubContent();
+      unsubSections();
+      unsubSlider();
     };
   }, []);
 

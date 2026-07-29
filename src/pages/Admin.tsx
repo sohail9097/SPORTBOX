@@ -4,7 +4,7 @@ import { db, handleFirestoreError, OperationType, auth, isDbOffline, forceGoOnli
 import { SportsContent, Category, ContentType, ContentSection, SliderElement, VideoPromoSettings, SiteConfig, SubscriptionPlan, BlogPost } from '../types';
 import { Plus, Trash2, Edit2, Play, LayoutDashboard, Film, Users, Settings, Save, X, Eye, Radio, Crown, Layers, MoveUp, MoveDown, CheckSquare, Square, Image as ImageIcon, Upload, Library, ShieldCheck, ShieldAlert, Zap, Percent, Trophy, ChevronRight, Activity, Heart, Dribbble, CircleDot, Target, Disc, Flag, Gamepad2, Folder, ChevronLeft, BookOpen, Scissors, Waves, Flame, Compass, Award, Sparkles, Wand2, Clock, BarChart2, RefreshCw } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { cn, formatDate, transformGDriveUrl, getVideoAutoThumbnail, isTestOrPlaceholderContent } from '../lib/utils';
+import { cn, formatDate, transformGDriveUrl, getVideoAutoThumbnail, generateVideoFrameThumbnail, isTestOrPlaceholderContent } from '../lib/utils';
 import { useAuth } from '../hooks/useAuth';
 import { useFirestoreCache } from '../context/FirestoreContext';
 import { FALLBACK_SPORTS_CONTENT } from '../lib/fallbackData';
@@ -1447,7 +1447,13 @@ export default function Admin() {
     e.preventDefault();
     try {
       const transformedVideoUrl = transformGDriveUrl(form.videoUrl || '', 'video');
-      const transformedThumbUrl = transformGDriveUrl(form.thumbnailUrl || '', 'image');
+      let transformedThumbUrl = transformGDriveUrl(form.thumbnailUrl || '', 'image');
+
+      // Auto-generate thumbnail if empty or missing
+      if (!transformedThumbUrl || transformedThumbUrl.trim() === '') {
+        transformedThumbUrl = getVideoAutoThumbnail(transformedVideoUrl, form.category);
+      }
+
       const tagsArray = tagsInput.split(',').map(tag => tag.trim()).filter(tag => tag !== '');
       const finalForm = { ...form, videoUrl: transformedVideoUrl, thumbnailUrl: transformedThumbUrl, tags: tagsArray };
 
@@ -1559,7 +1565,15 @@ export default function Admin() {
   };
 
   const handleEdit = (item: SportsContent) => {
-    setForm(item);
+    const autoThumb = getVideoAutoThumbnail(item.videoUrl || '', item.category);
+    const effectiveThumb = item.thumbnailUrl && item.thumbnailUrl.trim() !== ''
+      ? item.thumbnailUrl
+      : autoThumb;
+
+    setForm({
+      ...item,
+      thumbnailUrl: effectiveThumb
+    });
     setTagsInput(item.tags ? item.tags.join(', ') : '');
     setEditingId(item.id);
     setIsAdding(true);
@@ -4465,7 +4479,26 @@ export default function Admin() {
                  <div className="space-y-2">
                   <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Video URL (m3u8/mp4/Youtube)</label>
                   <div className="flex gap-2">
-                    <input type="text" required value={form.videoUrl} onChange={e => setForm({...form, videoUrl: e.target.value})} className="flex-grow bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none" />
+                    <input 
+                      type="text" 
+                      required 
+                      value={form.videoUrl} 
+                      onChange={e => {
+                        const newUrl = e.target.value;
+                        const autoThumb = getVideoAutoThumbnail(newUrl, form.category);
+                        setForm(prev => {
+                          const isBlank = !prev.thumbnailUrl || prev.thumbnailUrl.trim() === '';
+                          const isAuto = prev.thumbnailUrl?.includes('youtube.com/vi/') || prev.thumbnailUrl?.includes('drive.google.com/thumbnail') || prev.thumbnailUrl?.includes('vumbnail.com') || prev.thumbnailUrl?.includes('unsplash.com');
+                          return {
+                            ...prev,
+                            videoUrl: newUrl,
+                            thumbnailUrl: (isBlank || isAuto) && newUrl.trim() ? autoThumb : prev.thumbnailUrl
+                          };
+                        });
+                      }} 
+                      className="flex-grow bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none" 
+                      placeholder="Paste YouTube, Google Drive, or Video URL"
+                    />
                     <button 
                       type="button" 
                       onClick={() => setPreviewContent({ 
@@ -4551,8 +4584,54 @@ export default function Admin() {
                   <input type="text" value={tagsInput} onChange={e => setTagsInput(e.target.value)} className="w-full bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none" placeholder="e.g. final, world cup, ronaldo, highlights" />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Thumbnail URL</label>
-                  <input type="url" value={form.thumbnailUrl} onChange={e => setForm({...form, thumbnailUrl: e.target.value})} className="w-full bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none" />
+                  <div className="flex justify-between items-center">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Thumbnail URL</label>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (!form.videoUrl) {
+                          toast.error("Please enter a Video URL first!");
+                          return;
+                        }
+                        const auto = getVideoAutoThumbnail(form.videoUrl, form.category);
+                        setForm(prev => ({ ...prev, thumbnailUrl: auto }));
+                        
+                        const directUrl = transformGDriveUrl(form.videoUrl, 'video');
+                        if (directUrl.match(/\.(mp4|webm|m3u8)(\?|$)/i) || directUrl.includes('googleusercontent.com') || directUrl.includes('drive.google.com')) {
+                          const tId = toast.loading("Extracting video frame...");
+                          const frame = await generateVideoFrameThumbnail(directUrl);
+                          if (frame) {
+                            setForm(prev => ({ ...prev, thumbnailUrl: frame }));
+                            toast.success("Captured video frame thumbnail!", { id: tId });
+                            return;
+                          }
+                          toast.dismiss(tId);
+                        }
+                        toast.success("Auto thumbnail generated from video!");
+                      }}
+                      className="text-[9px] bg-brand/10 hover:bg-brand text-brand hover:text-white px-2.5 py-1 rounded transition-all font-bold uppercase tracking-wider flex items-center gap-1 cursor-pointer"
+                    >
+                      <Wand2 className="w-3.5 h-3.5" />
+                      Auto Thumbnail
+                    </button>
+                  </div>
+                  <div className="flex gap-2 items-center">
+                    <input 
+                      type="url" 
+                      value={form.thumbnailUrl} 
+                      onChange={e => setForm({...form, thumbnailUrl: e.target.value})} 
+                      className="flex-grow bg-bg border border-white/10 p-3 rounded-md focus:border-brand outline-none" 
+                      placeholder="Auto-generated from YouTube / Google Drive / Video if left blank"
+                    />
+                    {form.thumbnailUrl && (
+                      <div className="w-14 h-10 rounded border border-white/10 overflow-hidden shrink-0 bg-black/40 relative group">
+                        <img src={transformGDriveUrl(form.thumbnailUrl, 'image')} alt="Thumbnail" className="w-full h-full object-cover" />
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-[9px] text-text-muted italic">
+                    If left blank, a thumbnail will be created automatically from your YouTube, Google Drive, or Video link when saved.
+                  </p>
                 </div>
 
                 {form.type === 'short' && (

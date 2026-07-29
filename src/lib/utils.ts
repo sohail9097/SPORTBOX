@@ -76,24 +76,33 @@ export function getVideoAutoThumbnail(videoUrl: string, category?: string): stri
 
   // 1. YouTube Identification
   let youtubeId = '';
-  if (target.includes('youtube.com') || target.includes('youtu.be')) {
-    if (target.includes('youtube.com/embed/')) {
+  if (target.includes('youtube.com') || target.includes('youtu.be') || target.includes('youtube-nocookie.com')) {
+    if (target.includes('youtube.com/embed/') || target.includes('youtube-nocookie.com/embed/')) {
       const parts = target.split('/embed/');
-      if (parts[1]) youtubeId = parts[1].split(/[?#]/)[0];
+      if (parts[1]) youtubeId = parts[1].split(/[?#&]/)[0];
+    } else if (target.includes('youtube.com/shorts/')) {
+      const parts = target.split('/shorts/');
+      if (parts[1]) youtubeId = parts[1].split(/[?#&]/)[0];
     } else if (target.includes('youtube.com/watch')) {
       const match = target.match(/[?&]v=([^&#]+)/);
       if (match) youtubeId = match[1];
     } else if (target.includes('youtu.be/')) {
       const parts = target.split('youtu.be/');
-      if (parts[1]) youtubeId = parts[1].split(/[?#]/)[0];
+      if (parts[1]) youtubeId = parts[1].split(/[?#&]/)[0];
+    } else if (target.includes('youtube.com/v/')) {
+      const parts = target.split('/v/');
+      if (parts[1]) youtubeId = parts[1].split(/[?#&]/)[0];
     }
   } else if (target.startsWith('<iframe') || target.startsWith('<')) {
     const matchHref = target.match(/src=["']([^"']+)["']/i);
     if (matchHref && (matchHref[1].includes('youtube.com') || matchHref[1].includes('youtu.be'))) {
       const embedUrl = matchHref[1];
-      if (embedUrl.includes('youtube.com/embed/')) {
+      if (embedUrl.includes('/embed/')) {
         const parts = embedUrl.split('/embed/');
-        if (parts[1]) youtubeId = parts[1].split(/[?#]/)[0];
+        if (parts[1]) youtubeId = parts[1].split(/[?#&]/)[0];
+      } else {
+        const match = embedUrl.match(/[?&]v=([^&#]+)/);
+        if (match) youtubeId = match[1];
       }
     }
   }
@@ -102,7 +111,37 @@ export function getVideoAutoThumbnail(videoUrl: string, category?: string): stri
     return `https://img.youtube.com/vi/${youtubeId}/hqdefault.jpg`;
   }
 
-  // 2. Cloudflare Stream Identification
+  // 2. Google Drive Identification
+  if (target.includes('drive.google.com') || target.includes('lh3.googleusercontent.com')) {
+    let gdriveId = '';
+    const dMatch = target.match(/\/d\/([a-zA-Z0-9_-]+)/);
+    if (dMatch) gdriveId = dMatch[1];
+    if (!gdriveId) {
+      const idMatch = target.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+      if (idMatch) gdriveId = idMatch[1];
+    }
+    if (gdriveId) {
+      return `https://drive.google.com/thumbnail?id=${gdriveId}&sz=w800`;
+    }
+  }
+
+  // 3. Vimeo Identification
+  if (target.includes('vimeo.com')) {
+    const vimeoMatch = target.match(/vimeo\.com\/(?:video\/)?([0-9]+)/);
+    if (vimeoMatch && vimeoMatch[1]) {
+      return `https://vumbnail.com/${vimeoMatch[1]}.jpg`;
+    }
+  }
+
+  // 4. DailyMotion Identification
+  if (target.includes('dailymotion.com')) {
+    const dmMatch = target.match(/dailymotion\.com\/video\/([a-zA-Z0-9]+)/);
+    if (dmMatch && dmMatch[1]) {
+      return `https://www.dailymotion.com/thumbnail/video/${dmMatch[1]}`;
+    }
+  }
+
+  // 5. Cloudflare Stream Identification
   if (target.includes('cloudflarestream.com') || target.includes('videodelivery.net')) {
     try {
       const hexIdMatch = target.match(/([a-fA-F0-9]{32})/);
@@ -122,6 +161,55 @@ export function getVideoAutoThumbnail(videoUrl: string, category?: string): stri
 
   // Fallback to Category Images
   return getCategoryFallbackImage(category);
+}
+
+export async function generateVideoFrameThumbnail(videoUrl: string): Promise<string | null> {
+  if (!videoUrl || typeof window === 'undefined') return null;
+  return new Promise((resolve) => {
+    try {
+      const video = document.createElement('video');
+      video.crossOrigin = 'anonymous';
+      video.src = videoUrl;
+      video.muted = true;
+      video.preload = 'metadata';
+      video.currentTime = 1.5;
+
+      const timeout = setTimeout(() => {
+        video.src = '';
+        resolve(null);
+      }, 3500);
+
+      video.onseeked = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = video.videoWidth || 640;
+          canvas.height = video.videoHeight || 360;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+            clearTimeout(timeout);
+            video.src = '';
+            resolve(dataUrl);
+            return;
+          }
+        } catch (e) {
+          // Ignore CORS canvas taint errors
+        }
+        clearTimeout(timeout);
+        video.src = '';
+        resolve(null);
+      };
+
+      video.onerror = () => {
+        clearTimeout(timeout);
+        video.src = '';
+        resolve(null);
+      };
+    } catch (e) {
+      resolve(null);
+    }
+  });
 }
 
 export function sanitizeVideoUrlOrIframe(input: string): string {

@@ -78,23 +78,7 @@ export default function DynamicSections({ page }: DynamicSectionsProps) {
     };
 
     if (sections.length === 0) {
-      if (cachedContent.length > 0) {
-        setSectionData({});
-        setLoading(false);
-        return;
-      }
-
-      const fallbacks = FALLBACK_SECTIONS.filter(s => s.page === page || (page !== 'home' && s.page === 'home'));
-      const data: Record<string, SportsContent[]> = {};
-      
-      fallbacks.forEach(section => {
-        let items = FALLBACK_SPORTS_CONTENT;
-        if (page !== 'home') {
-          items = FALLBACK_SPORTS_CONTENT.filter(item => item.category === page);
-        }
-        data[section.id] = items.slice(0, 6);
-      });
-      setSectionData(data);
+      setSectionData({});
       setLoading(false);
     } else {
       fetchContentForSections(sections);

@@ -141,23 +141,11 @@ export default function CategoryPage() {
           </section>
         )}
 
-        {/* Dynamic Sections (If available for this category) */}
+        {/* Dynamic Sections (Managed by Admin) */}
         {category && (
           <div className="mb-12">
             <DynamicSections page={category as any} />
           </div>
-        )}
-
-        {/* Category Library & Archives */}
-        {content.length > 0 && (
-          <section key="archive-section" className="mb-12">
-            <SectionHeader title={`${categoryName} Library & Highlights`} icon={Trophy} />
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2 md:gap-3.5 pt-2">
-              {content.map((item, i) => (
-                <ContentCard key={`archive-${item.id}`} content={item} index={i} />
-              ))}
-            </div>
-          </section>
         )}
 
         {loading && content.length === 0 && (

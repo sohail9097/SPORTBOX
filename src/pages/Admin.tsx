@@ -1454,7 +1454,12 @@ export default function Admin() {
         transformedThumbUrl = getVideoAutoThumbnail(transformedVideoUrl, form.category);
       }
 
-      const tagsArray = tagsInput.split(',').map(tag => tag.trim()).filter(tag => tag !== '');
+      const tagsArray = Array.from(new Set(
+        tagsInput
+          .split(/[,#\s]+/)
+          .map(tag => tag.trim().replace(/^#+/, ''))
+          .filter(tag => tag !== '')
+      ));
       const finalForm = { ...form, videoUrl: transformedVideoUrl, thumbnailUrl: transformedThumbUrl, tags: tagsArray };
 
       if (editingId) {

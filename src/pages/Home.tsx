@@ -5,7 +5,7 @@ import DynamicSections from '../components/DynamicSections';
 import HeroSlider from '../components/HeroSlider';
 import LoadingScreen from '../components/LoadingScreen';
 import VideoPromoBanner from '../components/VideoPromoBanner';
-import { Play, TrendingUp, ChevronRight } from 'lucide-react';
+import { Play, ChevronRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { cn } from '../lib/utils';
 import { useFirestoreCache } from '../context/FirestoreContext';
@@ -26,24 +26,6 @@ export default function Home() {
       .filter(item => item.status === 'live')
       .slice(0, 6);
   }, [content]);
-
-  const trending = useMemo(() => {
-    const trendingSection = homeSections.find(s => s.title.toLowerCase().includes('trending'));
-    
-    if (trendingSection && trendingSection.contentIds && trendingSection.contentIds.length > 0) {
-      const targetIds = trendingSection.contentIds.slice(0, 10);
-      const results = content.filter(item => targetIds.includes(item.id));
-      const orderMap = new Map(targetIds.map((id, idx) => [id, idx]));
-      return results
-        .sort((a, b) => (orderMap.get(a.id) ?? 999) - (orderMap.get(b.id) ?? 999))
-        .slice(0, 6);
-    }
-    
-    // Fallback: sort by createdAt descending
-    return [...content]
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-      .slice(0, 6);
-  }, [content, homeSections]);
 
   // Generate featured content in-memory
   const featured = useMemo(() => {
@@ -122,20 +104,6 @@ export default function Home() {
           buttonUrl={videoPromo.buttonUrl}
           backgroundColor={videoPromo.backgroundColor}
         />
-      )}
-
-      {/* Trending Section */}
-      {trending.length > 0 && (
-        <section key="home-trending-section" className="max-w-[1600px] mx-auto px-4 mt-2 md:mt-4">
-          <SectionHeader title="Trending Replays" icon={TrendingUp} />
-          <div className="flex md:grid md:grid-cols-4 lg:grid-cols-6 gap-1 md:gap-1 overflow-x-auto md:overflow-visible pb-4 md:pb-0 hide-scrollbar snap-x">
-            {trending.map((item, i) => (
-              <div key={`home-trending-${item.id}`} className="flex-shrink-0 w-[115px] md:w-auto snap-start">
-                <ContentCard key={`home-trending-${item.id}`} content={item} index={i} />
-              </div>
-            ))}
-          </div>
-        </section>
       )}
     </div>
   );

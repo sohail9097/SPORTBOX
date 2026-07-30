@@ -65,6 +65,18 @@ const markUniqueLiveViewTracked = (videoId: string) => {
   }
 };
 
+const getCleanSectionTitle = (item: SportsContent, defaultCategory?: string): string => {
+  const cat = item.category || defaultCategory || 'Sports';
+  if (item.tags && item.tags.length > 0 && typeof item.tags[0] === 'string') {
+    const rawTag = item.tags[0].trim();
+    const cleanTag = rawTag.replace(/^#+/, '').trim();
+    if (cleanTag.length > 0 && cleanTag.length <= 20 && !cleanTag.includes('#') && cleanTag.split(/\s+/).length <= 2) {
+      return `${cleanTag.toUpperCase()} SERIES`;
+    }
+  }
+  return `MORE IN ${cat.toUpperCase()}`;
+};
+
 export default function Watch() {
   const { id } = useParams<{ id: string }>();
   useRenderProfiler('Watch', { id });
@@ -215,9 +227,9 @@ export default function Watch() {
         
         const grouped: { [key: string]: SportsContent[] } = {};
         related.forEach(item => {
-          const tag = item.tags?.[0] || 'More Feed';
-          if (!grouped[tag]) grouped[tag] = [];
-          grouped[tag].push(item);
+          const title = getCleanSectionTitle(item, cachedItem.category);
+          if (!grouped[title]) grouped[title] = [];
+          grouped[title].push(item);
         });
         setSections(grouped);
 
@@ -272,9 +284,9 @@ export default function Watch() {
 
                 const grouped: { [key: string]: SportsContent[] } = {};
                 relatedItems.forEach(item => {
-                  const tag = item.tags?.[0] || 'More Feed';
-                  if (!grouped[tag]) grouped[tag] = [];
-                  grouped[tag].push(item);
+                  const title = getCleanSectionTitle(item, videoData.category);
+                  if (!grouped[title]) grouped[title] = [];
+                  grouped[title].push(item);
                 });
                 setSections(grouped);
               } catch (err) {
@@ -291,9 +303,9 @@ export default function Watch() {
                 
                 const grouped: { [key: string]: SportsContent[] } = {};
                 related.forEach(item => {
-                  const tag = item.tags?.[0] || 'More Feed';
-                  if (!grouped[tag]) grouped[tag] = [];
-                  grouped[tag].push(item);
+                  const title = getCleanSectionTitle(item, fallbackItem.category);
+                  if (!grouped[title]) grouped[title] = [];
+                  grouped[title].push(item);
                 });
                 setSections(grouped);
               } else {

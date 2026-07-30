@@ -266,7 +266,7 @@ export function FirestoreProvider({ children }: { children: React.ReactNode }) {
         ]);
 
         let freshContent: SportsContent[] = [];
-        let freshSections: ContentSection[] = FALLBACK_SECTIONS as any[];
+        let freshSections: ContentSection[] = [];
         let freshSlider: SliderElement[] = FALLBACK_SLIDER_ITEMS as any[];
         let freshPlans: SubscriptionPlan[] = FALLBACK_PLANS;
         let freshSiteConfig: SiteConfig = FALLBACK_SITE_CONFIG;
@@ -300,16 +300,22 @@ export function FirestoreProvider({ children }: { children: React.ReactNode }) {
         }
 
         // 2. Sections
-        if (sectionsSnapResult.status === 'fulfilled' && !sectionsSnapResult.value.empty) {
-          freshSections = sectionsSnapResult.value.docs.map(d => ({ id: d.id, ...d.data() } as ContentSection));
-          freshSections.sort((a, b) => (a.order || 0) - (b.order || 0));
-          setSections(freshSections);
-          console.log(`[FirestoreProvider] Optimization #1 - Loaded ${freshSections.length} sections (Capped at 20).`);
+        if (sectionsSnapResult.status === 'fulfilled') {
+          if (!sectionsSnapResult.value.empty) {
+            freshSections = sectionsSnapResult.value.docs.map(d => ({ id: d.id, ...d.data() } as ContentSection));
+            freshSections.sort((a, b) => (a.order || 0) - (b.order || 0));
+            setSections(freshSections);
+            console.log(`[FirestoreProvider] Optimization #1 - Loaded ${freshSections.length} sections.`);
+          } else {
+            freshSections = [];
+            setSections([]);
+          }
         } else {
           if (sectionsSnapResult.status === 'rejected') {
-            console.warn("[FirestoreProvider] Sections query failed, using fallbacks:", sectionsSnapResult.reason);
+            console.warn("[FirestoreProvider] Sections query failed:", sectionsSnapResult.reason);
           }
-          setSections(FALLBACK_SECTIONS as any);
+          freshSections = [];
+          setSections([]);
         }
 
         // 3. Slider

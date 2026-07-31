@@ -31,7 +31,15 @@
 }
 
 .vjs-stadium-theme video {
-  object-fit: contain;
+  object-fit: cover;
+}
+
+.react-player-bg video,
+.react-player-bg iframe,
+iframe.hero-video-iframe {
+  object-fit: cover !important;
+  width: 100% !important;
+  height: 100% !important;
 }
 
 .animate-pulse-slow {

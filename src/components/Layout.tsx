@@ -54,7 +54,7 @@ export default function Layout({ children }: { children: ReactNode }) {
     <div className="min-h-screen flex flex-col bg-bg">
       {/* Top Navigation */}
       <nav className="sticky top-0 z-50 bg-bg/80 backdrop-blur-xl border-b border-border">
-        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-14 md:h-16">
             <div className="flex items-center gap-4 md:gap-8">
               <BrandLogo 
@@ -276,7 +276,7 @@ export default function Layout({ children }: { children: ReactNode }) {
 
       {!isShortsPage && (
         <footer className="bg-surface border-t border-border py-8 md:py-20 pb-24 md:pb-20 text-text-base">
-        <div className="max-w-[1600px] mx-auto px-4">
+        <div className="max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-12 gap-8 md:gap-16 items-start">
             <div className="md:col-span-12 lg:col-span-5 flex flex-col gap-4 md:gap-6 items-center md:items-start text-center md:text-left">
               <div className="flex flex-col gap-3 md:gap-4">
@@ -326,7 +326,7 @@ export default function Layout({ children }: { children: ReactNode }) {
           </div>
         </div>
 
-        <div className="max-w-[1600px] mx-auto px-4 mt-8 md:mt-24 pt-6 border-t border-border flex flex-col md:flex-row items-center justify-between gap-4 md:gap-6">
+        <div className="max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 mt-8 md:mt-24 pt-6 border-t border-border flex flex-col md:flex-row items-center justify-between gap-4 md:gap-6">
           <div className="text-[8px] md:text-[10px] text-text-muted/40 uppercase tracking-[0.2em] md:tracking-[0.3em] text-center md:text-left leading-relaxed max-w-md">
             © 2024 SportsBox Media Group. All rights reserved.
           </div>

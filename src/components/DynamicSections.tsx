@@ -124,14 +124,14 @@ export default function DynamicSections({ page }: DynamicSectionsProps) {
             </div>
 
             {section.type === 'top10' ? (
-              <div className="flex gap-1 overflow-x-auto pb-4 hide-scrollbar scroll-smooth snap-x">
+              <div className="flex lg:grid lg:grid-cols-10 gap-1 md:gap-1.5 overflow-x-auto lg:overflow-visible pb-4 lg:pb-0 hide-scrollbar snap-x">
                 {contents.slice(0, 10).map((item, i) => (
-                  <div key={`${i}-${item.id}`} className="relative flex-none w-[130px] md:w-[180px] group snap-start">
-                    <div className="relative z-10 pl-3 md:pl-10 h-full">
+                  <div key={`${i}-${item.id}`} className="relative flex-none lg:flex-1 w-[125px] sm:w-[140px] lg:w-auto group snap-start">
+                    <div className="relative z-10 pl-2 sm:pl-3 lg:pl-5 xl:pl-6 h-full">
                       <ContentCard content={item} aspectRatio="portrait" hideDetails index={i} />
                     </div>
-                    <div className="absolute left-0 bottom-[-10px] z-20 flex items-center justify-center">
-                      <span className="text-6xl md:text-[9rem] font-black text-white/20 drop-shadow-[0_4px_12px_rgba(255,255,255,0.1)] italic leading-none select-none" style={{ WebkitTextStroke: '1.5px rgba(255,255,255,0.5)' }}>
+                    <div className="absolute left-0 bottom-[-6px] lg:bottom-[-10px] z-20 flex items-center justify-center pointer-events-none">
+                      <span className="text-5xl sm:text-6xl md:text-7xl lg:text-7xl xl:text-8xl 2xl:text-[8.5rem] font-black text-white/20 drop-shadow-[0_4px_12px_rgba(255,255,255,0.1)] italic leading-none select-none" style={{ WebkitTextStroke: '1.5px rgba(255,255,255,0.5)' }}>
                         {i + 1}
                       </span>
                     </div>
@@ -141,7 +141,7 @@ export default function DynamicSections({ page }: DynamicSectionsProps) {
             ) : section.type === 'single-row' ? (
               <AutoScrollingRow contents={contents} aspectRatio={section.aspectRatio || 'landscape'} />
             ) : section.type === 'featured' ? (
-              <div className="flex md:grid md:grid-cols-2 gap-1 md:gap-1.5 overflow-x-auto md:overflow-visible pb-4 md:pb-0 hide-scrollbar snap-x">
+              <div className="flex md:grid md:grid-cols-2 lg:grid-cols-3 gap-1 md:gap-1.5 overflow-x-auto md:overflow-visible pb-4 md:pb-0 hide-scrollbar snap-x">
                 {contents.map((item, i) => (
                    <div key={`${i}-${item.id}`} className={cn(
                      "flex-shrink-0 md:flex-shrink snap-start",
@@ -155,8 +155,8 @@ export default function DynamicSections({ page }: DynamicSectionsProps) {
               <div className={cn(
                 "flex md:grid gap-1 md:gap-1.5 overflow-x-auto md:overflow-visible pb-4 md:pb-0 hide-scrollbar snap-x",
                 section.aspectRatio === 'portrait' 
-                  ? "md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7" 
-                  : "md:grid-cols-3 lg:grid-cols-6"
+                  ? "md:grid-cols-5 lg:grid-cols-7 xl:grid-cols-8 2xl:grid-cols-10" 
+                  : "md:grid-cols-3 lg:grid-cols-6 xl:grid-cols-8"
               )}>
                 {contents.map((item, i) => (
                   <div 

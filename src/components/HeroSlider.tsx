@@ -194,32 +194,34 @@ export default function HeroSlider({ page = 'home' }: HeroSliderProps) {
           className="absolute inset-0"
         >
           {currentSlide.directVideoPlay && currentSlide.videoUrl && currentSlide.videoUrl.trim() !== '' ? (
-            <div className="absolute inset-0 w-full h-full overflow-hidden bg-black">
+            <div className="absolute inset-0 w-full h-full overflow-hidden bg-black flex items-center justify-center">
               {isIframeUrl(currentSlide.videoUrl) ? (
                 <iframe 
                   src={sanitizeVideoUrlOrIframe(getEmbedUrl(currentSlide.videoUrl, isMuted))}
-                  className="absolute inset-0 w-full h-full border-0 pointer-events-none scale-105"
+                  className="hero-video-iframe absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[145%] h-[145%] min-w-[100%] min-h-[100%] border-0 pointer-events-none object-cover scale-105"
                   allow="autoplay; encrypted-media; picture-in-picture"
                 />
               ) : (
-                <Player
-                  url={currentSlide.videoUrl}
-                  width="100%"
-                  height="100%"
-                  playing={true}
-                  muted={isMuted}
-                  loop={true}
-                  playsinline={true}
-                  className="react-player-bg absolute inset-0 w-full h-full"
-                  config={{
-                    file: {
-                      attributes: {
-                        style: { width: '100%', height: '100%', objectFit: 'cover' }
-                      },
-                      forceHLS: true,
-                    }
-                  }}
-                />
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[145%] h-[145%] min-w-[100%] min-h-[100%] flex items-center justify-center">
+                  <Player
+                    url={currentSlide.videoUrl}
+                    width="100%"
+                    height="100%"
+                    playing={true}
+                    muted={isMuted}
+                    loop={true}
+                    playsinline={true}
+                    className="react-player-bg w-full h-full"
+                    config={{
+                      file: {
+                        attributes: {
+                          style: { width: '100%', height: '100%', objectFit: 'cover' }
+                        },
+                        forceHLS: true,
+                      }
+                    }}
+                  />
+                </div>
               )}
             </div>
           ) : currentSlide.imageUrl && currentSlide.imageUrl.trim() !== '' ? (

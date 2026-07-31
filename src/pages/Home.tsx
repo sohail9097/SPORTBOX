@@ -39,12 +39,12 @@ export default function Home() {
   return (
     <div className="pb-20 text-text-base">
       {/* Hero Slider Section */}
-      <section className="w-full h-auto max-w-[1600px] mx-auto pt-4 md:pt-8">
+      <section className="w-full h-auto max-w-[1920px] mx-auto pt-4 md:pt-8 px-2 sm:px-4 md:px-6">
         <HeroSlider />
       </section>
 
       {/* Categories Bar */}
-      <section className="mt-4 relative z-10 max-w-[1600px] mx-auto px-4">
+      <section className="mt-4 relative z-10 max-w-[1920px] mx-auto px-2 sm:px-4 md:px-6">
         <div className="flex md:flex-wrap items-center gap-4 md:justify-between overflow-x-auto pb-4 md:pb-0 hide-scrollbar px-2">
           {[
             { id: 'cricket', name: 'Cricket', label: 'CK', color: 'text-[#ff9900]', bg: 'bg-[#ff9900]/10' },
@@ -76,7 +76,7 @@ export default function Home() {
 
       {/* Live Section */}
       {liveNow.length > 0 && (
-        <section key="home-live-section" className="max-w-[1600px] mx-auto px-4 mt-2 md:mt-4">
+        <section key="home-live-section" className="max-w-[1920px] mx-auto px-2 sm:px-4 md:px-6 mt-2 md:mt-4">
           <SectionHeader title="Live Today" icon={Play} link="/live" />
           <div className="flex md:grid md:grid-cols-4 lg:grid-cols-6 gap-1 md:gap-1 overflow-x-auto md:overflow-visible pb-4 md:pb-0 hide-scrollbar snap-x">
             {liveNow.map((item, i) => (
@@ -89,7 +89,7 @@ export default function Home() {
       )}
 
       {/* Dynamic Admin-Managed Sections */}
-      <div className="max-w-[1600px] mx-auto px-4 mt-4">
+      <div className="max-w-[1920px] mx-auto px-2 sm:px-4 md:px-6 mt-4">
         <DynamicSections page="home" />
       </div>
 

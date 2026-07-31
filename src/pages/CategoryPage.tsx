@@ -90,11 +90,11 @@ export default function CategoryPage() {
   return (
     <div className="min-h-screen pb-20">
       {/* Hero Slider Section (Category Specific) */}
-      <section className="w-full h-auto max-w-[1600px] mx-auto px-4 pt-4 md:pt-8">
+      <section className="w-full h-auto max-w-[1920px] mx-auto px-2 sm:px-4 md:px-6 pt-4 md:pt-8">
         <HeroSlider page={category as Category} />
       </section>
 
-      <div className="max-w-[1600px] mx-auto px-4 pt-12">
+      <div className="max-w-[1920px] mx-auto px-2 sm:px-4 md:px-6 pt-12">
         {/* Header */}
         <header className="mb-12 space-y-4">
           <motion.div

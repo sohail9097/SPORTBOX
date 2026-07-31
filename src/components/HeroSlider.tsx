@@ -102,13 +102,18 @@ export default function HeroSlider({ page = 'home' }: HeroSliderProps) {
     const iframeProviders = [
       'iframe.dacast.com', 
       'player.vimeo.com', 
+      'vimeo.com',
+      'youtube.com',
+      'youtu.be',
       'facebook.com', 
       'twitch.tv/embed',
       'cloudflarestream.com',
+      'videodelivery.net',
+      'cricheroes',
       '/iframe',
       '.html'
     ];
-    return iframeProviders.some(p => url.includes(p));
+    return iframeProviders.some(p => url.toLowerCase().includes(p.toLowerCase()));
   };
 
   const getEmbedUrl = (url: string, mutedState: boolean) => {
@@ -198,11 +203,11 @@ export default function HeroSlider({ page = 'home' }: HeroSliderProps) {
               {isIframeUrl(currentSlide.videoUrl) ? (
                 <iframe 
                   src={sanitizeVideoUrlOrIframe(getEmbedUrl(currentSlide.videoUrl, isMuted))}
-                  className="hero-video-iframe absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[145%] h-[145%] min-w-[100%] min-h-[100%] border-0 pointer-events-none object-cover scale-105"
+                  className="hero-video-iframe absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[180%] h-[180%] max-w-none max-h-none border-0 pointer-events-none object-cover scale-105"
                   allow="autoplay; encrypted-media; picture-in-picture"
                 />
               ) : (
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[145%] h-[145%] min-w-[100%] min-h-[100%] flex items-center justify-center">
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[180%] h-[180%] max-w-none max-h-none flex items-center justify-center pointer-events-none">
                   <Player
                     url={currentSlide.videoUrl}
                     width="100%"

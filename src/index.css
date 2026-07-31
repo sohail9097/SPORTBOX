@@ -34,12 +34,16 @@
   object-fit: cover;
 }
 
-.react-player-bg video,
-.react-player-bg iframe,
-iframe.hero-video-iframe {
+.react-player-bg video {
   object-fit: cover !important;
   width: 100% !important;
   height: 100% !important;
+}
+
+iframe.hero-video-iframe {
+  object-fit: cover !important;
+  max-width: none !important;
+  max-height: none !important;
 }
 
 .animate-pulse-slow {

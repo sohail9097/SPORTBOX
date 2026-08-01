@@ -301,13 +301,24 @@ export default function StadiumPlayer({ url, poster, isLive, useIframe: initialU
     const iframeSrc = isGDrive ? `https://drive.google.com/file/d/${driveId}/preview` : sanitizeVideoUrlOrIframe(getEmbedUrl(url));
     if (!iframeSrc) return null;
     return (
-      <div className="relative w-full aspect-video bg-black group rounded-xl overflow-hidden border border-white/10 shadow-2xl">
-        <iframe 
-          src={iframeSrc}
-          className="absolute inset-0 w-full h-full border-0"
-          allow="autoplay; encrypted-media; picture-in-picture"
-          allowFullScreen
-        ></iframe>
+      <div className="relative w-full h-full aspect-video bg-black group rounded-none md:rounded-xl overflow-hidden border-0 md:border md:border-white/10 shadow-2xl">
+        {isGDrive ? (
+          <div className="absolute inset-0 w-full h-full overflow-hidden bg-black">
+            <iframe 
+              src={iframeSrc}
+              className="absolute -top-[48px] sm:-top-[52px] left-0 w-full h-[calc(100%+52px)] sm:h-[calc(100%+56px)] border-0 pointer-events-auto"
+              allow="autoplay; encrypted-media; picture-in-picture"
+              allowFullScreen
+            ></iframe>
+          </div>
+        ) : (
+          <iframe 
+            src={iframeSrc}
+            className="absolute inset-0 w-full h-full border-0"
+            allow="autoplay; encrypted-media; picture-in-picture"
+            allowFullScreen
+          ></iframe>
+        )}
 
         {/* Livestream Fallback Screen Overlay for Iframe Streams */}
         <AnimatePresence>
@@ -374,7 +385,7 @@ export default function StadiumPlayer({ url, poster, isLive, useIframe: initialU
             )}
 
             {/* Bottom Controls */}
-            <div className="absolute bottom-0 inset-x-0 p-6 md:p-8 space-y-4 pointer-events-auto">
+            <div className="absolute bottom-0 inset-x-0 p-3 sm:p-6 md:p-8 space-y-2 md:space-y-4 pointer-events-auto">
               {/* Progress Bar */}
               {!isLive && (
                 <div className="group/progress relative h-1.5 w-full bg-white/20 rounded-full cursor-pointer overflow-hidden mb-2">
@@ -494,7 +505,7 @@ export default function StadiumPlayer({ url, poster, isLive, useIframe: initialU
       </AnimatePresence>
 
       {/* Quality Badge & Signal Test Trigger */}
-      <div className="absolute top-6 right-6 z-20 flex items-center gap-2">
+      <div className="absolute top-3 right-3 sm:top-6 sm:right-6 z-20 flex items-center gap-1.5 sm:gap-2">
          <button
             type="button"
             onClick={() => {
@@ -503,7 +514,7 @@ export default function StadiumPlayer({ url, poster, isLive, useIframe: initialU
               toast.info("Simulating livestream signal drop...");
             }}
             title="Test Livestream Fallback Screen"
-            className="bg-red-500/10 hover:bg-red-500/20 backdrop-blur-md border border-red-500/30 px-2.5 py-1 rounded text-[10px] font-black uppercase tracking-widest text-red-400 transition-all cursor-pointer flex items-center gap-1.5 active:scale-95"
+            className="hidden md:flex bg-red-500/10 hover:bg-red-500/20 backdrop-blur-md border border-red-500/30 px-2.5 py-1 rounded text-[10px] font-black uppercase tracking-widest text-red-400 transition-all cursor-pointer items-center gap-1.5 active:scale-95"
          >
             <Radio className="w-3 h-3 text-red-500 animate-pulse" />
             <span>Test Fallback</span>

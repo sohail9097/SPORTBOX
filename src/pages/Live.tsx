@@ -124,7 +124,7 @@ export default function Live() {
   }, [content]);
 
   return (
-    <div className="min-h-screen pb-24 pt-12 bg-bg text-white">
+    <div className="min-h-screen pb-24 pt-12 bg-bg text-text-base">
       <div className="max-w-[1600px] mx-auto px-4 space-y-12">
         
         {/* Page Header */}
@@ -141,7 +141,7 @@ export default function Live() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
-            className="text-4xl md:text-8xl font-black uppercase italic tracking-tighter leading-none"
+            className="text-4xl md:text-8xl font-black uppercase italic tracking-tighter leading-none text-text-base"
           >
             Stadium <span className="text-red-500">Live</span>
           </motion.h1>
@@ -172,14 +172,14 @@ export default function Live() {
             
             {/* Live Now Section */}
             <section className="space-y-6">
-              <div className="flex items-center justify-between border-b border-white/5 pb-4">
+              <div className="flex items-center justify-between border-b border-border pb-4">
                 <div className="flex items-center gap-3">
                   <div className="w-3.5 h-3.5 bg-red-600 rounded-full animate-bounce shadow-[0_0_12px_rgba(239,68,68,0.5)]" />
-                  <h2 className="text-xl md:text-3xl font-black uppercase italic tracking-tighter">
+                  <h2 className="text-xl md:text-3xl font-black uppercase italic tracking-tighter text-text-base">
                     Active Streams <span className="text-red-500">Live Now</span>
                   </h2>
                 </div>
-                <span className="text-[10px] font-bold text-text-muted tracking-widest uppercase bg-white/5 px-3 py-1 rounded-full border border-white/5">
+                <span className="text-[10px] font-bold text-text-muted tracking-widest uppercase bg-surface px-3 py-1 rounded-full border border-border">
                   {liveMatches.length} Feeds
                 </span>
               </div>

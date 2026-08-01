@@ -29,6 +29,10 @@ export default function ShotVideoPlayer({
     const video = localRef.current;
     if (!video) return;
 
+    if (video.readyState >= 2 || video.currentTime > 0) {
+      setIsVideoReady(true);
+    }
+
     video.muted = isMuted;
 
     const syncPlayback = async () => {
@@ -75,11 +79,18 @@ export default function ShotVideoPlayer({
     };
   }, []);
 
+  const handleVideoReady = () => {
+    setIsVideoReady(true);
+  };
+
   return (
-    <div className="relative w-full h-full bg-black overflow-hidden cursor-pointer" onClick={onClick}>
+    <div className="relative w-full h-full bg-black overflow-hidden cursor-pointer select-none" onClick={onClick}>
       <video
         ref={(el) => {
           localRef.current = el;
+          if (el && (el.readyState >= 2 || el.currentTime > 0)) {
+            setIsVideoReady(true);
+          }
           videoRef(el);
         }}
         src={src}
@@ -87,22 +98,26 @@ export default function ShotVideoPlayer({
         preload="auto"
         loop={true}
         playsInline
+        autoPlay={isPlaying}
         muted={isMuted}
         onError={onError}
         onEnded={onEnded}
-        onCanPlay={() => setIsVideoReady(true)}
-        onPlaying={() => setIsVideoReady(true)}
-        onLoadedData={() => setIsVideoReady(true)}
+        onCanPlay={handleVideoReady}
+        onCanPlayThrough={handleVideoReady}
+        onPlaying={handleVideoReady}
+        onLoadedData={handleVideoReady}
+        onLoadedMetadata={handleVideoReady}
+        onTimeUpdate={() => {
+          if (localRef.current && localRef.current.currentTime > 0 && !isVideoReady) {
+            setIsVideoReady(true);
+          }
+        }}
         className="w-full h-full object-cover object-center scale-100"
       />
 
-      {/* High-quality poster overlay that stays until video is actively ready & playing to avoid black flash */}
-      {poster && (!isVideoReady || !isPlaying) && (
-        <div 
-          className={`absolute inset-0 transition-opacity duration-200 pointer-events-none ${
-            isVideoReady && isPlaying ? 'opacity-0' : 'opacity-100'
-          }`}
-        >
+      {/* High-quality poster overlay that stays until video is ready to avoid black flash */}
+      {poster && !isVideoReady && (
+        <div className="absolute inset-0 transition-opacity duration-300 pointer-events-none bg-black">
           <img 
             src={poster} 
             alt="Poster" 

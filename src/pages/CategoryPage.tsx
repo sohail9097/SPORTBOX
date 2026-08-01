@@ -117,7 +117,7 @@ export default function CategoryPage() {
             transition={{ delay: 0.1 }}
             className="text-4xl md:text-8xl font-black uppercase italic tracking-tighter leading-none"
           >
-            {categoryName} <span className="text-white/10">Universe</span>
+            {categoryName} <span className="text-black/20 dark:text-white/20">Universe</span>
           </motion.h1>
           <motion.p
             initial={{ opacity: 0, y: 20 }}

@@ -640,14 +640,25 @@ export default function Watch() {
                   ) : content.videoUrl && content.videoUrl.trim() !== '' && isIframeUrl(content.videoUrl) ? (
                     // Using Native/Iframe Player (Server)
                     content.videoUrl.includes('<iframe') ? (
-                      <div className="w-full h-full flex items-center justify-center p-0" dangerouslySetInnerHTML={{ __html: sanitizeVideoUrlOrIframe(content.videoUrl).replace('<iframe', '<iframe style="width:100%;height:100%;border:0;position:absolute;top:0;left:0;"') }} />
+                      <div className="w-full h-full flex items-center justify-center p-0 relative overflow-hidden bg-black" dangerouslySetInnerHTML={{ 
+                        __html: content.videoUrl.includes('drive.google.com')
+                          ? sanitizeVideoUrlOrIframe(content.videoUrl).replace('<iframe', '<iframe style="width:100%;height:calc(100% + 54px);margin-top:-48px;border:0;position:absolute;top:0;left:0;"')
+                          : sanitizeVideoUrlOrIframe(content.videoUrl).replace('<iframe', '<iframe style="width:100%;height:100%;border:0;position:absolute;top:0;left:0;"')
+                      }} />
                     ) : (
-                      <iframe
-                        src={sanitizeVideoUrlOrIframe(getEmbedUrl(content.videoUrl))}
-                        className="w-full h-full border-0 absolute inset-0"
-                        allowFullScreen
-                        allow="autoplay; encrypted-media; picture-in-picture"
-                      />
+                      <div className="w-full h-full relative overflow-hidden bg-black">
+                        <iframe
+                          src={sanitizeVideoUrlOrIframe(getEmbedUrl(content.videoUrl))}
+                          className={cn(
+                            "w-full border-0 absolute left-0",
+                            content.videoUrl.includes('drive.google.com') 
+                              ? "-top-[48px] sm:-top-[52px] h-[calc(100%+52px)] sm:h-[calc(100%+56px)]" 
+                              : "inset-0 h-full"
+                          )}
+                          allowFullScreen
+                          allow="autoplay; encrypted-media; picture-in-picture"
+                        />
+                      </div>
                     )
                   ) : content.videoUrl && content.videoUrl.trim() !== '' ? (
                     <StadiumPlayer 

@@ -65,8 +65,6 @@ export default function Shots() {
       });
   }, []);
 
-  const loading = cacheLoading || loadingDb;
-  
   const shorts = useMemo(() => {
     let items = dbContent !== null 
       ? dbContent 
@@ -83,6 +81,8 @@ export default function Shots() {
     }
     return items;
   }, [cachedContent, dbContent]);
+
+  const loading = shorts.length === 0 && (cacheLoading || loadingDb);
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isMuted, setIsMuted] = useState(false);

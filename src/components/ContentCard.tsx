@@ -126,7 +126,7 @@ export default function ContentCard({
               {content.title}
             </h3>
             <div className="flex items-center gap-2 md:gap-3 mt-0.5 md:mt-1 text-[8px] md:text-[9px] text-text-muted font-medium uppercase tracking-widest">
-              {content.status !== 'live' && content.status !== 'scheduled' && (
+              {content.status !== 'live' && content.status !== 'scheduled' && isAdmin && (
                 <span className="flex items-center gap-1">
                   <Eye className="w-2.5 h-2.5 md:w-3 md:h-3" />
                   {content.viewCount?.toLocaleString() || 0}

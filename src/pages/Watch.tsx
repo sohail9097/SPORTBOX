@@ -709,13 +709,13 @@ export default function Watch() {
                         </span>
                       </>
                     )}
-                    {content.status !== 'live' && (
+                    {content.status !== 'live' && isAdmin && (
                       <>
                         <span>•</span>
                         <span>{content.viewCount?.toLocaleString() || 0} Open Views</span>
                       </>
                     )}
-                    {content.status !== 'live' && (
+                    {content.status !== 'live' && isAdmin && (
                       <>
                         <span>•</span>
                         <span>{content.likes || 0} Fans Reacted</span>

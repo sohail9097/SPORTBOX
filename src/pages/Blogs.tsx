@@ -486,7 +486,7 @@ export default function Blogs() {
                           title="Like blog article"
                         >
                           <Heart className={`w-3 h-3 ${localLikedBlogs[blog.id] ? 'fill-brand text-brand' : ''}`} />
-                          <span>{blog.likesCount + (localLikedBlogs[blog.id] && !(blogs.find(b => b.id === blog.id)?.likesCount === blog.likesCount + 1) ? 1 : 0)}</span>
+                          {isAdmin && <span>{blog.likesCount + (localLikedBlogs[blog.id] && !(blogs.find(b => b.id === blog.id)?.likesCount === blog.likesCount + 1) ? 1 : 0)}</span>}
                         </button>
                       </div>
                     </div>
@@ -782,10 +782,12 @@ export default function Blogs() {
                     </button>
                   </div>
 
-                  <div className="flex items-center gap-1.5 text-text-muted text-[10px] font-bold uppercase tracking-wider">
-                    <Eye className="w-4 h-4 text-brand" />
-                    <span>{(selectedBlog.views || 0) + 1} reads</span>
-                  </div>
+                  {isAdmin && (
+                    <div className="flex items-center gap-1.5 text-text-muted text-[10px] font-bold uppercase tracking-wider">
+                      <Eye className="w-4 h-4 text-brand" />
+                      <span>{(selectedBlog.views || 0) + 1} reads</span>
+                    </div>
+                  )}
                 </div>
               </div>
             </motion.div>

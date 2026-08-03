@@ -1797,7 +1797,7 @@ export default function Olympics() {
                               className="px-4 py-2 bg-white/5 hover:bg-brand/10 hover:text-brand border border-border hover:border-brand/30 rounded-xl text-xs font-bold uppercase tracking-widest flex items-center gap-1.5 transition-colors"
                             >
                               <Heart className="w-3.5 h-3.5 fill-current" />
-                              Like ({selectedVideo.likes || 120})
+                              Like{isAdmin ? ` (${selectedVideo.likes || 120})` : ''}
                             </button>
                             <button
                               onClick={() => {

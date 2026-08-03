@@ -38,7 +38,7 @@ const getCommentAvatar = (username: string) => {
 
 export default function Shots() {
   useRenderProfiler('Shots');
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const { content: cachedContent, loading: cacheLoading } = useFirestoreCache();
   const [dbContent, setDbContent] = useState<SportsContent[] | null>(null);
   const [loadingDb, setLoadingDb] = useState(false);
@@ -775,7 +775,7 @@ export default function Shots() {
                           <Heart className={`w-5 h-5 ${likedObj.liked ? 'fill-brand text-brand' : 'group-hover:text-brand'}`} />
                         </div>
                         <span className="text-[10px] font-sans font-black tracking-wider text-white mt-1 shadow-sm">
-                          {likedObj.count}
+                          {isAdmin ? likedObj.count : 'Like'}
                         </span>
                       </button>
 

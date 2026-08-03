@@ -7,9 +7,16 @@ export interface DeviceSession {
   normalizedEmail: string;
   deviceId: string;
   deviceName: string;
-  deviceType?: 'mobile' | 'desktop';
+  deviceLabel?: string;
+  deviceType: 'mobile' | 'desktop';
   loginTime: string;
+  createdAt?: string;
   lastActive: string;
+}
+
+export interface DeviceInfo {
+  deviceType: 'mobile' | 'desktop';
+  deviceLabel: string;
 }
 
 const DEVICE_ID_KEY = 'sportsbox_device_id';
@@ -40,23 +47,18 @@ export function getDeviceId(): string {
 }
 
 /**
- * Detects whether the current device is mobile or desktop/laptop based on navigator.userAgent.
+ * Utility function that parses navigator.userAgent and returns device type ('mobile' | 'desktop')
+ * and human-readable deviceLabel (e.g., 'Chrome on Windows', 'Safari on iPhone').
  */
-export function getDeviceType(): 'mobile' | 'desktop' {
-  if (typeof window === 'undefined') return 'desktop';
-  const ua = navigator.userAgent || '';
-  if (/Mobi|Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua)) {
-    return 'mobile';
+export function getDeviceInfo(): DeviceInfo {
+  if (typeof window === 'undefined') {
+    return { deviceType: 'desktop', deviceLabel: 'Desktop Browser' };
   }
-  return 'desktop';
-}
 
-/**
- * Returns a human-readable device/browser string (e.g. "Chrome on macOS", "Safari on iPhone").
- */
-export function getDeviceName(): string {
-  if (typeof window === 'undefined') return 'Desktop Browser';
-  const ua = navigator.userAgent;
+  const ua = navigator.userAgent || '';
+  const isMobile = /Mobi|Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
+  const deviceType: 'mobile' | 'desktop' = isMobile ? 'mobile' : 'desktop';
+
   let browser = "Browser";
   let os = "Device";
 
@@ -73,7 +75,49 @@ export function getDeviceName(): string {
   else if (ua.includes("iPhone")) os = "iPhone";
   else if (ua.includes("iPad")) os = "iPad";
 
-  return `${browser} on ${os}`;
+  const deviceLabel = `${browser} on ${os}`;
+  return { deviceType, deviceLabel };
+}
+
+/**
+ * Detects whether current device is mobile or desktop.
+ */
+export function getDeviceType(): 'mobile' | 'desktop' {
+  return getDeviceInfo().deviceType;
+}
+
+/**
+ * Returns a human-readable device/browser string (e.g. "Chrome on macOS", "Safari on iPhone").
+ */
+export function getDeviceName(): string {
+  return getDeviceInfo().deviceLabel;
+}
+
+/**
+ * Formats ISO timestamp to human-readable relative time string (e.g. "Active 2 hours ago", "Active just now").
+ */
+export function formatRelativeTime(isoString?: string): string {
+  if (!isoString) return 'Active recently';
+  const date = new Date(isoString);
+  if (isNaN(date.getTime())) return 'Active recently';
+
+  const now = new Date();
+  const diffInSeconds = Math.max(0, Math.floor((now.getTime() - date.getTime()) / 1000));
+
+  if (diffInSeconds < 60) return 'Active just now';
+  if (diffInSeconds < 3600) {
+    const mins = Math.floor(diffInSeconds / 60);
+    return `Active ${mins} min${mins === 1 ? '' : 's'} ago`;
+  }
+  if (diffInSeconds < 86400) {
+    const hours = Math.floor(diffInSeconds / 3600);
+    return `Active ${hours} hour${hours === 1 ? '' : 's'} ago`;
+  }
+  const days = Math.floor(diffInSeconds / 86400);
+  if (days < 7) {
+    return `Active ${days} day${days === 1 ? '' : 's'} ago`;
+  }
+  return `Active on ${date.toLocaleDateString()}`;
 }
 
 export function getSessionDocId(userIdOrEmail: string, deviceId: string): string {
@@ -98,8 +142,8 @@ export async function verifyOrCreateSession(userEmail: string, userUid: string):
   if (!userEmail) return { allowed: true };
 
   const deviceId = getDeviceId();
-  const deviceName = getDeviceName();
-  const deviceType = getDeviceType();
+  const { deviceType, deviceLabel } = getDeviceInfo();
+  const deviceName = deviceLabel;
   const normalizedEmail = userEmail.toLowerCase().trim();
   const docId = getSessionDocId(normalizedEmail, deviceId);
 
@@ -121,7 +165,7 @@ export async function verifyOrCreateSession(userEmail: string, userUid: string):
       } as DeviceSession);
     });
 
-    console.log(`[SessionManager] Active sessions query result for "${normalizedEmail}": count = ${activeSessions.length}`, activeSessions.map(s => `[id:${s.id}, deviceId:${s.deviceId}, name:${s.deviceName}, type:${s.deviceType || 'unknown'}]`));
+    console.log(`[SessionManager] Active sessions query result for "${normalizedEmail}": count = ${activeSessions.length}`, activeSessions.map(s => `[id:${s.id}, deviceId:${s.deviceId}, name:${s.deviceLabel || s.deviceName}, type:${s.deviceType || 'unknown'}]`));
 
     // Rule 4: Check if current deviceId already has an active session doc in Firestore
     const existingCurrentDeviceSession = activeSessions.find(
@@ -139,6 +183,7 @@ export async function verifyOrCreateSession(userEmail: string, userUid: string):
         normalizedEmail: normalizedEmail,
         deviceId,
         deviceName,
+        deviceLabel,
         deviceType,
         lastActive: new Date().toISOString()
       }, { merge: true });
@@ -186,11 +231,13 @@ export async function verifyOrCreateSession(userEmail: string, userUid: string):
         await transaction.get(doc(db, 'sessions', s.id));
       }
 
+      const nowIso = new Date().toISOString();
       const snap = await transaction.get(sessionRef);
       if (snap.exists()) {
         transaction.update(sessionRef, {
-          lastActive: new Date().toISOString(),
+          lastActive: nowIso,
           deviceName,
+          deviceLabel,
           deviceType
         });
         return;
@@ -203,9 +250,11 @@ export async function verifyOrCreateSession(userEmail: string, userUid: string):
         normalizedEmail: normalizedEmail,
         deviceId,
         deviceName,
+        deviceLabel,
         deviceType,
-        loginTime: new Date().toISOString(),
-        lastActive: new Date().toISOString()
+        loginTime: nowIso,
+        createdAt: nowIso,
+        lastActive: nowIso
       };
 
       transaction.set(sessionRef, newSession);
@@ -225,12 +274,13 @@ export async function verifyOrCreateSession(userEmail: string, userUid: string):
  */
 export async function forceCreateSession(userEmail: string): Promise<string> {
   const deviceId = getDeviceId();
-  const deviceName = getDeviceName();
-  const deviceType = getDeviceType();
+  const { deviceType, deviceLabel } = getDeviceInfo();
+  const deviceName = deviceLabel;
   const normalizedEmail = userEmail.toLowerCase().trim();
   const docId = getSessionDocId(normalizedEmail, deviceId);
   const sessionRef = doc(db, 'sessions', docId);
 
+  const nowIso = new Date().toISOString();
   const newSession: DeviceSession = {
     id: docId,
     userId: normalizedEmail,
@@ -238,13 +288,15 @@ export async function forceCreateSession(userEmail: string): Promise<string> {
     normalizedEmail: normalizedEmail,
     deviceId,
     deviceName,
+    deviceLabel,
     deviceType,
-    loginTime: new Date().toISOString(),
-    lastActive: new Date().toISOString()
+    loginTime: nowIso,
+    createdAt: nowIso,
+    lastActive: nowIso
   };
 
   await setDoc(sessionRef, newSession);
-  console.log(`[SessionManager] Force created session docId "${docId}" for device "${deviceName}" (${deviceType})`);
+  console.log(`[SessionManager] Force created session docId "${docId}" for device "${deviceLabel}" (${deviceType})`);
   return docId;
 }
 

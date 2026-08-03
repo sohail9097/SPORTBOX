@@ -4,7 +4,7 @@ import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { Play, Activity, Trophy, Bell, ShieldCheck, Mail, Lock, User as UserIcon, Phone, ArrowLeft, Loader2, Monitor, Smartphone, Laptop, LogOut, AlertTriangle, FileText, ChevronDown, AlertCircle } from 'lucide-react';
 import { auth, db, handleFirestoreError, OperationType, doc, setDoc, getDoc } from '../lib/firebase';
 import { useFirestoreCache } from '../context/FirestoreContext';
-import { verifyOrCreateSession, removeSession, forceCreateSession, DeviceSession } from '../lib/sessionManager';
+import { verifyOrCreateSession, removeSession, forceCreateSession, formatRelativeTime, DeviceSession } from '../lib/sessionManager';
 import { CURRENT_TERMS_VERSION } from '../config/termsConfig';
 import { checkHasAcceptedTerms, recordTermsAcceptance } from '../lib/termsManager';
 import TermsModal from '../components/TermsModal';
@@ -812,8 +812,10 @@ export default function Login() {
                   <span className="text-brand">Log out 1 device to proceed</span>
                 </p>
                 {activeSessions.map((session) => {
+                  const label = session.deviceLabel || session.deviceName;
                   const isMobile = session.deviceType === 'mobile' || 
-                    /mobile|ios|android|iphone|ipad/i.test(session.deviceName);
+                    /mobile|ios|android|iphone|ipad/i.test(label);
+                  const activeTimeString = formatRelativeTime(session.lastActive || session.loginTime);
 
                   return (
                     <div 
@@ -830,13 +832,13 @@ export default function Login() {
                         </div>
                         <div>
                           <div className="flex items-center gap-2">
-                            <h4 className="text-xs font-bold text-white uppercase tracking-wider">{session.deviceName}</h4>
+                            <h4 className="text-xs font-bold text-white uppercase tracking-wider">{label}</h4>
                             <span className="px-1.5 py-0.5 bg-white/5 border border-white/10 text-text-muted text-[8px] font-black uppercase tracking-wider rounded">
                               {isMobile ? 'Mobile 📱' : 'Desktop 💻'}
                             </span>
                           </div>
                           <p className="text-[10px] text-text-muted mt-0.5 font-medium">
-                            Logged in: {new Date(session.loginTime).toLocaleDateString()} {new Date(session.loginTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            {activeTimeString}
                           </p>
                         </div>
                       </div>

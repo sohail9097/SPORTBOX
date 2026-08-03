@@ -303,6 +303,9 @@ export default function Account() {
                   <div className="space-y-3">
                     {activeSessions.map((session) => {
                       const isThisDevice = session.deviceId === getDeviceId();
+                      const isMobile = session.deviceType === 'mobile' || 
+                        /mobile|ios|android|iphone|ipad/i.test(session.deviceName);
+
                       return (
                         <div 
                           key={session.id}
@@ -310,17 +313,18 @@ export default function Account() {
                         >
                           <div className="flex items-center gap-3">
                             <div className="w-9 h-9 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-text-muted">
-                              {session.deviceName.toLowerCase().includes('mobile') || session.deviceName.toLowerCase().includes('ios') || session.deviceName.toLowerCase().includes('android') ? (
+                              {isMobile ? (
                                 <Smartphone className="w-4 h-4 text-brand" />
-                              ) : session.deviceName.toLowerCase().includes('mac') || session.deviceName.toLowerCase().includes('windows') ? (
-                                <Laptop className="w-4 h-4 text-brand" />
                               ) : (
-                                <Monitor className="w-4 h-4 text-brand" />
+                                <Laptop className="w-4 h-4 text-brand" />
                               )}
                             </div>
                             <div>
                               <div className="flex items-center gap-2">
                                 <h5 className="text-xs font-bold text-white">{session.deviceName}</h5>
+                                <span className="px-1.5 py-0.5 bg-white/5 border border-white/10 text-text-muted text-[8px] font-black uppercase tracking-wider rounded">
+                                  {isMobile ? 'Mobile 📱' : 'Desktop 💻'}
+                                </span>
                                 {isThisDevice && (
                                   <span className="px-2 py-0.5 bg-green-500/10 border border-green-500/20 text-green-400 text-[8px] font-black uppercase tracking-widest rounded-md">
                                     This Device

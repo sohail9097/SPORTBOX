@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { Play, Activity, Trophy, Bell, ShieldCheck, Mail, Lock, User as UserIcon, Phone, ArrowLeft, Loader2, Monitor, Smartphone, Laptop, LogOut, AlertTriangle, FileText, ChevronDown, AlertCircle } from 'lucide-react';
-import { auth, db, handleFirestoreError, OperationType, doc, setDoc } from '../lib/firebase';
+import { auth, db, handleFirestoreError, OperationType, doc, setDoc, getDoc } from '../lib/firebase';
 import { useFirestoreCache } from '../context/FirestoreContext';
 import { verifyOrCreateSession, removeSession, forceCreateSession, DeviceSession } from '../lib/sessionManager';
 import { CURRENT_TERMS_VERSION } from '../config/termsConfig';
@@ -82,10 +82,69 @@ export default function Login() {
     setIsBotVerified(!!token);
   };
 
+  /**
+   * Checks whether the logged-in user has an active/valid subscription in Firestore.
+   * - If active subscription: redirects directly to Home page ('/').
+   * - If no subscription, expired plan, trial ended, or document missing: redirects to Subscription page ('/plans?welcome=true').
+   * - Displays a loading state while fetching subscription status to avoid flash of wrong page.
+   */
+  const navigateUserBasedOnSubscription = async (uid: string | undefined) => {
+    setLoading(true);
+    try {
+      if (!uid) {
+        console.log("[Login Redirect] No UID provided. Redirecting to Subscription page.");
+        navigate('/plans?welcome=true');
+        return;
+      }
+
+      // Query the user's document directly from Firestore
+      const userDocRef = doc(db, 'users', uid);
+      const userSnap = await getDoc(userDocRef);
+
+      // Edge case: Document doesn't exist for user -> treat as "no subscription" and send to Subscription page
+      if (!userSnap || !userSnap.exists()) {
+        console.log(`[Login Redirect] Subscription document does not exist for uid "${uid}". Redirecting to Subscription page.`);
+        navigate('/plans?welcome=true');
+        return;
+      }
+
+      const userData = userSnap.data();
+      const status = (userData?.subscriptionStatus || '').toString().toLowerCase().trim();
+      const tier = (userData?.subscriptionTier || '').toString().toLowerCase().trim();
+      const isSubscribed = Boolean(userData?.isSubscribed);
+
+      console.log(`[Login Redirect] Subscription check for uid "${uid}": status="${status}", tier="${tier}", isSubscribed=${isSubscribed}`);
+
+      // Evaluate active/valid subscription logic:
+      // - Active if status is 'active', or isSubscribed is true, or tier is a valid paid plan (not 'free', not 'none').
+      // - Must NOT be expired, inactive, none, cancelled, ended, or trial_ended (unless status is explicitly 'active').
+      const isStatusActive = status === 'active' || isSubscribed;
+      const isTierPaid = tier !== '' && tier !== 'free' && tier !== 'none';
+      const isNotExpired = status !== 'expired' && status !== 'inactive' && status !== 'none' && status !== 'cancelled' && status !== 'ended' && status !== 'trial_ended';
+
+      const hasActiveSubscription = (isStatusActive || isTierPaid) && isNotExpired;
+
+      if (hasActiveSubscription) {
+        console.log("[Login Redirect] Active subscription verified! Redirecting directly to Home page ('/').");
+        toast.success("Welcome back! Redirecting to home...");
+        navigate('/');
+      } else {
+        console.log("[Login Redirect] No active/valid subscription found. Redirecting to Subscription page ('/plans').");
+        navigate('/plans?welcome=true');
+      }
+    } catch (err) {
+      console.error("[Login Redirect] Failed to fetch subscription status from Firestore:", err);
+      // Edge case: Fetch failed -> safely send to Subscription page
+      navigate('/plans?welcome=true');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handlePostAuthSessionCheck = async (authenticatedUser: any) => {
     if (!authenticatedUser?.email) {
       if (refreshProfile) await refreshProfile();
-      navigate('/plans?welcome=true');
+      await navigateUserBasedOnSubscription(authenticatedUser?.uid);
       return;
     }
 
@@ -111,7 +170,8 @@ export default function Login() {
       return;
     }
 
-    navigate('/plans?welcome=true');
+    // Check subscription status before navigating
+    await navigateUserBasedOnSubscription(authenticatedUser.uid);
   };
 
   const handleLogoutRemoteDevice = async (sessionToLogout: DeviceSession) => {
@@ -141,7 +201,8 @@ export default function Login() {
             await refreshProfile();
           } catch (_) {}
         }
-        navigate('/plans?welcome=true');
+        const targetUid = pendingUser?.uid || auth.currentUser?.uid;
+        await navigateUserBasedOnSubscription(targetUid);
       } else {
         toast.success(`Logged out from ${sessionToLogout.deviceName}. Please select another device to logout.`);
       }

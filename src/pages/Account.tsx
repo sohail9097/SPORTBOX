@@ -56,11 +56,16 @@ export default function Account() {
     );
 
     const unsubscribe = onSnapshot(q, (querySnap) => {
-      const list: DeviceSession[] = [];
+      const uniqueMap = new Map<string, DeviceSession>();
       querySnap.forEach((docSnap) => {
-        list.push({ id: docSnap.id, ...docSnap.data() } as DeviceSession);
+        const data = docSnap.data() as DeviceSession;
+        const sessionObj = { id: docSnap.id, ...data };
+        const devKey = data.deviceId || docSnap.id;
+        if (!uniqueMap.has(devKey)) {
+          uniqueMap.set(devKey, sessionObj);
+        }
       });
-      setActiveSessions(list);
+      setActiveSessions(Array.from(uniqueMap.values()));
     }, (err) => {
       console.warn("[Account] Sessions snapshot error:", err);
     });

@@ -13,16 +13,29 @@ export interface DeviceSession {
 
 const DEVICE_ID_KEY = 'sportsbox_device_id';
 
+/**
+ * Returns a persistent unique device identifier stored in localStorage.
+ * IMPORTANT: We MUST use localStorage (not sessionStorage), as localStorage is shared across
+ * all tabs in the same browser/device origin. sessionStorage is isolated per tab and would
+ * cause multiple tabs in the same browser to be incorrectly counted as separate devices.
+ */
 export function getDeviceId(): string {
-  let deviceId = localStorage.getItem(DEVICE_ID_KEY);
-  if (!deviceId) {
-    deviceId = 'dev_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 9);
-    localStorage.setItem(DEVICE_ID_KEY, deviceId);
-    console.log(`[SessionManager] Generated new persistent deviceId: "${deviceId}"`);
-  } else {
-    console.log(`[SessionManager] Retrieved persistent deviceId from localStorage: "${deviceId}"`);
+  if (typeof window === 'undefined') return 'server_default';
+  
+  try {
+    let deviceId = localStorage.getItem(DEVICE_ID_KEY);
+    if (!deviceId) {
+      deviceId = 'dev_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 9);
+      localStorage.setItem(DEVICE_ID_KEY, deviceId);
+      console.log(`[SessionManager] Generated new persistent deviceId in localStorage: "${deviceId}"`);
+    } else {
+      console.log(`[SessionManager] Retrieved persistent deviceId from localStorage: "${deviceId}"`);
+    }
+    return deviceId;
+  } catch (err) {
+    console.warn("[SessionManager] localStorage error, falling back to browser-fingerprint deviceId:", err);
+    return 'dev_fallback_' + (navigator.userAgent || '').replace(/[^a-zA-Z0-9]/g, '').substring(0, 20);
   }
-  return deviceId;
 }
 
 export function getDeviceName(): string {
@@ -53,10 +66,11 @@ export function getSessionDocId(userIdOrEmail: string, deviceId: string): string
 
 /**
  * Checks device session for the given email atomically using Firestore runTransaction.
- * - Enforces case-insensitive, trimmed email queries bypassing stale cache.
- * - If current device already has a session -> update lastActive.
- * - If session count < 2 -> create new session document.
- * - If session count >= 2 -> return allowed: false and the activeSessions list.
+ * Key Logic for 2-Device Limit:
+ * 1. Read persistent deviceId from localStorage (same across all tabs in the same browser).
+ * 2. Send deviceId to backend and check if an active session already exists for this deviceId OR docId.
+ * 3. If YES -> reuse/update that existing session (update lastActive timestamp). Multiple open tabs share the SAME session!
+ * 4. If NO -> count unique active devices (deduplicated by deviceId). If count >= 2, deny access; otherwise create new session doc.
  */
 export async function verifyOrCreateSession(userEmail: string, userUid: string): Promise<{
   allowed: boolean;
@@ -73,7 +87,7 @@ export async function verifyOrCreateSession(userEmail: string, userUid: string):
   console.log(`[SessionManager] verifyOrCreateSession starting for user: "${normalizedEmail}", deviceId: "${deviceId}", docId: "${docId}"`);
 
   try {
-    // Live query for current active sessions belonging to this user (bypassCache = true)
+    // Live query for current active sessions belonging to this user (bypassCache = true to get newest state)
     const q = query(
       collection(db, 'sessions'),
       where('userId', '==', normalizedEmail)
@@ -88,31 +102,62 @@ export async function verifyOrCreateSession(userEmail: string, userUid: string):
       } as DeviceSession);
     });
 
-    console.log(`[SessionManager] Active sessions query result for "${normalizedEmail}": count = ${activeSessions.length}`, activeSessions.map(s => `[${s.id}: ${s.deviceName}]`));
+    console.log(`[SessionManager] Active sessions query result for "${normalizedEmail}": count = ${activeSessions.length}`, activeSessions.map(s => `[id:${s.id}, deviceId:${s.deviceId}, name:${s.deviceName}]`));
 
-    // Check if current device already has a session document in the query
-    const hasCurrentDevice = activeSessions.some(s => s.id === docId);
+    // Rule 4: Check if current deviceId already has an active session doc in Firestore
+    const existingCurrentDeviceSession = activeSessions.find(
+      s => s.deviceId === deviceId || s.id === docId
+    );
 
-    if (hasCurrentDevice) {
-      const sessionRef = doc(db, 'sessions', docId);
+    if (existingCurrentDeviceSession) {
+      // Current browser/device is ALREADY active! Reuse & update existing session instead of creating a new device entry.
+      const targetDocId = existingCurrentDeviceSession.id || docId;
+      const sessionRef = doc(db, 'sessions', targetDocId);
+
       await setDoc(sessionRef, {
+        userId: normalizedEmail,
+        email: normalizedEmail,
+        normalizedEmail: normalizedEmail,
+        deviceId,
+        deviceName,
         lastActive: new Date().toISOString()
       }, { merge: true });
 
-      console.log(`[SessionManager] Current device "${docId}" is already active. Updated lastActive timestamp.`);
-      return { allowed: true, currentSessionId: docId };
+      // Clean up any stale duplicate session docs for the exact same deviceId if any exist
+      const duplicates = activeSessions.filter(
+        s => s.deviceId === deviceId && s.id !== targetDocId
+      );
+      for (const dup of duplicates) {
+        console.log(`[SessionManager] Cleaning up duplicate session doc "${dup.id}" for deviceId "${deviceId}"`);
+        try {
+          await deleteDoc(doc(db, 'sessions', dup.id));
+        } catch (_) {}
+      }
+
+      console.log(`[SessionManager] Existing session reused/updated for device "${deviceId}" (docId: "${targetDocId}"). Access ALLOWED.`);
+      return { allowed: true, currentSessionId: targetDocId };
     }
 
-    // Check if session limit is reached (2 devices max)
-    if (activeSessions.length >= 2) {
-      console.warn(`[SessionManager] Session limit EXCEEDED for "${normalizedEmail}". Active sessions: ${activeSessions.length} >= 2. Access DENIED.`);
+    // Rule 5 & 6: Current deviceId is NEW. Count unique active physical devices for this user.
+    const uniqueDevicesMap = new Map<string, DeviceSession>();
+    for (const session of activeSessions) {
+      const devKey = session.deviceId || session.id;
+      if (!uniqueDevicesMap.has(devKey)) {
+        uniqueDevicesMap.set(devKey, session);
+      }
+    }
+    const uniqueActiveSessions = Array.from(uniqueDevicesMap.values());
+
+    // Enforce 2-device limit based on UNIQUE device IDs, not tabs or login events
+    if (uniqueActiveSessions.length >= 2) {
+      console.warn(`[SessionManager] Session limit EXCEEDED for "${normalizedEmail}". Unique active devices: ${uniqueActiveSessions.length} >= 2. Access DENIED.`);
       return {
         allowed: false,
-        activeSessions
+        activeSessions: uniqueActiveSessions
       };
     }
 
-    // Wrap session document creation in an atomic Firestore transaction to prevent race conditions
+    // Atomic creation of new session document for this genuine new device
     const sessionRef = doc(db, 'sessions', docId);
     
     await runTransaction(db, async (transaction) => {
@@ -123,7 +168,10 @@ export async function verifyOrCreateSession(userEmail: string, userUid: string):
 
       const snap = await transaction.get(sessionRef);
       if (snap.exists()) {
-        transaction.update(sessionRef, { lastActive: new Date().toISOString() });
+        transaction.update(sessionRef, {
+          lastActive: new Date().toISOString(),
+          deviceName
+        });
         return;
       }
 
@@ -141,12 +189,11 @@ export async function verifyOrCreateSession(userEmail: string, userUid: string):
       transaction.set(sessionRef, newSession);
     });
 
-    console.log(`[SessionManager] Atomic transaction completed. Session created for "${docId}". Access ALLOWED.`);
+    console.log(`[SessionManager] New device session created for deviceId "${deviceId}" (docId: "${docId}"). Access ALLOWED.`);
     return { allowed: true, currentSessionId: docId };
   } catch (error) {
     console.error("[SessionManager] Error checking/creating session limit:", error);
     handleFirestoreError(error, OperationType.GET, 'sessions');
-    // Reject login if error occurs so invalid or exceeding logins cannot bypass verification
     return { allowed: false, activeSessions: [] };
   }
 }
@@ -213,14 +260,16 @@ export async function getUserSessions(userEmail: string): Promise<DeviceSession[
       where('userId', '==', normalizedEmail)
     );
     const querySnap = await getDocs(q, { bypassCache: true });
-    const sessions: DeviceSession[] = [];
+    const uniqueMap = new Map<string, DeviceSession>();
     querySnap.forEach((docSnap) => {
-      sessions.push({
-        id: docSnap.id,
-        ...docSnap.data()
-      } as DeviceSession);
+      const data = docSnap.data() as DeviceSession;
+      const sessionObj = { id: docSnap.id, ...data };
+      const devKey = data.deviceId || docSnap.id;
+      if (!uniqueMap.has(devKey)) {
+        uniqueMap.set(devKey, sessionObj);
+      }
     });
-    return sessions;
+    return Array.from(uniqueMap.values());
   } catch (error) {
     console.error("[SessionManager] Error fetching user sessions:", error);
     return [];

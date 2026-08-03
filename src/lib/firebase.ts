@@ -969,6 +969,29 @@ export async function getDoc(
       }).catch((err) => {
         pendingEstimatedReads = Math.max(0, pendingEstimatedReads - 1);
         inFlightGetDoc.delete(path);
+
+        const errStr = String(err?.message || err).toLowerCase();
+        if (
+          errStr.includes('closing') || 
+          errStr.includes('hidden') || 
+          errStr.includes('indexeddb') || 
+          errStr.includes('offline') ||
+          errStr.includes('connection') ||
+          errStr.includes('unavailable')
+        ) {
+          console.warn(`[getDoc] Handled database closing/hidden/offline state for path "${path}":`, errStr);
+          const cached = getDocCache.get(path);
+          if (cached) {
+            return cached.snapshot;
+          }
+          return {
+            exists: () => false,
+            data: () => null,
+            id: docRef.id,
+            ref: docRef,
+            metadata: { fromCache: true }
+          } as any;
+        }
         throw err;
       });
       inFlightGetDoc.set(path, inFlight);
@@ -1158,6 +1181,29 @@ export async function getDocs(
       }).catch((err) => {
         pendingEstimatedReads = Math.max(0, pendingEstimatedReads - 20);
         inFlightGetDocs.delete(key);
+
+        const errStr = String(err?.message || err).toLowerCase();
+        if (
+          errStr.includes('closing') || 
+          errStr.includes('hidden') || 
+          errStr.includes('indexeddb') || 
+          errStr.includes('offline') ||
+          errStr.includes('connection') ||
+          errStr.includes('unavailable')
+        ) {
+          console.warn(`[getDocs] Handled database closing/hidden/offline state for query "${key}":`, errStr);
+          const cached = getDocsCache.get(key);
+          if (cached) {
+            return cached.snapshot;
+          }
+          return {
+            docs: [],
+            empty: true,
+            size: 0,
+            forEach: () => {},
+            metadata: { fromCache: true }
+          } as any;
+        }
         throw err;
       });
       inFlightGetDocs.set(key, inFlight);
@@ -1244,9 +1290,19 @@ export interface FirestoreErrorInfo {
 
 export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
   const errMessage = error instanceof Error ? error.message : String(error);
+  const lowerMsg = errMessage.toLowerCase();
   
-  if (errMessage.includes('offline') || errMessage.includes('connection')) {
-    console.warn(`[Firebase] Sync warning (${operationType}): ${errMessage}`);
+  if (
+    lowerMsg.includes('offline') || 
+    lowerMsg.includes('connection') || 
+    lowerMsg.includes('closing') || 
+    lowerMsg.includes('hidden') ||
+    lowerMsg.includes('indexeddb') ||
+    lowerMsg.includes('backend-closed') ||
+    lowerMsg.includes('unavailable') ||
+    lowerMsg.includes('cancelled')
+  ) {
+    console.warn(`[Firebase] Handled database state notice (${operationType} on ${path || 'unknown'}): ${errMessage}`);
     return;
   }
 

@@ -11,6 +11,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
 import { useAuth } from '../hooks/useAuth';
 import { useFirestoreCache } from '../context/FirestoreContext';
+import { transformGDriveUrl } from '../lib/utils';
 
 // Type definitions for custom added videos
 interface CustomOlympicVideo {
@@ -1217,13 +1218,14 @@ export default function Olympics() {
     }
 
     // Format url to treat drive patterns or raw mp4s properly, or support standard format
-    let cleanUrl = newUrl.trim();
+    let cleanUrl = transformGDriveUrl(newUrl.trim(), 'video');
     
     try {
       const docData = {
         title: newTitle.trim(),
         description: newDesc.trim() || 'Custom added Olympic Games highlights.',
         videoUrl: cleanUrl,
+        thumbnailUrl: transformGDriveUrl(cleanUrl, 'image'),
         category: 'olympics' as const,
         type: 'highlight' as const,
         status: 'ended' as const,
@@ -1399,13 +1401,18 @@ export default function Olympics() {
         name: editAthleteName.trim(),
         sport: editAthleteSport.trim(),
         category: editAthleteCategory.trim(),
-        image: editAthleteImage.trim(),
+        image: transformGDriveUrl(editAthleteImage.trim(), 'image'),
         avatar: editAthleteAvatar.trim(),
         bio: editAthleteBio.trim(),
         quote: editAthleteQuote.trim(),
         funFact: editAthleteFunFact.trim(),
         longDetails: editAthleteLongDetails.split('\n').filter(p => p.trim() !== ''),
-        moments: editAthleteMoments.filter(mo => mo.title.trim() !== '')
+        moments: editAthleteMoments
+          .filter(mo => mo.title.trim() !== '')
+          .map(mo => ({
+            ...mo,
+            image: transformGDriveUrl(mo.image?.trim() || '', 'image')
+          }))
       };
 
       await setDoc(doc(db, 'olympic_medalists', selectedAthlete.id), updatedData);
@@ -2046,14 +2053,43 @@ export default function Olympics() {
                               />
                             </div>
                             <div className="col-span-3">
-                              <label className="block text-[10px] font-black uppercase text-brand tracking-widest mb-1.5 font-sans">Main Profile Image URL</label>
+                              <div className="flex justify-between items-center mb-1.5">
+                                <label className="block text-[10px] font-black uppercase text-brand tracking-widest font-sans">Main Profile Image URL</label>
+                                <span className="text-[9px] text-brand/90 bg-brand/10 border border-brand/20 px-1.5 py-0.5 rounded font-mono font-bold flex items-center gap-1">
+                                  <span>📁</span> Google Drive Link Supported
+                                </span>
+                              </div>
                               <input
                                 type="text"
                                 value={editAthleteImage}
                                 onChange={(e) => setEditAthleteImage(e.target.value)}
+                                onBlur={(e) => {
+                                  const transformed = transformGDriveUrl(e.target.value, 'image');
+                                  if (transformed !== e.target.value) {
+                                    setEditAthleteImage(transformed);
+                                    toast.success('Converted Google Drive image link!');
+                                  }
+                                }}
                                 className="block w-full px-4 py-2.5 bg-surface-alt border border-border rounded-xl text-xs text-black dark:text-white outline-none focus:border-brand/50 transition-all font-semibold"
-                                placeholder="https://images.unsplash.com/..."
+                                placeholder="Paste web URL or Google Drive link (e.g. drive.google.com/file/d/...)"
                               />
+                              {editAthleteImage && (
+                                <div className="mt-2 flex items-center gap-2.5 bg-surface p-2 rounded-xl border border-border">
+                                  <img 
+                                    src={transformGDriveUrl(editAthleteImage, 'image')} 
+                                    alt="Profile Preview" 
+                                    className="w-10 h-10 object-cover rounded-lg border border-border shadow" 
+                                    referrerPolicy="no-referrer"
+                                    onError={(e) => {
+                                      (e.target as HTMLElement).style.display = 'none';
+                                    }}
+                                  />
+                                  <div className="text-[10px] text-text-muted overflow-hidden">
+                                    <span className="font-bold text-black dark:text-white block">Image Live Preview</span>
+                                    <span className="truncate max-w-[200px] block font-mono text-[9px] text-brand">{transformGDriveUrl(editAthleteImage, 'image')}</span>
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           </div>
 
@@ -2156,7 +2192,16 @@ export default function Olympics() {
                                             updated[mIdx].image = e.target.value;
                                             setEditAthleteMoments(updated);
                                           }}
-                                          placeholder="Moment Image URL"
+                                          onBlur={(e) => {
+                                            const transformed = transformGDriveUrl(e.target.value, 'image');
+                                            if (transformed !== e.target.value) {
+                                              const updated = [...editAthleteMoments];
+                                              updated[mIdx].image = transformed;
+                                              setEditAthleteMoments(updated);
+                                              toast.success('Converted Google Drive moment image!');
+                                            }
+                                          }}
+                                          placeholder="Moment Image URL (Google Drive supported)"
                                           className="block w-full px-2.5 py-1.5 bg-surface-alt border border-border rounded-lg text-[10px] text-white outline-none focus:border-brand/40 font-bold"
                                         />
                                       </div>
@@ -2214,7 +2259,7 @@ export default function Olympics() {
                         {/* Portrait Photo */}
                         <div className="relative w-44 h-44 md:w-52 md:h-52 rounded-2xl overflow-hidden border-2 border-border/70 flex-shrink-0 group z-10 shadow-2xl">
                           <img 
-                            src={selectedAthlete.image} 
+                            src={transformGDriveUrl(selectedAthlete.image, 'image')} 
                             alt={selectedAthlete.name} 
                             className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                             referrerPolicy="no-referrer"
@@ -2508,7 +2553,7 @@ export default function Olympics() {
                                 {athlete.image ? (
                                   <>
                                     <img 
-                                      src={athlete.image} 
+                                      src={transformGDriveUrl(athlete.image, 'image')} 
                                       alt={athlete.name} 
                                       className="w-full h-full object-cover" 
                                       referrerPolicy="no-referrer"

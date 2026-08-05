@@ -3836,13 +3836,16 @@ export default function Admin() {
                             sport: medalistForm.sport,
                             category: medalistForm.category,
                             avatar: medalistForm.avatar || '🏅',
-                            image: medalistForm.image || 'https://images.unsplash.com/photo-1541252260730-0412e8e2108e?q=80&w=800',
+                            image: transformGDriveUrl(medalistForm.image.trim() || 'https://images.unsplash.com/photo-1541252260730-0412e8e2108e?q=80&w=800', 'image'),
                             bio: medalistForm.bio,
                             quote: medalistForm.quote,
                             funFact: medalistForm.funFact,
                             longDetails: medalistForm.longDetails.split('\n').filter(line => line.trim().length > 0),
                             medals: medalistForm.medals || [],
-                            moments: medalistForm.moments || [],
+                            moments: (medalistForm.moments || []).map(m => ({
+                              ...m,
+                              image: transformGDriveUrl(m.image?.trim() || '', 'image')
+                            })),
                             timeline: medalistForm.timeline || []
                           };
 
@@ -3915,14 +3918,43 @@ export default function Admin() {
                           />
                         </div>
                         <div className="col-span-3">
-                          <label className="block text-[10px] font-black uppercase text-brand tracking-widest mb-1.5 font-sans">Main Portrait / Profile Image URL</label>
+                          <div className="flex justify-between items-center mb-1.5">
+                            <label className="block text-[10px] font-black uppercase text-brand tracking-widest font-sans">Main Portrait / Profile Image URL</label>
+                            <span className="text-[9px] text-brand/90 bg-brand/10 border border-brand/20 px-1.5 py-0.5 rounded font-mono font-bold flex items-center gap-1">
+                              <span>📁</span> Google Drive Link Supported
+                            </span>
+                          </div>
                           <input
                             type="text"
                             value={medalistForm.image}
                             onChange={(e) => setMedalistForm({ ...medalistForm, image: e.target.value })}
+                            onBlur={(e) => {
+                              const transformed = transformGDriveUrl(e.target.value, 'image');
+                              if (transformed !== e.target.value) {
+                                setMedalistForm({ ...medalistForm, image: transformed });
+                                toast.success("Auto-converted Google Drive image URL!");
+                              }
+                            }}
                             className="block w-full px-4 py-2.5 bg-surface-alt border border-border rounded-xl text-xs text-white outline-none focus:border-brand/50 transition-all font-semibold"
-                            placeholder="Paste direct link (https://images.unsplash.com/photo-...)"
+                            placeholder="Paste web URL or Google Drive link (e.g. drive.google.com/file/d/...)"
                           />
+                          {medalistForm.image && (
+                            <div className="mt-2.5 flex items-center gap-3 bg-surface p-2 rounded-xl border border-border">
+                              <img 
+                                src={transformGDriveUrl(medalistForm.image, 'image')} 
+                                alt="Athlete Preview" 
+                                className="w-12 h-12 object-cover rounded-lg border border-border shadow" 
+                                referrerPolicy="no-referrer"
+                                onError={(e) => {
+                                  (e.target as HTMLElement).style.display = 'none';
+                                }}
+                              />
+                              <div className="text-[10px] text-text-muted overflow-hidden">
+                                <span className="font-bold text-white block">Profile Image Live Preview</span>
+                                <span className="truncate max-w-[280px] block font-mono text-[9px] text-brand">{transformGDriveUrl(medalistForm.image, 'image')}</span>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </div>
 
@@ -4092,18 +4124,43 @@ export default function Admin() {
                                   placeholder="Moment Title"
                                   className="bg-surface-alt text-xs border border-border text-white px-2 py-1 rounded font-bold"
                                 />
-                                <input
-                                  type="text"
-                                  value={moment.image}
-                                  onChange={(e) => {
-                                    const updated = [...medalistForm.moments];
-                                    updated[mIdx].image = e.target.value;
-                                    setMedalistForm({ ...medalistForm, moments: updated });
-                                  }}
-                                  placeholder="Moment Image URL"
-                                  className="bg-surface-alt text-xs border border-border text-white px-2 py-1 rounded"
-                                />
+                                <div>
+                                  <input
+                                    type="text"
+                                    value={moment.image}
+                                    onChange={(e) => {
+                                      const updated = [...medalistForm.moments];
+                                      updated[mIdx].image = e.target.value;
+                                      setMedalistForm({ ...medalistForm, moments: updated });
+                                    }}
+                                    onBlur={(e) => {
+                                      const transformed = transformGDriveUrl(e.target.value, 'image');
+                                      if (transformed !== e.target.value) {
+                                        const updated = [...medalistForm.moments];
+                                        updated[mIdx].image = transformed;
+                                        setMedalistForm({ ...medalistForm, moments: updated });
+                                        toast.success("Auto-converted Google Drive moment image!");
+                                      }
+                                    }}
+                                    placeholder="Moment Image (Google Drive URL supported)"
+                                    className="w-full bg-surface-alt text-xs border border-border text-white px-2 py-1 rounded"
+                                  />
+                                </div>
                               </div>
+                              {moment.image && (
+                                <div className="mt-1 flex items-center gap-2 bg-surface-alt/60 p-1 rounded-lg border border-border/60">
+                                  <img 
+                                    src={transformGDriveUrl(moment.image, 'image')} 
+                                    alt="Moment preview" 
+                                    className="w-8 h-8 object-cover rounded border border-border" 
+                                    referrerPolicy="no-referrer"
+                                    onError={(e) => {
+                                      (e.target as HTMLElement).style.display = 'none';
+                                    }}
+                                  />
+                                  <span className="text-[9px] text-text-muted font-mono truncate">Moment Live Preview</span>
+                                </div>
+                              )}
                               <textarea
                                 value={moment.description}
                                 onChange={(e) => {
@@ -4231,13 +4288,16 @@ export default function Admin() {
                           sport: medalistForm.sport,
                           category: medalistForm.category,
                           avatar: medalistForm.avatar || '🏅',
-                          image: medalistForm.image || 'https://images.unsplash.com/photo-1541252260730-0412e8e2108e?q=80&w=800',
+                          image: transformGDriveUrl(medalistForm.image.trim() || 'https://images.unsplash.com/photo-1541252260730-0412e8e2108e?q=80&w=800', 'image'),
                           bio: medalistForm.bio,
                           quote: medalistForm.quote,
                           funFact: medalistForm.funFact,
                           longDetails: medalistForm.longDetails.split('\n').filter(line => line.trim().length > 0),
                           medals: medalistForm.medals || [],
-                          moments: medalistForm.moments || [],
+                          moments: (medalistForm.moments || []).map(m => ({
+                            ...m,
+                            image: transformGDriveUrl(m.image?.trim() || '', 'image')
+                          })),
                           timeline: medalistForm.timeline || []
                         };
 

@@ -31,21 +31,32 @@ export function formatDate(date?: any): string {
   }
 }
 
-export const transformGDriveUrl = (url: string, type: 'image' | 'video' = 'image') => {
-  if (!url || !url.includes('drive.google.com')) return url;
+export const transformGDriveUrl = (url?: string, type: 'image' | 'video' = 'image') => {
+  if (!url || typeof url !== 'string') return url || '';
+  const trimmed = url.trim();
+  if (!trimmed) return '';
+
+  // If already transformed lh3 URL, return as is
+  if (trimmed.includes('lh3.googleusercontent.com/d/')) {
+    return trimmed;
+  }
+  
+  if (!trimmed.includes('drive.google.com') && !trimmed.includes('docs.google.com') && !trimmed.includes('googleusercontent.com')) {
+    return trimmed;
+  }
   
   let id = '';
-  // Handle /file/d/ID/view or /d/ID
-  const dMatch = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
+  // Handle /file/d/ID/view, /file/d/ID, or /d/ID
+  const dMatch = trimmed.match(/\/d\/([a-zA-Z0-9_-]+)/);
   if (dMatch) id = dMatch[1];
   
-  // Handle uc?id=ID or open?id=ID
+  // Handle uc?id=ID, open?id=ID, or ?id=ID
   if (!id) {
-    const idMatch = url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+    const idMatch = trimmed.match(/[?&]id=([a-zA-Z0-9_-]+)/);
     if (idMatch) id = idMatch[1];
   }
   
-  if (!id) return url;
+  if (!id) return trimmed;
   
   if (type === 'image') {
     return `https://lh3.googleusercontent.com/d/${id}`;

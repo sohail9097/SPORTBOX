@@ -5,12 +5,30 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export function formatDate(date: string | number | Date) {
-  return new Intl.DateTimeFormat('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  }).format(new Date(date));
+export function formatDate(date?: any): string {
+  if (!date) return 'Recently';
+  try {
+    let d: Date;
+    if (typeof date === 'object' && date !== null && 'seconds' in date) {
+      d = new Date(date.seconds * 1000);
+    } else if (date instanceof Date) {
+      d = date;
+    } else {
+      d = new Date(date);
+    }
+
+    if (isNaN(d.getTime())) {
+      return 'Recently';
+    }
+
+    return new Intl.DateTimeFormat('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    }).format(d);
+  } catch (e) {
+    return 'Recently';
+  }
 }
 
 export const transformGDriveUrl = (url: string, type: 'image' | 'video' = 'image') => {

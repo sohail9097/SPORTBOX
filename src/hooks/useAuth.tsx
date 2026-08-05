@@ -1,9 +1,8 @@
 import { createContext, useContext, useEffect, useState, ReactNode, useRef } from 'react';
 import { User, onAuthStateChanged, onIdTokenChanged, getRedirectResult } from 'firebase/auth';
-import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
-import { auth, db, handleFirestoreError, OperationType } from '../lib/firebase';
+import { auth, db, handleFirestoreError, OperationType, doc, getDoc, setDoc, onSnapshot } from '../lib/firebase';
 import { toast } from 'sonner';
-import { getDeviceId, getSessionDocId, removeCurrentSession, verifyOrCreateSession, DeviceSession, removeSession, forceCreateSession } from '../lib/sessionManager';
+import { getDeviceId, getSessionDocId, removeCurrentSession, verifyOrCreateSession, DeviceSession, removeSession, forceCreateSession, formatRelativeTime } from '../lib/sessionManager';
 import { motion, AnimatePresence } from 'motion/react';
 import { AlertTriangle, Smartphone, Laptop, Monitor, LogOut, Loader2 } from 'lucide-react';
 
@@ -446,7 +445,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                       <div>
                         <h4 className="text-xs font-bold text-white uppercase tracking-wider">{session.deviceName}</h4>
                         <p className="text-[10px] text-text-muted mt-0.5 font-medium">
-                          Logged in: {new Date(session.loginTime).toLocaleDateString()} {new Date(session.loginTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          {formatRelativeTime(session.lastActive || session.loginTime)}
                         </p>
                       </div>
                     </div>

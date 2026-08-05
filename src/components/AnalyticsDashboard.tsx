@@ -327,7 +327,7 @@ export default function AnalyticsDashboard({ content, subscribers, plans }: Anal
       {/* Navigation Tabs (Overview, Content, Audience, Revenue) */}
       <div className="flex items-center border-b border-white/5 pb-1 gap-1">
         {(['overview', 'content', 'audience', 'revenue'] as const).map((tab) => {
-          const capitalized = tab.charAt(0).toUpperCase() + tab.slice(1);
+          const capitalized = tab ? (tab.charAt(0).toUpperCase() + tab.slice(1)) : '';
           const icon = tab === 'overview' ? BarChart2 : (tab === 'content' ? Play : (tab === 'audience' ? Users : Crown));
           const IconComponent = icon;
           return (
@@ -1356,7 +1356,7 @@ export default function AnalyticsDashboard({ content, subscribers, plans }: Anal
                       <img src={item.thumbnailUrl} className="w-full h-full object-cover" alt="" />
                     ) : (
                       <div className="w-full h-full bg-rose-500/10 flex items-center justify-center font-bold text-xs uppercase text-rose-500 italic">
-                        {item.category.slice(0,2)}
+                        {(item.category || 'SP').slice(0,2)}
                       </div>
                     )}
                     {item.status === 'live' && (

@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Layout from './components/Layout';
+import ErrorBoundary from './components/ErrorBoundary';
 import ScrollToTop from './components/ScrollToTop';
 import Home from './pages/Home';
 import Live from './pages/Live';
@@ -29,26 +30,28 @@ function App() {
           <Router>
             <Toaster position="top-center" richColors />
             <ScrollToTop />
-            <Layout>
-              <Routes>
-                <Route path="/" element={<Home />} />
-                <Route path="/login" element={<Login />} />
-                <Route path="/live" element={<Live />} />
-                <Route path="/category/:category" element={<CategoryPage />} />
-                <Route path="/shorts" element={<Shots />} />
-                <Route path="/watch/:id" element={<Watch />} />
-                <Route path="/plans" element={<Plans />} />
-                <Route path="/account" element={<Account />} />
-                <Route path="/admin" element={<Admin />} />
-                <Route path="/search" element={<Search />} />
-                <Route path="/blogs" element={<Blogs />} />
-                <Route path="/olympics" element={<Olympics />} />
-                <Route path="/legal/privacy" element={<Legal />} />
-                <Route path="/legal/terms" element={<Legal />} />
-                <Route path="/legal/cookies" element={<Legal />} />
-                <Route path="/data-deletion" element={<DataDeletion />} />
-              </Routes>
-            </Layout>
+            <ErrorBoundary>
+              <Layout>
+                <Routes>
+                  <Route path="/" element={<Home />} />
+                  <Route path="/login" element={<Login />} />
+                  <Route path="/live" element={<Live />} />
+                  <Route path="/category/:category" element={<CategoryPage />} />
+                  <Route path="/shorts" element={<Shots />} />
+                  <Route path="/watch/:id" element={<Watch />} />
+                  <Route path="/plans" element={<Plans />} />
+                  <Route path="/account" element={<Account />} />
+                  <Route path="/admin" element={<Admin />} />
+                  <Route path="/search" element={<Search />} />
+                  <Route path="/blogs" element={<Blogs />} />
+                  <Route path="/olympics" element={<Olympics />} />
+                  <Route path="/legal/privacy" element={<Legal />} />
+                  <Route path="/legal/terms" element={<Legal />} />
+                  <Route path="/legal/cookies" element={<Legal />} />
+                  <Route path="/data-deletion" element={<DataDeletion />} />
+                </Routes>
+              </Layout>
+            </ErrorBoundary>
           </Router>
         </ThemeProvider>
       </FirestoreProvider>

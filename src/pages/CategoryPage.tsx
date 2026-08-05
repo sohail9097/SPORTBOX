@@ -84,7 +84,7 @@ export default function CategoryPage() {
   const loading = cacheLoading || loadingDb;
 
   const categoryKey = category?.toLowerCase() || '';
-  const categoryName = category ? category.charAt(0).toUpperCase() + category.slice(1) : 'Sports';
+  const categoryName = category ? (category.charAt(0).toUpperCase() + category.slice(1)) : 'Sports';
   const catInfo = CategoryLabelMap[categoryKey];
 
   return (

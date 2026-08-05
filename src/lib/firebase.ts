@@ -71,6 +71,42 @@ export const analytics = isSupported().then(yes => yes ? getAnalytics(app) : nul
 
 googleProvider.setCustomParameters({ prompt: 'select_account' });
 
+// Global listeners to intercept and prevent unhandled promise rejections / errors from Firestore IndexedDB closing/hidden tab states
+if (typeof window !== 'undefined') {
+  const isClosingOrOfflineError = (msg: string) => {
+    const lower = (msg || '').toLowerCase();
+    return (
+      lower.includes('closing') || 
+      lower.includes('hidden') || 
+      lower.includes('indexeddb') || 
+      lower.includes('backend-closed') ||
+      lower.includes('database is closing') ||
+      lower.includes('connection') ||
+      lower.includes('unavailable') ||
+      lower.includes('cancelled')
+    );
+  };
+
+  window.addEventListener('unhandledrejection', (event) => {
+    const reason = event.reason;
+    const msg = reason?.message || String(reason || '');
+    if (isClosingOrOfflineError(msg)) {
+      console.warn('[Firebase System] Suppressed unhandled database closing/hidden promise rejection:', msg);
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  });
+
+  window.addEventListener('error', (event) => {
+    const msg = event.message || event.error?.message || String(event.error || '');
+    if (isClosingOrOfflineError(msg)) {
+      console.warn('[Firebase System] Suppressed database closing/hidden window error:', msg);
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  });
+}
+
 // Export direct standard Firestore functions
 export { 
   doc,
@@ -655,6 +691,24 @@ export function recordReadAuditEntry(
   }
 }
 
+// Helper to handle mutation error when database is closing or hidden
+function handleMutationError(err: any, opName: string, path: string) {
+  const errStr = String(err?.message || err).toLowerCase();
+  if (
+    errStr.includes('closing') || 
+    errStr.includes('hidden') || 
+    errStr.includes('indexeddb') || 
+    errStr.includes('offline') ||
+    errStr.includes('connection') ||
+    errStr.includes('unavailable') ||
+    errStr.includes('backend-closed')
+  ) {
+    console.warn(`[${opName}] Handled database closing/hidden/offline state for path "${path}":`, errStr);
+    return;
+  }
+  throw err;
+}
+
 // Wrapped Mutation Operations to automatically handle Smart Cache Invalidation
 export async function setDoc(ref: any, data: any, options?: any) {
   const caller = getCallerDetails();
@@ -663,7 +717,11 @@ export async function setDoc(ref: any, data: any, options?: any) {
   logOperation('setDoc', path, false, true, caller);
   
   invalidateCache(ref?.path);
-  return firestoreSetDoc(ref, data, options);
+  try {
+    return await firestoreSetDoc(ref, data, options);
+  } catch (err: any) {
+    return handleMutationError(err, 'setDoc', path);
+  }
 }
 
 export async function updateDoc(ref: any, data: any) {
@@ -678,20 +736,29 @@ export async function updateDoc(ref: any, data: any) {
   } catch (err: any) {
     if (err?.message?.includes('No document to update') || err?.code === 'not-found') {
       console.warn(`[updateDoc] Document at ${path} did not exist in Firestore. Falling back to setDoc({ merge: true }).`);
-      return await firestoreSetDoc(ref, data, { merge: true });
+      try {
+        return await firestoreSetDoc(ref, data, { merge: true });
+      } catch (innerErr: any) {
+        return handleMutationError(innerErr, 'setDoc', path);
+      }
     }
-    throw err;
+    return handleMutationError(err, 'updateDoc', path);
   }
 }
 
-export async function addDoc(colRef: any, data: any) {
+export async function addDoc(colRef: any, data: any): Promise<any> {
   const caller = getCallerDetails();
   const path = getPath(colRef);
   incrementCounter('addDoc', true);
   logOperation('addDoc', path, false, true, caller);
   
   invalidateCache(colRef?.path);
-  return firestoreAddDoc(colRef, data);
+  try {
+    return await firestoreAddDoc(colRef, data);
+  } catch (err: any) {
+    handleMutationError(err, 'addDoc', path);
+    return { id: `temp_${Date.now()}`, path: `${path}/temp_${Date.now()}` };
+  }
 }
 
 export async function deleteDoc(ref: any) {
@@ -701,7 +768,11 @@ export async function deleteDoc(ref: any) {
   logOperation('deleteDoc', path, false, true, caller);
   
   invalidateCache(ref?.path);
-  return firestoreDeleteDoc(ref);
+  try {
+    return await firestoreDeleteDoc(ref);
+  } catch (err: any) {
+    return handleMutationError(err, 'deleteDoc', path);
+  }
 }
 
 let listenerSeq = 0;
@@ -710,30 +781,11 @@ export function onSnapshot(ref: any, ...args: any[]) {
   const throttleCheck = checkThrottleAndGetStaleCache(path, true, 1, ref);
   if (throttleCheck.isThrottled) {
     console.error(`[RATE LIMIT] Throttling active. BLOCKED onSnapshot registration on path: ${path}`);
-    return () => {
-      console.log(`[RATE LIMIT] Mock unsubscribed for blocked onSnapshot on path: ${path}`);
-    };
+    return () => {};
   }
 
   const listenerId = `listener_${++listenerSeq}`;
   const caller = getCallerDetails();
-  console.log(`%c[onSnapshot INVOCATION] Called on path: "${path}" by function "${caller.functionName}" in ${caller.fileName}.`, 'color: #ff9900; font-weight: bold; font-size: 11px;');
-  console.log('Caller Stack:', caller.stack);
-  console.trace(`[onSnapshot trace for path: ${path}]`);
-
-  if (typeof window !== 'undefined') {
-    (window as any).__onSnapshotLog.push({
-      id: listenerId,
-      timestamp: new Date().toISOString(),
-      msSinceStartup: Date.now() - APP_START_TIME,
-      path,
-      caller,
-      stack: caller.stack,
-      route: window.location.pathname,
-      url: window.location.href,
-      argsCount: args.length
-    });
-  }
 
   const startTime = Date.now();
   const startMs = startTime - APP_START_TIME;
@@ -741,9 +793,32 @@ export function onSnapshot(ref: any, ...args: any[]) {
   incrementCounter('onSnapshot', true);
   logOperation('onSnapshot', path, false, true, caller);
   
-  // Extract and intercept the listener callback
-  const originalCallback = typeof args[0] === 'function' ? args[0] : args[1];
-  const callbackIndex = typeof args[0] === 'function' ? 0 : 1;
+  // Parse arguments dynamically
+  let optionsObj: any = undefined;
+  let userNext: any = undefined;
+  let userError: any = undefined;
+  let userCompletion: any = undefined;
+
+  let argIdx = 0;
+  if (typeof args[0] === 'object' && args[0] !== null && typeof args[0].next !== 'function') {
+    optionsObj = args[0];
+    argIdx = 1;
+  }
+
+  if (typeof args[argIdx] === 'function') {
+    userNext = args[argIdx];
+    if (typeof args[argIdx + 1] === 'function') {
+      userError = args[argIdx + 1];
+    }
+    if (typeof args[argIdx + 2] === 'function') {
+      userCompletion = args[argIdx + 2];
+    }
+  } else if (typeof args[argIdx] === 'object' && args[argIdx] !== null) {
+    const observer = args[argIdx];
+    userNext = observer.next ? observer.next.bind(observer) : undefined;
+    userError = observer.error ? observer.error.bind(observer) : undefined;
+    userCompletion = observer.complete ? observer.complete.bind(observer) : undefined;
+  }
   
   const listenerInfo = {
     id: listenerId,
@@ -764,49 +839,95 @@ export function onSnapshot(ref: any, ...args: any[]) {
     (window as any).__firestore_listeners_history.push(listenerInfo);
   }
   
-  const wrappedCallback = (snapshot: any, error?: any) => {
-    const elapsed = Date.now() - startTime;
-    listenerInfo.snapshotsCount++;
-    
-    // Log each snapshot trigger as a Firestore read event
-    const docCount = snapshot ? (snapshot.docs ? snapshot.docs.length : (snapshot.exists && snapshot.exists() ? 1 : 0)) : 0;
-    const isCache = snapshot?.metadata?.fromCache ?? false;
-    
-    if (!isCache && docCount > 0) {
-      registerRealReads(docCount);
+  const wrappedNext = (snapshot: any) => {
+    try {
+      const elapsed = Date.now() - startTime;
+      listenerInfo.snapshotsCount++;
+      
+      const docCount = snapshot ? (snapshot.docs ? snapshot.docs.length : (snapshot.exists && snapshot.exists() ? 1 : 0)) : 0;
+      const isCache = snapshot?.metadata?.fromCache ?? false;
+      
+      if (!isCache && docCount > 0) {
+        registerRealReads(docCount);
+      }
+      
+      const readLog = {
+        id: `read_onSnapshot_${listenerId}_snap_${listenerInfo.snapshotsCount}`,
+        timestamp: new Date().toISOString(),
+        msSinceStartup: Date.now() - APP_START_TIME,
+        api: 'onSnapshot_snapshot',
+        path,
+        isListener: true,
+        listenerId,
+        isCacheHit: isCache,
+        route: typeof window !== 'undefined' ? window.location.pathname : '',
+        url: typeof window !== 'undefined' ? window.location.href : '',
+        caller,
+        uid: auth.currentUser?.uid || null,
+        duration: elapsed,
+        docCount,
+        stack: caller.stack
+      };
+      
+      if (typeof window !== 'undefined') {
+        (window as any).__firestore_reads_log.push(readLog);
+      }
+      
+      if (userNext) {
+        userNext(snapshot);
+      }
+    } catch (e) {
+      console.warn(`[onSnapshot] Error in user next handler on path "${path}":`, e);
     }
-    
-    const readLog = {
-      id: `read_onSnapshot_${listenerId}_snap_${listenerInfo.snapshotsCount}`,
-      timestamp: new Date().toISOString(),
-      msSinceStartup: Date.now() - APP_START_TIME,
-      api: 'onSnapshot_snapshot',
-      path,
-      isListener: true,
-      listenerId,
-      isCacheHit: isCache,
-      route: typeof window !== 'undefined' ? window.location.pathname : '',
-      url: typeof window !== 'undefined' ? window.location.href : '',
-      caller,
-      uid: auth.currentUser?.uid || null,
-      duration: elapsed,
-      docCount,
-      stack: caller.stack
-    };
-    
-    if (typeof window !== 'undefined') {
-      (window as any).__firestore_reads_log.push(readLog);
-    }
-    
-    if (originalCallback) {
-      originalCallback(snapshot, error);
+  };
+
+  const wrappedError = (error: any) => {
+    const errStr = String(error?.message || error).toLowerCase();
+    if (
+      errStr.includes('closing') || 
+      errStr.includes('hidden') || 
+      errStr.includes('indexeddb') || 
+      errStr.includes('offline') ||
+      errStr.includes('connection') ||
+      errStr.includes('unavailable') ||
+      errStr.includes('backend-closed') ||
+      errStr.includes('cancelled')
+    ) {
+      console.warn(`[onSnapshot] Handled database closing/hidden/offline error on path "${path}":`, errStr);
+    } else {
+      console.warn(`[onSnapshot] Listener error on path "${path}":`, error);
+      if (userError) {
+        try {
+          userError(error);
+        } catch (e) {
+          console.warn(`[onSnapshot] Error in user error callback on path "${path}":`, e);
+        }
+      }
     }
   };
   
-  const newArgs = [...args];
-  newArgs[callbackIndex] = wrappedCallback;
-  
-  const unsub = (firestoreOnSnapshot as any)(ref, ...newArgs);
+  let unsub: () => void = () => {};
+  try {
+    if (optionsObj) {
+      unsub = (firestoreOnSnapshot as any)(ref, optionsObj, wrappedNext, wrappedError, userCompletion);
+    } else {
+      unsub = (firestoreOnSnapshot as any)(ref, wrappedNext, wrappedError, userCompletion);
+    }
+  } catch (err: any) {
+    const errStr = String(err?.message || err).toLowerCase();
+    if (
+      errStr.includes('closing') || 
+      errStr.includes('hidden') || 
+      errStr.includes('indexeddb') || 
+      errStr.includes('offline') ||
+      errStr.includes('connection') ||
+      errStr.includes('unavailable')
+    ) {
+      console.warn(`[onSnapshot] Handled initial subscribe exception on path "${path}":`, errStr);
+      return () => {};
+    }
+    throw err;
+  }
   
   return () => {
     const destroyTime = Date.now();
@@ -819,8 +940,9 @@ export function onSnapshot(ref: any, ...args: any[]) {
       delete (window as any).__firestore_active_listeners[listenerId];
     }
     
-    console.log(`[Firestore Profiler] Unsubscribed listener ${listenerId} on path ${path}. Lifetime: ${listenerInfo.lifetime}ms`);
-    unsub();
+    try {
+      unsub();
+    } catch (_) {}
   };
 }
 

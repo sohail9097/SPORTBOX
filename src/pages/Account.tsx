@@ -10,7 +10,7 @@ import ContentCard from '../components/ContentCard';
 import LoadingScreen from '../components/LoadingScreen';
 import { toast } from 'sonner';
 import { useFirestoreCache } from '../context/FirestoreContext';
-import { getDeviceId, removeSession, removeCurrentSession, DeviceSession } from '../lib/sessionManager';
+import { getDeviceId, removeSession, removeCurrentSession, DeviceSession, formatRelativeTime } from '../lib/sessionManager';
 import { COUNTRY_CODES, DEFAULT_COUNTRY, CountryCodeOption, parsePhoneNumber } from '../lib/countryCodes';
 import CountryCodeSelector from '../components/CountryCodeSelector';
 
@@ -332,7 +332,7 @@ export default function Account() {
                                 )}
                               </div>
                               <p className="text-[10px] text-text-muted mt-0.5">
-                                Logged in: {new Date(session.loginTime).toLocaleDateString()} {new Date(session.loginTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                {formatRelativeTime(session.lastActive || session.loginTime)}
                               </p>
                             </div>
                           </div>

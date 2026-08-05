@@ -184,10 +184,13 @@ export default function Blogs() {
   // Human date formatting
   const formatDate = (dateStr: string) => {
     try {
+      if (!dateStr) return 'Recently';
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return dateStr || 'Recently';
       const options: Intl.DateTimeFormatOptions = { year: 'numeric', month: 'long', day: 'numeric' };
-      return new Date(dateStr).toLocaleDateString('en-US', options);
+      return d.toLocaleDateString('en-US', options);
     } catch (e) {
-      return dateStr;
+      return dateStr || 'Recently';
     }
   };
 

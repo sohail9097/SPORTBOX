@@ -53,16 +53,23 @@ export default function Search() {
 
       if (debouncedSearchTerm.trim() !== '') {
         const lowerTerm = debouncedSearchTerm.toLowerCase();
-        filtered = filtered.filter(item => 
-          item.title.toLowerCase().includes(lowerTerm) || 
-          item.description.toLowerCase().includes(lowerTerm) ||
-          item.category.toLowerCase().includes(lowerTerm) ||
-          item.tags?.some(tag => tag.toLowerCase().includes(lowerTerm))
-        );
+        filtered = filtered.filter(item => {
+          if (!item) return false;
+          const title = item.title || '';
+          const description = item.description || '';
+          const category = item.category || '';
+          const tags = Array.isArray(item.tags) ? item.tags : [];
+          return (
+            title.toLowerCase().includes(lowerTerm) || 
+            description.toLowerCase().includes(lowerTerm) ||
+            category.toLowerCase().includes(lowerTerm) ||
+            tags.some(tag => (tag || '').toLowerCase().includes(lowerTerm))
+          );
+        });
       }
 
       if (selectedCategory !== 'all') {
-        filtered = filtered.filter(item => item.category === selectedCategory);
+        filtered = filtered.filter(item => item && item.category === selectedCategory);
       }
 
       setResults(filtered);
@@ -116,7 +123,7 @@ export default function Search() {
                     : "bg-surface text-text-muted border-white/5 hover:border-white/20"
                 )}
               >
-                {cat.charAt(0).toUpperCase() + cat.slice(1)}
+                {cat ? (cat.charAt(0).toUpperCase() + cat.slice(1)) : ''}
               </button>
             ))}
           </div>

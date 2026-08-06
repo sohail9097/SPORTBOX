@@ -1869,7 +1869,7 @@ export default function Olympics() {
                                }`}
                              >
                                <div className="w-16 h-12 bg-black rounded overflow-hidden flex-shrink-0 relative">
-                                 <img src={vid.thumbnailUrl || 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?q=80&w=200&auto=format&fit=crop'} alt="" className="w-full h-full object-cover opacity-80" />
+                                 <img src={transformGDriveUrl(vid.thumbnailUrl, 'image') || 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?q=80&w=200&auto=format&fit=crop'} alt="" className="w-full h-full object-cover opacity-80" />
                                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
                                    <Play className="w-3.5 h-3.5 text-white fill-white" />
                                  </div>
@@ -2392,7 +2392,7 @@ export default function Olympics() {
                                 <div key={mIdx} className="bg-surface border border-border rounded-xl overflow-hidden group shadow-lg">
                                   <div className="relative aspect-video w-full bg-black overflow-hidden select-none">
                                     <img 
-                                      src={m.image} 
+                                      src={transformGDriveUrl(m.image, 'image')} 
                                       alt={m.title} 
                                       className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 animate-fadeIn"
                                       referrerPolicy="no-referrer"

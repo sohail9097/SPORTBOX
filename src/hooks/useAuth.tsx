@@ -13,6 +13,7 @@ interface AuthContextType {
   profile: any | null;
   refreshProfile: () => Promise<any>;
   updateProfileState: (newData: Partial<any>) => void;
+  showDeviceLimitModal: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -396,7 +397,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, isAdmin, profile, refreshProfile, updateProfileState }}>
+    <AuthContext.Provider value={{ user, loading, isAdmin, profile, refreshProfile, updateProfileState, showDeviceLimitModal }}>
       {children}
 
       {/* Global Device Limit Modal */}
@@ -424,51 +425,62 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               </div>
 
               <div className="space-y-3 mb-6">
-                <p className="text-[10px] font-black uppercase tracking-widest text-text-muted mb-2">
-                  Active Logged-In Devices:
+                <p className="text-[10px] font-black uppercase tracking-widest text-text-muted mb-2 flex items-center justify-between">
+                  <span>Active Logged-In Devices:</span>
+                  <span className="text-brand">Log out 1 device to proceed</span>
                 </p>
-                {deviceLimitSessions.map((session) => (
-                  <div 
-                    key={session.id}
-                    className="p-4 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-between gap-3"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-brand/10 border border-brand/20 flex items-center justify-center text-brand flex-shrink-0">
-                        {session.deviceName.toLowerCase().includes('mobile') || session.deviceName.toLowerCase().includes('ios') || session.deviceName.toLowerCase().includes('android') ? (
-                          <Smartphone className="w-5 h-5" />
-                        ) : session.deviceName.toLowerCase().includes('mac') || session.deviceName.toLowerCase().includes('windows') ? (
-                          <Laptop className="w-5 h-5" />
-                        ) : (
-                          <Monitor className="w-5 h-5" />
-                        )}
-                      </div>
-                      <div>
-                        <h4 className="text-xs font-bold text-white uppercase tracking-wider">{session.deviceName}</h4>
-                        <p className="text-[10px] text-text-muted mt-0.5 font-medium">
-                          {formatRelativeTime(session.lastActive || session.loginTime)}
-                        </p>
-                      </div>
-                    </div>
+                {deviceLimitSessions.map((session) => {
+                  const label = session.deviceLabel || session.deviceName;
+                  const isMobile = session.deviceType === 'mobile' || 
+                    /mobile|ios|android|iphone|ipad/i.test(label);
+                  const activeTimeString = formatRelativeTime(session.lastActive || session.loginTime);
 
-                    <button
-                      onClick={() => handleLogoutRemoteDevice(session)}
-                      disabled={loggingOutDeviceId === session.id}
-                      className="px-4 py-2.5 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 font-black uppercase tracking-widest text-[10px] rounded-xl flex items-center gap-1.5 transition-all active:scale-95 disabled:opacity-50 flex-shrink-0 cursor-pointer"
+                  return (
+                    <div 
+                      key={session.id}
+                      className="p-4 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-between gap-3 hover:border-white/20 transition-all"
                     >
-                      {loggingOutDeviceId === session.id ? (
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      ) : (
-                        <LogOut className="w-3.5 h-3.5" />
-                      )}
-                      Logout
-                    </button>
-                  </div>
-                ))}
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-brand/10 border border-brand/20 flex items-center justify-center text-brand flex-shrink-0">
+                          {isMobile ? (
+                            <Smartphone className="w-5 h-5" />
+                          ) : (
+                            <Laptop className="w-5 h-5" />
+                          )}
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h4 className="text-xs font-bold text-white uppercase tracking-wider">{label}</h4>
+                            <span className="px-1.5 py-0.5 bg-white/5 border border-white/10 text-text-muted text-[8px] font-black uppercase tracking-wider rounded">
+                              {isMobile ? 'Mobile 📱' : 'Desktop 💻'}
+                            </span>
+                          </div>
+                          <p className="text-[10px] text-text-muted mt-0.5 font-medium">
+                            {activeTimeString}
+                          </p>
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={() => handleLogoutRemoteDevice(session)}
+                        disabled={loggingOutDeviceId === session.id}
+                        className="px-4 py-2.5 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 font-black uppercase tracking-widest text-[10px] rounded-xl flex items-center gap-1.5 transition-all active:scale-95 disabled:opacity-50 flex-shrink-0 cursor-pointer"
+                      >
+                        {loggingOutDeviceId === session.id ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <LogOut className="w-3.5 h-3.5" />
+                        )}
+                        Logout
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
 
               <div className="pt-4 border-t border-white/10 flex items-center justify-between">
                 <p className="text-[10px] text-text-muted font-bold uppercase tracking-wider">
-                  Select a device above to logout and proceed.
+                  Removing 1 device frees up a slot for this login.
                 </p>
                 <button
                   onClick={handleCancelDeviceLimit}

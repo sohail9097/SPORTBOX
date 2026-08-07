@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { db, handleFirestoreError, OperationType, getDocs, collection, query, where, addDoc, deleteDoc, doc, updateDoc, setDoc, useRenderProfiler, limit } from '../lib/firebase';
 import { SportsContent } from '../types';
 import { FALLBACK_SPORTS_CONTENT } from '../lib/fallbackData';
@@ -1070,6 +1071,43 @@ export default function Olympics() {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedAthlete, setSelectedAthlete] = useState<IndianMedalist | null>(null);
 
+  const [searchParams, setSearchParams] = useSearchParams();
+  const athleteParam = searchParams.get('athlete');
+
+  // Sync URL search param ?athlete= with selectedAthlete state
+  useEffect(() => {
+    if (athleteParam && medalists.length > 0) {
+      const paramLower = athleteParam.toLowerCase().trim();
+      const matched = medalists.find(m => 
+        m.id.toLowerCase() === paramLower || 
+        m.name.toLowerCase().includes(paramLower)
+      );
+      if (matched) {
+        if (selectedAthlete?.id !== matched.id) {
+          setSelectedAthlete(matched);
+          setActiveTab('medals');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+      }
+    } else if (!athleteParam && selectedAthlete) {
+      setSelectedAthlete(null);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, [athleteParam, medalists]);
+
+  const handleSelectAthlete = (athlete: IndianMedalist) => {
+    setSelectedAthlete(athlete);
+    setActiveTab('medals');
+    setSearchParams({ athlete: athlete.id }, { replace: false });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleBackToMedalists = () => {
+    setSelectedAthlete(null);
+    setSearchParams({}, { replace: false });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   // Admin Editing Athlete state
   const [isEditingAthlete, setIsEditingAthlete] = useState(false);
   const [editAthleteName, setEditAthleteName] = useState('');
@@ -1543,7 +1581,7 @@ export default function Olympics() {
               key={tab}
               onClick={() => {
                 setActiveTab(tab);
-                setSelectedAthlete(null);
+                handleBackToMedalists();
               }}
               className={`px-5 py-2.5 rounded-full text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap flex items-center gap-2 ${
                 activeTab === tab 
@@ -1930,7 +1968,7 @@ export default function Olympics() {
                   {/* Back button and profile header */}
                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-4 border-b border-border">
                     <button
-                      onClick={() => setSelectedAthlete(null)}
+                      onClick={handleBackToMedalists}
                       className="inline-flex items-center gap-2 px-4 py-2 bg-surface hover:bg-surface-hover border border-border hover:border-white/20 text-xs font-bold text-black dark:text-white rounded-xl transition-all shadow-md group cursor-pointer"
                     >
                       <ArrowLeft className="w-4 h-4 text-brand group-hover:-translate-x-1 transition-transform" />
@@ -2543,7 +2581,7 @@ export default function Olympics() {
                           initial={{ opacity: 0, scale: 0.98 }}
                           animate={{ opacity: 1, scale: 1 }}
                           transition={{ duration: 0.2 }}
-                          onClick={() => setSelectedAthlete(athlete)}
+                          onClick={() => handleSelectAthlete(athlete)}
                           className="bg-surface rounded-2xl border border-border p-5 flex flex-col justify-between hover:border-brand/50 hover:bg-surface-hover/80 hover:shadow-brand/5 cursor-pointer transition-all shadow-xl hover:shadow-brand/2 relative overflow-hidden group"
                         >
                           <div className="space-y-4">
